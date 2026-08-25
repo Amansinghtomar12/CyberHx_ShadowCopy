@@ -147,14 +147,26 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
     if (rpcResult?.error) { setError(rpcResult.error); setSaving(false); return; }
     challengeId = rpcResult?.challenge_id ?? challengeId;
 
-    // Save hints — delete old ones, insert new
+    // Save hints — delete old ones, insert new.
+    // The column is content, not text; get_challenge_hints only aliases it as
+    // text on the way out. Inserting text silently failed, so no hint a
+    // moderator wrote was ever stored.
     if (challengeId) {
       await supabase.from('hints').delete().eq('challenge_id', challengeId);
       const validHints = hints.filter(h => h.text.trim());
       if (validHints.length > 0) {
-        await supabase.from('hints').insert(
-          validHints.map(h => ({ challenge_id: challengeId, text: h.text.trim(), cost: Number(h.cost) }))
+        const { error: hintError } = await supabase.from('hints').insert(
+          validHints.map(h => ({
+            challenge_id: challengeId,
+            content: h.text.trim(),
+            cost: Math.max(0, Number(h.cost) || 0),
+          }))
         );
+        if (hintError) {
+          setSaving(false);
+          alert('Challenge saved, but hints failed: ' + hintError.message);
+          return;
+        }
       }
     }
 
