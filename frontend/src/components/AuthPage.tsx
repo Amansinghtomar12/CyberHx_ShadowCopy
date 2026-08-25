@@ -6,7 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 
 // ── Turnstile Site Key — from environment variable ──
-const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || '0x4AAAAAADGQ4UZyxAmlVF3N';
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || '';
 
 interface AuthPageProps {
   onSuccess: () => void;
@@ -38,7 +38,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
   // Render Turnstile widget
   useEffect(() => {
     const render = () => {
-      if (!turnstileRef.current || !(window as any).turnstile) return;
+      if (!TURNSTILE_SITE_KEY || !turnstileRef.current || !(window as any).turnstile) return;
       if (widgetIdRef.current) {
         (window as any).turnstile.remove(widgetIdRef.current);
         widgetIdRef.current = null;
