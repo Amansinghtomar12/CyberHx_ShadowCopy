@@ -364,7 +364,11 @@ function AdminDashboardInner() {
   // HARDENED: deleteChallenge via RPC — admin check enforced server-side
   const deleteChallenge = async (id: string) => {
     if (!confirm('Delete this challenge? This cannot be undone.')) return;
-    await supabase.rpc('admin_delete_challenge', { p_id: id });
+    const { data, error } = await supabase.rpc('admin_delete_challenge', { p_id: id });
+    if (error || data?.error) {
+      alert('Delete failed: ' + (error?.message ?? data.error));
+      return;
+    }
     loadChallenges();
   };
 
