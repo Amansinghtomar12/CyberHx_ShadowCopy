@@ -71,13 +71,12 @@ serve(async (req) => {
       });
     }
 
-    const supabaseUser = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
+    // Verify the caller's JWT with the admin client. SUPABASE_ANON_KEY is a
+    // deprecated reserved secret, and a second client is unnecessary: getUser
+    // validates whatever token it is handed.
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(
+      authHeader.replace(/^Bearer\s+/i, '')
     );
-
-    const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
     if (authError || !user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...cors, 'Content-Type': 'application/json' }

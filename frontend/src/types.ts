@@ -23,6 +23,7 @@ export interface Challenge {
   files?: { name: string; url: string }[];
   hints?: { id: string; cost: number; text: string }[];
   tags: string[];
+  connection_info?: string | null;
 }
 
 export interface User {

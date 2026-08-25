@@ -62,14 +62,13 @@ export function useAuth() {
     if (!/^[a-zA-Z0-9_\-]+$/.test(username)) {
       return { error: 'Username can only contain letters, numbers, underscores, and hyphens' };
     }
+    if (username.length < 3 || username.length > 30) {
+      return { error: 'Username must be between 3 and 30 characters' };
+    }
 
-    const { data: existing } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('username', username)
-      .maybeSingle();
-
-    if (existing) return { error: 'Username already taken' };
+    // No client-side uniqueness check: profiles_select restricts SELECT to
+    // your own row, so an unauthenticated caller always reads back nothing and
+    // the check silently passes. handle_new_user resolves collisions instead.
 
     const { data, error } = await supabase.auth.signUp({
       email,
