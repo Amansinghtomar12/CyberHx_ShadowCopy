@@ -35,7 +35,8 @@ frontend/
     hooks/useData.ts
     lib/supabase.ts             Supabase client
 supabase/
-  schema.sql                    Tables, RLS policies, views, triggers, RPCs
+  config.toml                   CLI project ref
+  migrations/                   Tables, RLS policies, views, triggers, RPCs
   functions/submit-flag/        Server-side flag check + rate limiting
   functions/scoreboard/         Scoreboard aggregation
 ```
@@ -65,7 +66,27 @@ Other scripts: `npm run build`, `npm run preview`, `npm run lint` (`tsc --noEmit
 ## Deployment
 
 See [`docs/SETUP.md`](docs/SETUP.md) for the full sequence: creating the Supabase
-project, running `supabase/schema.sql`, configuring Auth (email confirmation,
+project, applying `supabase/migrations/`, configuring Auth (email confirmation,
 Google OAuth, Turnstile), deploying the Edge Functions with `ALLOWED_ORIGINS`,
 deploying the frontend to Vercel, and the Cloudflare WAF rules. It also lists the
 verification curl commands that must fail for anon access and role escalation.
+
+## Continuous deployment to Supabase
+
+`.github/workflows/deploy-supabase.yml` applies migrations and redeploys both
+Edge Functions whenever anything under `supabase/` lands on `main`.
+
+It needs two repository secrets (Settings → Secrets and variables → Actions):
+
+| Secret | Where to get it |
+|---|---|
+| `SUPABASE_ACCESS_TOKEN` | https://supabase.com/dashboard/account/tokens |
+| `SUPABASE_DB_PASSWORD` | The database password set when the project was created |
+
+Because the initial schema was applied by hand before this workflow existed, the
+database has no record of that migration. Mark it as applied once, so `db push`
+does not try to re-run it against tables that already exist:
+
+```bash
+supabase migration repair --status applied 20260825000000
+```

@@ -27,7 +27,8 @@
 - Save: Project URL, anon key, service_role key
 
 ### 2. Run Schema
-- SQL Editor → paste `supabase/schema.sql` → Run
+- SQL Editor → paste `supabase/migrations/20260825000000_initial_schema.sql` → Run
+- Or let CI apply it: push to `main` and the Deploy to Supabase workflow runs `supabase db push`
 
 ### 3. Configure Auth (CRITICAL)
 - Dashboard → Auth → Settings:

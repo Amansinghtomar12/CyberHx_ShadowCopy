@@ -1,0 +1,38 @@
+name: Deploy to Supabase
+
+# Applies database migrations and redeploys the Edge Functions whenever
+# anything under supabase/ lands on main.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/deploy-supabase.yml'
+  workflow_dispatch:
+
+env:
+  PROJECT_REF: ikdyrqwdltinghuecvsb
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link project
+        run: supabase link --project-ref "$PROJECT_REF"
+
+      # Applies only migrations the database has not recorded yet.
+      - name: Push database migrations
+        run: supabase db push
+
+      # No function name deploys every function under supabase/functions.
+      - name: Deploy Edge Functions
+        run: supabase functions deploy --project-ref "$PROJECT_REF"
