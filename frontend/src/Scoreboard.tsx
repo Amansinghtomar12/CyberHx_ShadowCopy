@@ -31,7 +31,7 @@ export default function Scoreboard() {
 
   useEffect(() => {
     fetchScoreboard();
-    const interval = setInterval(fetchScoreboard, 30000);
+    const interval = setInterval(fetchScoreboard, 60000);
     return () => clearInterval(interval);
   }, []);
 

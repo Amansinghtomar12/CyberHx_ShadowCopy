@@ -283,7 +283,7 @@ export default function App() {
     if (!user) return;
     const interval = setInterval(() => {
       fetchAllSolveData();
-    }, 30000); // every 30 seconds
+    }, 60000); // every 60 seconds
     return () => clearInterval(interval);
   }, [user, fetchAllSolveData]);
 

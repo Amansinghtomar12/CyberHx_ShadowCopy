@@ -63,19 +63,14 @@ export function useScoreboard() {
     setLoading(false);
   }, []);
 
+  // submissions is not in the supabase_realtime publication, so this channel
+  // never delivered an event; it only held a websocket open per player against
+  // the free tier's concurrent connection limit. Poll instead, matching the
+  // approach the rest of the app already takes.
   useEffect(() => {
     fetch();
-    const sub = supabase
-      .channel('submissions')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'submissions',
-        filter: 'is_correct=eq.true'
-      }, () => fetch())
-      .subscribe();
-
-    return () => { supabase.removeChannel(sub); };
+    const interval = setInterval(fetch, 60000);
+    return () => clearInterval(interval);
   }, [fetch]);
 
   return { users, teams, loading, refetch: fetch };
