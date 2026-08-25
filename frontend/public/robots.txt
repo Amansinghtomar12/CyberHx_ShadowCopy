@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# Block admin routes from indexing
+Disallow: /admin
+Disallow: /admin/
+
+# Sitemap location
+Sitemap: https://ctf.cyberhx.com/sitemap.xml
