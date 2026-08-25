@@ -84,21 +84,25 @@ serve(async (req) => {
       });
     }
 
-    // 2. Global rate limit (in-memory, per Edge Function instance)
-    if (!checkGlobalRateLimit(user.id)) {
-      return new Response(JSON.stringify({
-        correct: false, error: 'Too many submissions. Slow down.'
-      }), { status: 429, headers: { ...cors, 'Content-Type': 'application/json' } });
-    }
-
-    // 3. Check banned
+    // 2. Check banned. Loaded before the rate limits because admins are exempt
+    // from them, and the role is only known once the profile is read.
     const { data: profile } = await supabaseAdmin
-      .from('profiles').select('is_banned, team_id').eq('id', user.id).single();
+      .from('profiles').select('is_banned, team_id, role').eq('id', user.id).single();
 
     if (!profile || profile.is_banned) {
       return new Response(JSON.stringify({ error: 'Account banned' }), {
         status: 403, headers: { ...cors, 'Content-Type': 'application/json' }
       });
+    }
+
+    // Admins test their own challenges, so throttling them serves no purpose.
+    const isAdmin = profile.role === 'admin';
+
+    // 3. Global rate limit (in-memory, per Edge Function instance)
+    if (!isAdmin && !checkGlobalRateLimit(user.id)) {
+      return new Response(JSON.stringify({
+        correct: false, error: 'Too many submissions. Slow down.'
+      }), { status: 429, headers: { ...cors, 'Content-Type': 'application/json' } });
     }
 
     // 4. Parse + validate input
@@ -178,7 +182,7 @@ serve(async (req) => {
       .eq('user_id', user.id).eq('challenge_id', challengeId)
       .order('submitted_at', { ascending: false }).limit(1).maybeSingle();
 
-    if (recentSub) {
+    if (recentSub && !isAdmin) {
       const secondsSinceLast = (Date.now() - new Date(recentSub.submitted_at).getTime()) / 1000;
       if (secondsSinceLast < RATE_LIMIT_SECONDS) {
         return new Response(JSON.stringify({
