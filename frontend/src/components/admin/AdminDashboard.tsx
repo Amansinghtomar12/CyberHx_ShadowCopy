@@ -526,31 +526,63 @@ function AdminDashboardInner() {
 // ─────────────────────────────────────────
 function UsersTab() {
   const [users, setUsers] = useState<any[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
 
-  useEffect(() => {
-    supabase.from('user_scores').select('*').order('total_points', { ascending: false }).limit(100)
-      .then(({ data }) => setUsers(data ?? []));
-  }, []);
+  // admin_list_users, not user_scores: that view filters banned players out,
+  // so a banned user would disappear from this table and could never be
+  // unbanned from here.
+  const load = () => {
+    supabase.rpc('admin_list_users').then(({ data }) => setUsers(data ?? []));
+  };
+
+  useEffect(load, []);
+
+  const setBan = async (u: any, banned: boolean) => {
+    const verb = banned ? 'Ban' : 'Unban';
+    if (!confirm(`${verb} ${u.username}?`)) return;
+    setBusy(u.id);
+    const { data, error } = await supabase.rpc('admin_set_user_ban', {
+      p_user_id: u.id,
+      p_banned: banned,
+    });
+    setBusy(null);
+    if (error || data?.error) {
+      alert(`${verb} failed: ` + (error?.message ?? data.error));
+      return;
+    }
+    load();
+  };
 
   return (
     <div className="overflow-hidden rounded-lg border border-cyber-border">
       <table className="w-full text-left">
         <thead className="bg-cyber-sidebar/50 border-b border-cyber-border">
           <tr>
-            {['#', 'Username', 'Points', 'Solved', 'Last Solve'].map(h => (
-              <th key={h} className="px-6 py-4 text-[10px] font-bold text-cyber-muted uppercase tracking-widest">{h}</th>
+            {['#', 'Username', 'Email', 'Role', 'Points', 'Solved', 'Status', ''].map(h => (
+              <th key={h} className="px-4 py-4 text-[10px] font-bold text-cyber-muted uppercase tracking-widest">{h}</th>
             ))}
           </tr>
         </thead>
         <tbody className="divide-y divide-cyber-border/50">
           {users.map((u, i) => (
             <tr key={u.id} className="hover:bg-cyber-sidebar/20">
-              <td className="px-6 py-4 text-sm font-bold text-cyber-muted">{i + 1}</td>
-              <td className="px-6 py-4 text-sm font-medium text-white">{u.username}</td>
-              <td className="px-6 py-4 text-sm font-mono text-cyber-neon">{u.total_points}</td>
-              <td className="px-6 py-4 text-sm text-cyber-muted">{u.solved_count}</td>
-              <td className="px-6 py-4 text-[10px] font-mono text-cyber-muted">
-                {u.last_solve ? new Date(u.last_solve).toLocaleString() : '—'}
+              <td className="px-4 py-4 text-sm font-bold text-cyber-muted">{i + 1}</td>
+              <td className={`px-4 py-4 text-sm font-medium ${u.is_banned ? 'text-red-400 line-through' : 'text-white'}`}>
+                {u.username}
+              </td>
+              <td className="px-4 py-4 text-[11px] font-mono text-cyber-muted">{u.email}</td>
+              <td className="px-4 py-4 text-[10px] font-bold uppercase text-cyber-muted">{u.role}</td>
+              <td className="px-4 py-4 text-sm font-mono text-cyber-neon">{u.total_points}</td>
+              <td className="px-4 py-4 text-sm text-cyber-muted">{u.solved_count}</td>
+              <td className="px-4 py-4">
+                <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded ${u.is_banned ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
+                  {u.is_banned ? 'Banned' : 'Active'}
+                </span>
+              </td>
+              <td className="px-4 py-4 text-right">
+                {u.is_banned
+                  ? <button disabled={busy === u.id} onClick={() => setBan(u, false)} className="text-[9px] bg-green-600/20 text-green-400 px-2 py-1 rounded hover:bg-green-600/40 font-bold uppercase disabled:opacity-40">Unban</button>
+                  : <button disabled={busy === u.id} onClick={() => setBan(u, true)} className="text-[9px] bg-red-600/20 text-red-400 px-2 py-1 rounded hover:bg-red-600/40 font-bold uppercase disabled:opacity-40">Ban</button>}
               </td>
             </tr>
           ))}
