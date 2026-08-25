@@ -11,7 +11,7 @@ function Root() {
   if (loading) {
     return (
       <div className="min-h-screen bg-cyber-bg flex items-center justify-center">
-        <div className="text-cyber-neon text-[11px] font-bold uppercase tracking-widest animate-pulse">
+        <div className="label-micro text-cyber-neon animate-pulse" role="status">
           Initializing Terminal...
         </div>
       </div>

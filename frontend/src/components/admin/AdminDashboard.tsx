@@ -2,10 +2,106 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, DBChallenge } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
-import { Plus, Eye, EyeOff, Trash2, Edit3, Shield, Users, Flag, Activity, RotateCcw } from 'lucide-react';
+import {
+  Plus, Eye, EyeOff, Trash2, Edit3, Shield, Users, Flag, Activity, RotateCcw,
+  X, AlertTriangle, Megaphone, Zap, Lightbulb, Link2, Save, Inbox, Lock,
+  Settings2, ListChecks, Hash, Send, CalendarClock,
+} from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
 import { resetEventScores } from '../../api/submitFlag';
 // HARDENED: Challenge CRUD via admin_upsert_challenge RPC
 // HARDENED: Reset via admin_reset_event RPC (no client-side DELETE)
+
+// ─────────────────────────────────────────
+// LOCAL PRESENTATIONAL HELPERS (no behaviour — markup + classes only)
+// ─────────────────────────────────────────
+const EASE_OUT_QUINT: [number, number, number, number] = [0.22, 1, 0.36, 1];
+
+const DIFF_BADGE: Record<string, string> = {
+  Easy: 'badge-easy',
+  Medium: 'badge-medium',
+  Hard: 'badge-hard',
+};
+
+/** Scroll-safe frame for a dense data table — the frame scrolls, the page never does. */
+function TableFrame({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`surface overflow-hidden ${className}`}>
+      <div className="overflow-x-auto custom-scrollbar">{children}</div>
+    </div>
+  );
+}
+
+function Th({ children, align = 'left' }: { children: React.ReactNode; align?: 'left' | 'right' }) {
+  return (
+    <th
+      scope="col"
+      className={`px-5 py-3.5 label-micro whitespace-nowrap ${align === 'right' ? 'text-right' : 'text-left'}`}
+    >
+      {children}
+    </th>
+  );
+}
+
+/** Empty-state block used inside table bodies and card lists. */
+function EmptyState({ icon, title, hint }: { icon: React.ReactNode; title: string; hint?: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+      <span
+        aria-hidden
+        className="grid h-12 w-12 place-items-center rounded-full border border-border-strong bg-surface-inset text-text-muted"
+      >
+        {icon}
+      </span>
+      <p className="mt-4 text-h3 text-cyber-text">{title}</p>
+      {hint && <p className="mt-1.5 max-w-xs text-small text-text-muted">{hint}</p>}
+    </div>
+  );
+}
+
+/** Success / failure feedback line. The message strings are produced by the handlers — untouched. */
+function StatusLine({ msg, className = '' }: { msg: string; className?: string }) {
+  const bad = msg.startsWith('❌');
+  return (
+    <p
+      role="status"
+      aria-live="polite"
+      className={`text-small font-semibold leading-relaxed ${
+        bad ? 'text-diff-hard' : 'text-status-solved'
+      } ${className}`}
+    >
+      {msg}
+    </p>
+  );
+}
+
+/** Section header inside the challenge editor. */
+function FormSection({
+  icon, title, description, action, children, first = false,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+  first?: boolean;
+}) {
+  return (
+    <section className={first ? '' : 'mt-7 pt-7 border-t border-border-subtle'}>
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <div className="flex items-start gap-2.5 min-w-0">
+          <span aria-hidden className="text-cyber-neon mt-0.5 shrink-0">{icon}</span>
+          <div className="min-w-0">
+            <h4 className="text-label text-cyber-text uppercase">{title}</h4>
+            {description && <p className="text-small text-text-muted mt-1 leading-relaxed">{description}</p>}
+          </div>
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
 
 // ─────────────────────────────────────────
 // STATS BAR
@@ -24,23 +120,42 @@ function StatsBar() {
     });
   }, []);
 
+  const reduceMotion = useReducedMotion();
+
   const items = [
-    { label: 'Total Users', value: stats.users, icon: <Users className="w-4 h-4" /> },
-    { label: 'Teams', value: stats.teams, icon: <Shield className="w-4 h-4" /> },
-    { label: 'Challenges', value: stats.challenges, icon: <Flag className="w-4 h-4" /> },
-    { label: 'Submissions', value: stats.submissions, icon: <Activity className="w-4 h-4" /> },
+    { label: 'Total Users', value: stats.users, icon: <Users className="w-4 h-4" />, tone: 'var(--color-cat-forensic)' },
+    { label: 'Teams', value: stats.teams, icon: <Shield className="w-4 h-4" />, tone: 'var(--color-cat-crypto)' },
+    { label: 'Challenges', value: stats.challenges, icon: <Flag className="w-4 h-4" />, tone: 'var(--color-neon)' },
+    { label: 'Submissions', value: stats.submissions, icon: <Activity className="w-4 h-4" />, tone: 'var(--color-cat-web)' },
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-      {items.map(item => (
-        <div key={item.label} className="bg-cyber-card border border-cyber-border rounded-lg p-5">
-          <div className="flex items-center gap-2 text-cyber-muted mb-2">
-            {item.icon}
-            <span className="text-[10px] font-bold uppercase tracking-widest">{item.label}</span>
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-section">
+      {items.map((item, i) => (
+        <motion.div
+          key={item.label}
+          initial={reduceMotion ? false : { opacity: 0, transform: 'translateY(8px)' }}
+          animate={{ opacity: 1, transform: 'translateY(0px)' }}
+          transition={{ duration: reduceMotion ? 0 : 0.24, delay: reduceMotion ? 0 : i * 0.04, ease: EASE_OUT_QUINT }}
+          className="surface relative overflow-hidden p-4 sm:p-5 min-w-0"
+        >
+          <span
+            aria-hidden
+            className="absolute inset-x-0 top-0 h-px opacity-60"
+            style={{ background: `linear-gradient(90deg, transparent, ${item.tone}, transparent)` }}
+          />
+          <div className="flex items-center gap-2.5 mb-3 min-w-0">
+            <span
+              aria-hidden
+              className="grid place-items-center w-7 h-7 shrink-0 rounded-inset border border-border-subtle bg-surface-inset"
+              style={{ color: item.tone }}
+            >
+              {item.icon}
+            </span>
+            <span className="label-micro truncate">{item.label}</span>
           </div>
-          <div className="text-3xl font-bold text-white">{item.value}</div>
-        </div>
+          <div className="font-mono text-h2 font-bold text-cyber-text">{item.value}</div>
+        </motion.div>
       ))}
     </div>
   );
@@ -174,143 +289,238 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
     onSave();
   };
 
-  const field = (label: string, key: keyof typeof form, type = 'text') => (
-    <div className="space-y-1">
-      <label className="text-[10px] font-bold text-cyber-muted uppercase tracking-widest block">{label}</label>
-      <input
-        type={type}
-        value={String(form[key])}
-        onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
-        className="w-full bg-cyber-sidebar border border-cyber-border rounded px-4 py-3 text-white text-xs focus:outline-none focus:border-cyber-neon transition-all font-mono"
-      />
-    </div>
-  );
+  const field = (label: string, key: keyof typeof form, type = 'text', hint?: string, required = false) => {
+    const id = `chal-${String(key)}`;
+    const invalid = required && !!error && !form[key];
+    return (
+      <div className="min-w-0">
+        <label className="field-label" htmlFor={id}>
+          {label}
+          {required && <span className="text-cyber-neon" aria-hidden> *</span>}
+        </label>
+        <input
+          id={id}
+          type={type}
+          value={String(form[key])}
+          onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
+          aria-invalid={invalid || undefined}
+          className={`input ${invalid ? 'is-invalid' : ''}`}
+        />
+        {hint && <p className="mt-1.5 text-small text-text-muted leading-relaxed">{hint}</p>}
+      </div>
+    );
+  };
 
   return (
-    <div className="bg-cyber-card border border-cyber-border rounded-lg p-8 mb-8">
-      <h3 className="text-sm font-bold uppercase tracking-widest text-cyber-neon mb-6">
-        {initial?.id ? 'Edit Challenge' : 'New Challenge'}
-      </h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {field('Title', 'title')}
-        {field('Author', 'author')}
-        <div className="space-y-1">
-          <label className="text-[10px] font-bold text-cyber-muted uppercase tracking-widest block">Category</label>
-          <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value as any }))}
-            className="w-full bg-cyber-sidebar border border-cyber-border rounded px-4 py-3 text-white text-xs focus:outline-none focus:border-cyber-neon">
-            {['web','crypto','steg','rev','pwn','forensic','osint','misc'].map(c => <option key={c}>{c}</option>)}
-          </select>
+    <div className="surface p-5 sm:p-gutter lg:p-8 mb-8">
+      {/* Editor header */}
+      <div className="flex flex-wrap items-center gap-3 pb-5 border-b border-border-subtle">
+        <span aria-hidden className="grid place-items-center w-9 h-9 rounded-control border border-border-neon bg-neon-wash text-cyber-neon">
+          {initial?.id ? <Edit3 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+        </span>
+        <div className="min-w-0">
+          <h3 className="text-h3 text-cyber-text">{initial?.id ? 'Edit Challenge' : 'New Challenge'}</h3>
+          <p className="text-small text-text-muted mt-0.5">
+            {initial?.id ? 'Changes go live the moment you save.' : 'Saved hidden by default — flip “Visible” when it is ready.'}
+          </p>
         </div>
-        <div className="space-y-1">
-          <label className="text-[10px] font-bold text-cyber-muted uppercase tracking-widest block">Difficulty</label>
-          <select value={form.difficulty} onChange={e => setForm(p => ({ ...p, difficulty: e.target.value as any }))}
-            className="w-full bg-cyber-sidebar border border-cyber-border rounded px-4 py-3 text-white text-xs focus:outline-none focus:border-cyber-neon">
-            {['Easy','Medium','Hard'].map(d => <option key={d}>{d}</option>)}
-          </select>
-        </div>
-        {field('Points', 'points', 'number')}
-        {field('Max Attempts', 'max_attempts', 'number')}
-        {field('Tags (comma separated)', 'tags')}
-      </div>
-      <div className="mt-4 space-y-1">
-        <label className="text-[10px] font-bold text-cyber-muted uppercase tracking-widest block">Description (Markdown)</label>
-        <textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
-          rows={6} className="w-full bg-cyber-sidebar border border-cyber-border rounded px-4 py-3 text-white text-xs focus:outline-none focus:border-cyber-neon font-mono resize-none" />
-      </div>
-      <div className="mt-4 space-y-1">
-        <label className="text-[10px] font-bold text-red-400 uppercase tracking-widest block">⚠ Flag (stored securely, never sent to browser)</label>
-        <input type="text" value={form.flag} onChange={e => setForm(p => ({ ...p, flag: e.target.value }))}
-          placeholder="FLAG{...}"
-          className="w-full bg-cyber-sidebar border border-red-500/40 rounded px-4 py-3 text-white text-xs focus:outline-none focus:border-red-400 font-mono" />
-      </div>
-      <div className="mt-4 flex items-center gap-3">
-        <input type="checkbox" id="visible" checked={form.is_visible} onChange={e => setForm(p => ({ ...p, is_visible: e.target.checked }))}
-          className="w-4 h-4 accent-cyber-neon" />
-        <label htmlFor="visible" className="text-[11px] font-bold text-cyber-muted uppercase tracking-widest cursor-pointer">
-          Visible to participants
-        </label>
+        <span className={`badge ml-auto ${initial?.id ? 'badge-info' : 'badge-neon'}`}>
+          {initial?.id ? 'Editing' : 'Draft'}
+        </span>
       </div>
 
-      {/* HINTS SECTION */}
-      <div className="mt-6 border-t border-cyber-border pt-6">
-        <div className="flex items-center justify-between mb-4">
-          <label className="text-[10px] font-bold text-cyber-muted uppercase tracking-widest">Hints</label>
-          <button onClick={addHint} type="button"
-            className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-cyber-neon border border-cyber-neon/30 px-3 py-1.5 rounded hover:bg-cyber-neon/10 transition-all">
-            + Add Hint
-          </button>
-        </div>
-        {hints.length === 0 ? (
-          <p className="text-cyber-muted text-xs">No hints added. Click "Add Hint" to add one.</p>
-        ) : (
-          <div className="space-y-3">
-            {hints.map((hint, i) => (
-              <div key={i} className="flex gap-3 items-start bg-cyber-sidebar border border-cyber-border rounded-lg p-3">
-                <div className="flex-1">
-                  <label className="text-[9px] font-bold text-cyber-muted uppercase tracking-widest block mb-1">Hint Text</label>
-                  <textarea value={hint.text} onChange={e => updateHint(i, 'text', e.target.value)}
-                    placeholder="Give a helpful clue..."
-                    rows={2}
-                    className="w-full bg-cyber-card border border-cyber-border rounded px-3 py-2 text-white text-xs focus:outline-none focus:border-cyber-neon resize-none" />
-                </div>
-                <div className="w-24">
-                  <label className="text-[9px] font-bold text-cyber-muted uppercase tracking-widest block mb-1">Cost (pts)</label>
-                  <input type="number" value={hint.cost} onChange={e => updateHint(i, 'cost', Number(e.target.value))}
-                    min={0}
-                    className="w-full bg-cyber-card border border-cyber-border rounded px-3 py-2 text-white text-xs focus:outline-none focus:border-cyber-neon" />
-                </div>
-                <button onClick={() => removeHint(i)} type="button"
-                  className="mt-5 text-red-400 hover:text-red-300 transition-colors text-lg leading-none">×</button>
-              </div>
-            ))}
+      <div className="mt-7">
+        <FormSection first icon={<ListChecks className="w-4 h-4" />} title="Identity">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {field('Title', 'title', 'text', undefined, true)}
+            {field('Author', 'author', 'text', 'Blank falls back to “Cyberhx Team”.')}
+            <div className="min-w-0">
+              <label className="field-label" htmlFor="chal-category">Category</label>
+              <select id="chal-category" value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value as any }))}
+                className="select">
+                {['web','crypto','steg','rev','pwn','forensic','osint','misc'].map(c => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="min-w-0">
+              <label className="field-label" htmlFor="chal-difficulty">Difficulty</label>
+              <select id="chal-difficulty" value={form.difficulty} onChange={e => setForm(p => ({ ...p, difficulty: e.target.value as any }))}
+                className="select">
+                {['Easy','Medium','Hard'].map(d => <option key={d}>{d}</option>)}
+              </select>
+            </div>
           </div>
-        )}
-      </div>
-      {/* RESOURCE LINKS SECTION */}
-      <div className="mt-6 border-t border-cyber-border pt-6">
-        <div className="flex items-center justify-between mb-4">
-          <label className="text-[10px] font-bold text-cyber-muted uppercase tracking-widest">Resource Links</label>
-          <button onClick={addLink} type="button"
-            className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-cyber-neon border border-cyber-neon/30 px-3 py-1.5 rounded hover:bg-cyber-neon/10 transition-all">
-            + Add Link
-          </button>
-        </div>
-        {links.length === 0 ? (
-          <p className="text-cyber-muted text-xs">No links added. Add Google Drive, ZIP, or any URL.</p>
-        ) : (
-          <div className="space-y-3">
-            {links.map((link, i) => (
-              <div key={i} className="flex gap-3 items-start bg-cyber-sidebar border border-cyber-border rounded-lg p-3">
-                <div className="w-40">
-                  <label className="text-[9px] font-bold text-cyber-muted uppercase tracking-widest block mb-1">Label</label>
-                  <input type="text" value={link.label} onChange={e => updateLink(i, 'label', e.target.value)}
-                    placeholder="e.g. chall.zip"
-                    className="w-full bg-cyber-card border border-cyber-border rounded px-3 py-2 text-white text-xs focus:outline-none focus:border-cyber-neon" />
-                </div>
-                <div className="flex-1">
-                  <label className="text-[9px] font-bold text-cyber-muted uppercase tracking-widest block mb-1">URL</label>
-                  <input type="url" value={link.url} onChange={e => updateLink(i, 'url', e.target.value)}
-                    placeholder="https://drive.google.com/..."
-                    className="w-full bg-cyber-card border border-cyber-border rounded px-3 py-2 text-white text-xs focus:outline-none focus:border-cyber-neon font-mono" />
-                </div>
-                <button onClick={() => removeLink(i)} type="button"
-                  className="mt-5 text-red-400 hover:text-red-300 transition-colors text-lg leading-none">×</button>
-              </div>
-            ))}
+        </FormSection>
+
+        <FormSection icon={<Hash className="w-4 h-4" />} title="Scoring & limits">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {field('Points', 'points', 'number')}
+            {field('Max Attempts', 'max_attempts', 'number', 'Wrong submissions allowed per player.')}
+            {field('Tags (comma separated)', 'tags')}
           </div>
-        )}
+        </FormSection>
+
+        <FormSection icon={<Edit3 className="w-4 h-4" />} title="Description" description="Markdown is rendered on the player-facing challenge page.">
+          <label className="field-label sr-only" htmlFor="chal-description">Description (Markdown)</label>
+          <textarea id="chal-description" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+            aria-invalid={(!!error && !form.description) || undefined}
+            rows={6} className={`textarea min-h-[9rem] ${!!error && !form.description ? 'is-invalid' : ''}`} />
+        </FormSection>
+
+        {/* FLAG — handled with visible care */}
+        <div className="mt-7 pt-7 border-t border-border-subtle">
+          <div
+            className="rounded-card border p-4 sm:p-5"
+            style={{ borderColor: 'var(--color-border-danger)', backgroundColor: 'var(--color-diff-hard-wash)' }}
+          >
+            <label className="flex items-start gap-2 mb-3" htmlFor="chal-flag">
+              <AlertTriangle aria-hidden className="w-4 h-4 shrink-0 mt-px" style={{ color: 'var(--color-diff-hard)' }} />
+              <span>
+                <span className="block text-label uppercase" style={{ color: 'var(--color-diff-hard)' }}>
+                  Flag <span className="text-cyber-neon" aria-hidden>*</span>
+                </span>
+                <span className="block text-small text-text-muted mt-1 leading-relaxed">
+                  Hashed server-side by <span className="font-mono">admin_upsert_challenge</span> — it is never sent back to a browser.
+                </span>
+              </span>
+            </label>
+            <input id="chal-flag" type="text" value={form.flag} onChange={e => setForm(p => ({ ...p, flag: e.target.value }))}
+              placeholder="FLAG{...}"
+              aria-invalid={(!!error && !form.flag) || undefined}
+              className="input"
+              style={{ borderColor: 'var(--color-border-danger)' }} />
+          </div>
+
+          <div className="mt-4 flex items-center gap-3 rounded-control border border-border-subtle bg-surface-inset px-4 py-3">
+            <input type="checkbox" id="visible" checked={form.is_visible} onChange={e => setForm(p => ({ ...p, is_visible: e.target.checked }))}
+              className="w-4 h-4 accent-cyber-neon shrink-0" />
+            <label htmlFor="visible" className="text-label uppercase text-text-secondary cursor-pointer">
+              Visible to participants
+            </label>
+            <span className={`badge ml-auto ${form.is_visible ? 'badge-solved' : 'badge-locked'}`}>
+              {form.is_visible ? 'Live' : 'Hidden'}
+            </span>
+          </div>
+        </div>
+
+        {/* HINTS SECTION */}
+        <FormSection
+          icon={<Lightbulb className="w-4 h-4" />}
+          title="Hints"
+          description="Each hint costs the player points when unlocked."
+          action={
+            <button onClick={addHint} type="button" className="btn btn-outline btn-sm">
+              <Plus className="w-3.5 h-3.5" /> Add Hint
+            </button>
+          }
+        >
+          {hints.length === 0 ? (
+            <div className="rounded-card border border-dashed border-border-base bg-surface-inset">
+              <EmptyState icon={<Lightbulb className="w-5 h-5" />} title="No hints yet" hint='Use “Add Hint” to give players a paid nudge.' />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {hints.map((hint, i) => (
+                <div key={i} className="surface-inset p-3 sm:p-4">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <span className="badge">Hint {i + 1}</span>
+                    <button onClick={() => removeHint(i)} type="button"
+                      aria-label={`Remove hint ${i + 1}`} title="Remove hint"
+                      className="btn btn-ghost btn-sm btn-icon text-diff-hard hover:text-danger-fg">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_7.5rem]">
+                    <div className="min-w-0">
+                      <label className="field-label" htmlFor={`hint-text-${i}`}>Hint Text</label>
+                      <textarea id={`hint-text-${i}`} value={hint.text} onChange={e => updateHint(i, 'text', e.target.value)}
+                        placeholder="Give a helpful clue..."
+                        rows={2}
+                        className="textarea min-h-[4.5rem]" />
+                    </div>
+                    <div className="min-w-0">
+                      <label className="field-label" htmlFor={`hint-cost-${i}`}>Cost (pts)</label>
+                      <input id={`hint-cost-${i}`} type="number" value={hint.cost} onChange={e => updateHint(i, 'cost', Number(e.target.value))}
+                        min={0}
+                        className="input" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </FormSection>
+
+        {/* RESOURCE LINKS SECTION */}
+        <FormSection
+          icon={<Link2 className="w-4 h-4" />}
+          title="Resource Links"
+          description="Attachments and mirrors shown on the challenge page."
+          action={
+            <button onClick={addLink} type="button" className="btn btn-outline btn-sm">
+              <Plus className="w-3.5 h-3.5" /> Add Link
+            </button>
+          }
+        >
+          {links.length === 0 ? (
+            <div className="rounded-card border border-dashed border-border-base bg-surface-inset">
+              <EmptyState icon={<Link2 className="w-5 h-5" />} title="No links yet" hint="Google Drive, a ZIP mirror, or any URL players need." />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {links.map((link, i) => (
+                <div key={i} className="surface-inset p-3 sm:p-4">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <span className="badge">Link {i + 1}</span>
+                    <button onClick={() => removeLink(i)} type="button"
+                      aria-label={`Remove link ${i + 1}`} title="Remove link"
+                      className="btn btn-ghost btn-sm btn-icon text-diff-hard hover:text-danger-fg">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-[11rem_minmax(0,1fr)]">
+                    <div className="min-w-0">
+                      <label className="field-label" htmlFor={`link-label-${i}`}>Label</label>
+                      <input id={`link-label-${i}`} type="text" value={link.label} onChange={e => updateLink(i, 'label', e.target.value)}
+                        placeholder="e.g. chall.zip"
+                        className="input" />
+                    </div>
+                    <div className="min-w-0">
+                      <label className="field-label" htmlFor={`link-url-${i}`}>URL</label>
+                      <input id={`link-url-${i}`} type="url" value={link.url} onChange={e => updateLink(i, 'url', e.target.value)}
+                        placeholder="https://drive.google.com/..."
+                        className="input" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </FormSection>
       </div>
 
-      {error && <p className="mt-3 text-red-400 text-xs font-bold">{error}</p>}
-      <div className="mt-6 flex gap-3">
+      {error && (
+        <div
+          role="alert"
+          className="mt-6 flex items-start gap-2.5 rounded-control border px-4 py-3 text-small leading-relaxed"
+          style={{ borderColor: 'var(--color-border-danger)', backgroundColor: 'var(--color-diff-hard-wash)', color: 'var(--color-danger-fg)' }}
+        >
+          <AlertTriangle aria-hidden className="w-4 h-4 shrink-0 mt-0.5" />
+          <span className="font-semibold">{error}</span>
+        </div>
+      )}
+      <div className="mt-7 pt-6 border-t border-border-subtle flex flex-col-reverse sm:flex-row sm:items-center gap-3">
         <button onClick={handleSave} disabled={saving}
-          className="bg-cyber-neon text-black px-6 py-2 rounded text-[11px] font-bold uppercase tracking-widest hover:bg-white transition-all disabled:opacity-50">
+          className={`btn btn-primary btn-md ${saving ? 'is-loading' : ''}`}>
+          <Save className="w-4 h-4" />
           {saving ? 'Saving...' : 'Save Challenge'}
         </button>
         <button onClick={onCancel}
-          className="border border-cyber-border text-cyber-muted px-6 py-2 rounded text-[11px] font-bold uppercase tracking-widest hover:text-white transition-all">
+          className="btn btn-ghost btn-md">
           Cancel
         </button>
+        <p className="text-small text-text-muted sm:ml-auto">
+          <span className="text-cyber-neon" aria-hidden>*</span> Title, description and flag are required.
+        </p>
       </div>
     </div>
   );
@@ -325,19 +535,28 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-cyber-muted text-xs uppercase tracking-widest">Verifying access...</div>
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="flex items-center gap-3">
+          <span aria-hidden className="w-4 h-4 rounded-pill border-2 border-border-strong border-t-cyber-neon animate-spin" />
+          <span className="label-micro">Verifying access...</span>
+        </div>
       </div>
     );
   }
 
   if (!profile || profile.role !== 'admin') {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center space-y-3">
-          <Shield className="w-10 h-10 text-red-500/50 mx-auto" />
-          <p className="text-red-400 text-sm font-bold uppercase tracking-widest">Access Denied</p>
-          <p className="text-cyber-muted text-xs">Admin privileges required.</p>
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="surface max-w-sm w-full p-8 text-center">
+          <span
+            aria-hidden
+            className="grid place-items-center w-12 h-12 mx-auto rounded-card border"
+            style={{ borderColor: 'var(--color-border-danger)', backgroundColor: 'var(--color-diff-hard-wash)' }}
+          >
+            <Lock className="w-5 h-5" style={{ color: 'var(--color-diff-hard)' }} />
+          </span>
+          <p className="mt-4 text-h3" style={{ color: 'var(--color-diff-hard)' }}>Access Denied</p>
+          <p className="mt-2 text-body text-text-muted">Admin privileges required.</p>
         </div>
       </div>
     );
@@ -400,50 +619,65 @@ function AdminDashboardInner() {
   };
 
   const tabs = [
-    { id: 'challenges', label: 'Challenges' },
-    { id: 'users', label: 'Users' },
-    { id: 'teams', label: 'Teams' },
-    { id: 'submissions', label: 'Submissions' },
-    { id: 'notifications', label: '📢 Notifications' },
-    { id: 'event', label: '⚡ Event' },
+    { id: 'challenges', label: 'Challenges', icon: <Flag className="w-3.5 h-3.5" /> },
+    { id: 'users', label: 'Users', icon: <Users className="w-3.5 h-3.5" /> },
+    { id: 'teams', label: 'Teams', icon: <Shield className="w-3.5 h-3.5" /> },
+    { id: 'submissions', label: 'Submissions', icon: <Activity className="w-3.5 h-3.5" /> },
+    { id: 'notifications', label: 'Notifications', icon: <Megaphone className="w-3.5 h-3.5" /> },
+    { id: 'event', label: 'Event', icon: <Zap className="w-3.5 h-3.5" /> },
   ] as const;
 
   return (
-    <div className="flex-1 px-6 py-10 max-w-7xl mx-auto w-full">
+    <div className="flex-1 w-full min-w-0 max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
       {/* Admin Header */}
-      <div className="flex items-center justify-between mb-10">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-red-500/20 border border-red-500/40 rounded flex items-center justify-center">
-            <Shield className="w-4 h-4 text-red-400" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-white">Admin Panel</h1>
-            <p className="text-[10px] font-bold text-cyber-muted uppercase tracking-widest">CyberHX Control Center</p>
+      <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between mb-8">
+        <div className="flex items-start gap-3.5 min-w-0">
+          <span
+            aria-hidden
+            className="grid place-items-center w-11 h-11 shrink-0 rounded-card border"
+            style={{ borderColor: 'var(--color-border-danger)', backgroundColor: 'var(--color-diff-hard-wash)' }}
+          >
+            <Shield className="w-5 h-5" style={{ color: 'var(--color-diff-hard)' }} />
+          </span>
+          <div className="min-w-0">
+            <h1 className="text-h1 text-cyber-text">Admin Panel</h1>
+            <p className="label-micro mt-1.5">CyberHX Control Center</p>
           </div>
         </div>
         {/* Reset Event Button */}
-        <button
-          onClick={handleResetEvent}
-          disabled={resetting}
-          className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold uppercase tracking-widest px-5 py-2.5 rounded-lg transition-all disabled:opacity-50"
-        >
-          <RotateCcw className="w-4 h-4" />
-          {resetting ? 'Resetting...' : 'Reset Event Scores'}
-        </button>
-      </div>
+        <div className="flex flex-col sm:items-end gap-2 sm:max-w-[17rem]">
+          <button
+            onClick={handleResetEvent}
+            disabled={resetting}
+            className={`btn btn-danger btn-md w-full sm:w-auto ${resetting ? 'is-loading' : ''}`}
+          >
+            <RotateCcw className="w-4 h-4" />
+            {resetting ? 'Resetting...' : 'Reset Event Scores'}
+          </button>
+          <p className="text-small leading-relaxed text-text-muted sm:text-right">
+            Deletes every submission and zeroes the scoreboard. You will be asked to confirm.
+          </p>
+        </div>
+      </header>
 
       <StatsBar />
 
       {/* Tabs */}
-      <div className="flex gap-8 border-b border-cyber-border mb-8">
-        {tabs.map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-            className={`pb-3 text-[11px] font-bold uppercase tracking-widest transition-all ${
-              activeTab === tab.id ? 'text-cyber-neon border-b-2 border-cyber-neon' : 'text-cyber-muted hover:text-white'
-            }`}>
-            {tab.label}
-          </button>
-        ))}
+      <div className="mb-8 -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto custom-scrollbar">
+        <div
+          role="group"
+          aria-label="Admin sections"
+          className="inline-flex w-max gap-1 p-1 rounded-control border border-border-subtle bg-surface-rail"
+        >
+          {tabs.map(tab => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              aria-pressed={activeTab === tab.id}
+              className={`tab ${activeTab === tab.id ? 'is-active' : ''}`}>
+              <span aria-hidden className="shrink-0">{tab.icon}</span>
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Challenges Tab */}
@@ -456,53 +690,128 @@ function AdminDashboardInner() {
               onCancel={() => { setShowForm(false); setEditChallenge(null); }}
             />
           ) : (
-            <button onClick={() => setShowForm(true)}
-              className="flex items-center gap-2 bg-cyber-neon text-black px-5 py-2.5 rounded text-[11px] font-bold uppercase tracking-widest hover:bg-white transition-all mb-8">
-              <Plus className="w-4 h-4" /> Add Challenge
-            </button>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+              <div className="min-w-0">
+                <h2 className="text-h3 text-cyber-text">Challenge catalogue</h2>
+                <p className="text-small text-text-muted mt-1">
+                  <span className="font-mono text-text-secondary">{challenges.length}</span> total · toggle “Visible” to publish
+                </p>
+              </div>
+              <button onClick={() => setShowForm(true)} className="btn btn-primary btn-md">
+                <Plus className="w-4 h-4" /> Add Challenge
+              </button>
+            </div>
           )}
 
-          <div className="overflow-hidden rounded-lg border border-cyber-border">
-            <table className="w-full text-left">
-              <thead className="bg-cyber-sidebar/50 border-b border-cyber-border">
+          {/* Desktop / tablet: table */}
+          <TableFrame className="hidden md:block">
+            <table className="w-full text-left min-w-[860px]">
+              <thead className="bg-surface-rail border-b border-border-base">
                 <tr>
-                  {['Title', 'Category', 'Difficulty', 'Points', 'Max Attempts', 'Visible', 'Actions'].map(h => (
-                    <th key={h} className="px-6 py-4 text-[10px] font-bold text-cyber-muted uppercase tracking-widest">{h}</th>
-                  ))}
+                  <Th>Title</Th>
+                  <Th>Category</Th>
+                  <Th>Difficulty</Th>
+                  <Th>Points</Th>
+                  <Th>Max Attempts</Th>
+                  <Th>Visible</Th>
+                  <Th align="right">Actions</Th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-cyber-border/50">
+              <tbody className="divide-y divide-border-subtle">
                 {challenges.map(c => (
-                  <tr key={c.id} className="hover:bg-cyber-sidebar/20 transition-colors">
-                    <td className="px-6 py-4 text-sm font-medium text-white">{c.title}</td>
-                    <td className="px-6 py-4 text-[10px] font-bold text-cyber-muted uppercase tracking-widest">{c.category}</td>
-                    <td className="px-6 py-4 text-[10px] font-bold text-cyber-muted uppercase tracking-widest">{c.difficulty}</td>
-                    <td className="px-6 py-4 text-sm font-mono text-cyber-neon">{c.points}</td>
-                    <td className="px-6 py-4 text-sm font-mono text-cyber-muted">{(c as any).max_attempts ?? 15}</td>
-                    <td className="px-6 py-4">
+                  <tr key={c.id} className="transition-colors duration-[var(--duration-fast)] hover:bg-surface-raised">
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span aria-hidden className="w-1.5 h-1.5 shrink-0 rounded-pill" style={{ backgroundColor: `var(--color-cat-${c.category})` }} />
+                        <span className="text-body font-semibold text-cyber-text">{c.title}</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="badge" style={{ color: `var(--color-cat-${c.category})` }}>{c.category}</span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className={`badge ${DIFF_BADGE[String(c.difficulty)] ?? ''}`}>{c.difficulty}</span>
+                    </td>
+                    <td className="px-5 py-4 text-small font-mono text-cyber-neon">{c.points}</td>
+                    <td className="px-5 py-4 text-small font-mono text-text-secondary">{(c as any).max_attempts ?? 15}</td>
+                    <td className="px-5 py-4">
                       <button onClick={() => toggleVisibility(c.id, c.is_visible)}
-                        className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest ${
-                          c.is_visible ? 'text-cyber-neon' : 'text-cyber-muted'
-                        }`}>
+                        aria-pressed={c.is_visible}
+                        title={c.is_visible ? 'Visible to participants — click to hide' : 'Hidden from participants — click to publish'}
+                        className={`chip ${c.is_visible ? 'is-active' : ''}`}>
                         {c.is_visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                         {c.is_visible ? 'Live' : 'Hidden'}
                       </button>
                     </td>
-                    <td className="px-6 py-4 flex items-center gap-3">
-                      <button onClick={() => setEditChallenge(c)} className="text-cyber-muted hover:text-white transition-colors">
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => deleteChallenge(c.id)} className="text-cyber-muted hover:text-red-400 transition-colors">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button onClick={() => setEditChallenge(c)} aria-label={`Edit ${c.title}`} title="Edit challenge"
+                          className="btn btn-ghost btn-sm btn-icon">
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => deleteChallenge(c.id)} aria-label={`Delete ${c.title}`} title="Delete challenge"
+                          className="btn btn-ghost btn-sm btn-icon text-diff-hard hover:text-danger-fg">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
                 {challenges.length === 0 && (
-                  <tr><td colSpan={7} className="px-6 py-10 text-center text-cyber-muted text-xs">No challenges yet. Add one above.</td></tr>
+                  <tr><td colSpan={7} className="p-0">
+                    <EmptyState icon={<Flag className="w-5 h-5" />} title="No challenges yet" hint="Add one above — it stays hidden until you publish it." />
+                  </td></tr>
                 )}
               </tbody>
             </table>
+          </TableFrame>
+
+          {/* Mobile: card list */}
+          <div className="md:hidden space-y-3">
+            {challenges.map(c => (
+              <div key={c.id} className="surface p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span aria-hidden className="w-1.5 h-1.5 shrink-0 rounded-pill" style={{ backgroundColor: `var(--color-cat-${c.category})` }} />
+                      <h3 className="text-body font-semibold text-cyber-text truncate">{c.title}</h3>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                      <span className="badge" style={{ color: `var(--color-cat-${c.category})` }}>{c.category}</span>
+                      <span className={`badge ${DIFF_BADGE[String(c.difficulty)] ?? ''}`}>{c.difficulty}</span>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="font-mono text-h3 text-cyber-neon leading-none">{c.points}</p>
+                    <p className="label-micro mt-1">pts</p>
+                  </div>
+                </div>
+                <div className="mt-3 pt-3 border-t border-border-subtle flex items-center justify-between gap-2">
+                  <button onClick={() => toggleVisibility(c.id, c.is_visible)}
+                    aria-pressed={c.is_visible}
+                    className={`chip ${c.is_visible ? 'is-active' : ''}`}>
+                    {c.is_visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                    {c.is_visible ? 'Live' : 'Hidden'}
+                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <span className="label-micro mr-1">{(c as any).max_attempts ?? 15} tries</span>
+                    <button onClick={() => setEditChallenge(c)} aria-label={`Edit ${c.title}`}
+                      className="btn btn-ghost btn-sm btn-icon">
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => deleteChallenge(c.id)} aria-label={`Delete ${c.title}`}
+                      className="btn btn-ghost btn-sm btn-icon text-diff-hard hover:text-danger-fg">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {challenges.length === 0 && (
+              <div className="surface">
+                <EmptyState icon={<Flag className="w-5 h-5" />} title="No challenges yet" hint="Add one above — it stays hidden until you publish it." />
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -571,56 +880,147 @@ function UsersTab() {
   };
 
   return (
-    <div className="overflow-hidden rounded-lg border border-cyber-border">
-      <table className="w-full text-left">
-        <thead className="bg-cyber-sidebar/50 border-b border-cyber-border">
-          <tr>
-            {['#', 'Username', 'Email', 'Role', 'Points', 'Solved', 'Status', ''].map(h => (
-              <th key={h} className="px-4 py-4 text-[10px] font-bold text-cyber-muted uppercase tracking-widest">{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-cyber-border/50">
-          {users.map((u, i) => (
-            <tr key={u.id} className="hover:bg-cyber-sidebar/20">
-              <td className="px-4 py-4 text-sm font-bold text-cyber-muted">{i + 1}</td>
-              <td className={`px-4 py-4 text-sm font-medium ${u.is_banned ? 'text-red-400 line-through' : 'text-white'}`}>
-                {u.username}
-              </td>
-              <td className="px-4 py-4 text-[11px] font-mono text-cyber-muted">{u.email}</td>
-              <td className="px-4 py-4">
-                <select
-                  value={u.role}
-                  disabled={busy === u.id}
-                  onChange={e => setRole(u, e.target.value)}
-                  className="bg-cyber-sidebar border border-cyber-border rounded px-2 py-1 text-[10px] font-bold uppercase text-cyber-muted disabled:opacity-40"
-                >
-                  <option value="player">player</option>
-                  <option value="moderator">moderator</option>
-                  <option value="admin">admin</option>
-                </select>
-              </td>
-              <td className="px-4 py-4 text-sm font-mono text-cyber-neon">{u.total_points}</td>
-              <td className="px-4 py-4 text-sm text-cyber-muted">{u.solved_count}</td>
-              <td className="px-4 py-4">
-                <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded ${u.is_banned ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
-                  {u.is_banned ? 'Banned' : 'Active'}
-                </span>
-              </td>
-              <td className="px-4 py-4 text-right">
-                {u.is_banned
-                  ? <button disabled={busy === u.id} onClick={() => setBan(u, false)} className="text-[9px] bg-green-600/20 text-green-400 px-2 py-1 rounded hover:bg-green-600/40 font-bold uppercase disabled:opacity-40">Unban</button>
-                  : <button
-                      disabled={busy === u.id || u.role === 'admin'}
-                      title={u.role === 'admin' ? 'Change their role to player first' : undefined}
-                      onClick={() => setBan(u, true)}
-                      className="text-[9px] bg-red-600/20 text-red-400 px-2 py-1 rounded hover:bg-red-600/40 font-bold uppercase disabled:opacity-30 disabled:cursor-not-allowed"
-                    >Ban</button>}
-              </td>
+    <div>
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">
+        <h2 className="text-h3 text-cyber-text">Players</h2>
+        <p className="text-small text-text-muted">
+          Banning an admin is blocked — demote to <span className="font-mono text-text-secondary">player</span> first.
+        </p>
+      </div>
+
+      {/* Desktop / tablet: table */}
+      <TableFrame className="hidden md:block">
+        <table className="w-full text-left min-w-[880px]">
+          <thead className="bg-surface-rail border-b border-border-base">
+            <tr>
+              <Th>#</Th>
+              <Th>Username</Th>
+              <Th>Email</Th>
+              <Th>Role</Th>
+              <Th>Points</Th>
+              <Th>Solved</Th>
+              <Th>Status</Th>
+              <Th align="right">Action</Th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-border-subtle">
+            {users.map((u, i) => (
+              <tr key={u.id} className={`transition-colors duration-[var(--duration-fast)] hover:bg-surface-raised ${busy === u.id ? 'opacity-60' : ''}`}>
+                <td className="px-5 py-4 text-small font-mono text-text-muted">{i + 1}</td>
+                <td className="px-5 py-4">
+                  <span className={`text-body font-semibold ${u.is_banned ? 'line-through text-diff-hard' : 'text-cyber-text'}`}>
+                    {u.username}
+                  </span>
+                </td>
+                <td className="px-5 py-4 text-small font-mono text-text-muted">{u.email}</td>
+                <td className="px-5 py-4">
+                  <select
+                    value={u.role}
+                    disabled={busy === u.id}
+                    onChange={e => setRole(u, e.target.value)}
+                    aria-label={`Role for ${u.username}`}
+                    className="select w-[8.5rem] py-1.5"
+                  >
+                    <option value="player">player</option>
+                    <option value="moderator">moderator</option>
+                    <option value="admin">admin</option>
+                  </select>
+                </td>
+                <td className="px-5 py-4 text-small font-mono text-cyber-neon">{u.total_points}</td>
+                <td className="px-5 py-4 text-small font-mono text-text-secondary">{u.solved_count}</td>
+                <td className="px-5 py-4">
+                  <span className={`badge ${u.is_banned ? 'badge-hard' : 'badge-solved'}`}>
+                    {u.is_banned ? 'Banned' : 'Active'}
+                  </span>
+                </td>
+                <td className="px-5 py-4">
+                  <div className="flex justify-end">
+                    {u.is_banned
+                      ? <button disabled={busy === u.id} onClick={() => setBan(u, false)}
+                          className={`btn btn-success btn-sm ${busy === u.id ? 'is-loading' : ''}`}>Unban</button>
+                      : <button
+                          disabled={busy === u.id || u.role === 'admin'}
+                          title={u.role === 'admin' ? 'Change their role to player first' : undefined}
+                          onClick={() => setBan(u, true)}
+                          className={`btn btn-danger btn-sm ${busy === u.id ? 'is-loading' : ''}`}
+                        >
+                          {u.role === 'admin' && <Lock aria-hidden className="w-3 h-3" />}
+                          Ban
+                        </button>}
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {users.length === 0 && (
+              <tr><td colSpan={8} className="p-0">
+                <EmptyState icon={<Users className="w-5 h-5" />} title="No players listed" hint="Registered accounts appear here as soon as they sign up." />
+              </td></tr>
+            )}
+          </tbody>
+        </table>
+      </TableFrame>
+
+      {/* Mobile: card list */}
+      <div className="md:hidden space-y-3">
+        {users.map((u, i) => (
+          <div key={u.id} className={`surface p-4 ${busy === u.id ? 'opacity-60' : ''}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-mono text-small text-text-muted shrink-0">{i + 1}</span>
+                  <p className={`text-body font-semibold truncate ${u.is_banned ? 'line-through text-diff-hard' : 'text-cyber-text'}`}>
+                    {u.username}
+                  </p>
+                </div>
+                <p className="font-mono text-small text-text-muted truncate mt-1">{u.email}</p>
+              </div>
+              <span className={`badge shrink-0 ${u.is_banned ? 'badge-hard' : 'badge-solved'}`}>
+                {u.is_banned ? 'Banned' : 'Active'}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              <div className="surface-inset px-3 py-2">
+                <p className="label-micro">Points</p>
+                <p className="font-mono text-body text-cyber-neon mt-0.5">{u.total_points}</p>
+              </div>
+              <div className="surface-inset px-3 py-2">
+                <p className="label-micro">Solved</p>
+                <p className="font-mono text-body text-text-secondary mt-0.5">{u.solved_count}</p>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-border-subtle flex items-center gap-2">
+              <select
+                value={u.role}
+                disabled={busy === u.id}
+                onChange={e => setRole(u, e.target.value)}
+                aria-label={`Role for ${u.username}`}
+                className="select flex-1 py-1.5"
+              >
+                <option value="player">player</option>
+                <option value="moderator">moderator</option>
+                <option value="admin">admin</option>
+              </select>
+              {u.is_banned
+                ? <button disabled={busy === u.id} onClick={() => setBan(u, false)}
+                    className={`btn btn-success btn-sm ${busy === u.id ? 'is-loading' : ''}`}>Unban</button>
+                : <button
+                    disabled={busy === u.id || u.role === 'admin'}
+                    title={u.role === 'admin' ? 'Change their role to player first' : undefined}
+                    onClick={() => setBan(u, true)}
+                    className={`btn btn-danger btn-sm ${busy === u.id ? 'is-loading' : ''}`}
+                  >
+                    {u.role === 'admin' && <Lock aria-hidden className="w-3 h-3" />}
+                    Ban
+                  </button>}
+            </div>
+          </div>
+        ))}
+        {users.length === 0 && (
+          <div className="surface">
+            <EmptyState icon={<Users className="w-5 h-5" />} title="No players listed" hint="Registered accounts appear here as soon as they sign up." />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -640,33 +1040,78 @@ function SubmissionsTab() {
   }, []);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-cyber-border">
-      <table className="w-full text-left">
-        <thead className="bg-cyber-sidebar/50 border-b border-cyber-border">
-          <tr>
-            {['User', 'Challenge', 'Flag Hash', 'Result', 'Time'].map(h => (
-              <th key={h} className="px-6 py-4 text-[10px] font-bold text-cyber-muted uppercase tracking-widest">{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-cyber-border/50">
-          {subs.map(s => (
-            <tr key={s.id} className="hover:bg-cyber-sidebar/20">
-              <td className="px-6 py-4 text-sm text-white">{(s.profiles as any)?.username}</td>
-              <td className="px-6 py-4 text-sm text-cyber-muted">{(s.challenges as any)?.title}</td>
-              <td className="px-6 py-4 text-xs font-mono text-cyber-muted truncate max-w-[200px]">{s.submitted_flag_hash ? s.submitted_flag_hash.substring(0, 16) + '...' : '—'}</td>
-              <td className="px-6 py-4">
-                <span className={`text-[10px] font-bold uppercase tracking-widest ${s.is_correct ? 'text-cyber-neon' : 'text-red-400'}`}>
-                  {s.is_correct ? '✓ Correct' : '✗ Wrong'}
-                </span>
-              </td>
-              <td className="px-6 py-4 text-[10px] font-mono text-cyber-muted">
-                {new Date(s.submitted_at).toLocaleString()}
-              </td>
+    <div>
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">
+        <h2 className="text-h3 text-cyber-text">Submission log</h2>
+        <p className="text-small text-text-muted">Newest first · latest 100 attempts</p>
+      </div>
+
+      {/* Desktop / tablet: table */}
+      <TableFrame className="hidden md:block">
+        <table className="w-full text-left min-w-[820px]">
+          <thead className="bg-surface-rail border-b border-border-base">
+            <tr>
+              <Th>User</Th>
+              <Th>Challenge</Th>
+              <Th>Flag Hash</Th>
+              <Th>Result</Th>
+              <Th align="right">Time</Th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-border-subtle">
+            {subs.map(s => (
+              <tr key={s.id} className="transition-colors duration-[var(--duration-fast)] hover:bg-surface-raised">
+                <td className="px-5 py-4 text-body font-semibold text-cyber-text">{(s.profiles as any)?.username}</td>
+                <td className="px-5 py-4 text-small text-text-secondary">{(s.challenges as any)?.title}</td>
+                <td className="px-5 py-4 text-small font-mono text-text-muted truncate max-w-[200px]">{s.submitted_flag_hash ? s.submitted_flag_hash.substring(0, 16) + '...' : '—'}</td>
+                <td className="px-5 py-4">
+                  <span className={`badge ${s.is_correct ? 'badge-solved' : 'badge-hard'}`}>
+                    {s.is_correct ? '✓ Correct' : '✗ Wrong'}
+                  </span>
+                </td>
+                <td className="px-5 py-4 text-small font-mono text-text-muted text-right whitespace-nowrap">
+                  {new Date(s.submitted_at).toLocaleString()}
+                </td>
+              </tr>
+            ))}
+            {subs.length === 0 && (
+              <tr><td colSpan={5} className="p-0">
+                <EmptyState icon={<Inbox className="w-5 h-5" />} title="No submissions yet" hint="Every flag attempt lands here the moment a player submits." />
+              </td></tr>
+            )}
+          </tbody>
+        </table>
+      </TableFrame>
+
+      {/* Mobile: card list */}
+      <div className="md:hidden space-y-2.5">
+        {subs.map(s => (
+          <div key={s.id} className="surface p-3.5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-body font-semibold text-cyber-text truncate">{(s.profiles as any)?.username}</p>
+                <p className="text-small text-text-secondary truncate">{(s.challenges as any)?.title}</p>
+              </div>
+              <span className={`badge shrink-0 ${s.is_correct ? 'badge-solved' : 'badge-hard'}`}>
+                {s.is_correct ? '✓' : '✗'}
+              </span>
+            </div>
+            <div className="mt-2.5 pt-2.5 border-t border-border-subtle flex items-center justify-between gap-3">
+              <span className="text-small font-mono text-text-muted truncate">
+                {s.submitted_flag_hash ? s.submitted_flag_hash.substring(0, 16) + '...' : '—'}
+              </span>
+              <span className="text-small font-mono text-text-muted whitespace-nowrap shrink-0">
+                {new Date(s.submitted_at).toLocaleString()}
+              </span>
+            </div>
+          </div>
+        ))}
+        {subs.length === 0 && (
+          <div className="surface">
+            <EmptyState icon={<Inbox className="w-5 h-5" />} title="No submissions yet" hint="Every flag attempt lands here the moment a player submits." />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -707,58 +1152,76 @@ function NotificationsTab() {
   };
 
   const typeColors: Record<string, string> = {
-    info: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    success: 'bg-green-500/20 text-green-400 border-green-500/30',
-    warning: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-    danger: 'bg-red-500/20 text-red-400 border-red-500/30',
+    info: 'bg-status-info-wash text-status-info border-status-info/40',
+    success: 'bg-status-solved-wash text-status-solved border-status-solved/40',
+    warning: 'bg-diff-medium-wash text-diff-medium border-diff-medium/40',
+    danger: 'bg-diff-hard-wash text-diff-hard border-diff-hard/40',
   };
 
   return (
-    <div className="flex gap-6">
-      <div className="flex-1 bg-cyber-card border border-cyber-border rounded-lg p-6 space-y-4 self-start">
-        <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-4">Send Notification to All Users</h3>
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] items-start">
+      <div className="surface p-5 sm:p-gutter space-y-5 min-w-0">
+        <div className="flex items-start gap-3">
+          <span aria-hidden className="grid place-items-center w-9 h-9 shrink-0 rounded-control border border-border-neon bg-neon-wash text-cyber-neon">
+            <Megaphone className="w-4 h-4" />
+          </span>
+          <div className="min-w-0">
+            <h3 className="text-h3 text-cyber-text">Broadcast</h3>
+            <p className="text-small text-text-muted mt-0.5">Delivered to every signed-in participant immediately.</p>
+          </div>
+        </div>
+
         <div>
-          <label className="text-[10px] font-bold text-cyber-muted uppercase tracking-widest block mb-1">Type</label>
-          <div className="flex gap-2">
+          <span className="field-label">Type</span>
+          <div className="flex flex-wrap gap-2">
             {['info', 'success', 'warning', 'danger'].map(t => (
               <button key={t} onClick={() => setType(t)}
-                className={`px-3 py-1.5 rounded text-[9px] font-bold uppercase tracking-widest border transition-all ${type === t ? typeColors[t] : 'bg-cyber-sidebar text-cyber-muted border-cyber-border hover:text-white'}`}>
+                aria-pressed={type === t}
+                className={`chip ${type === t ? typeColors[t] : ''}`}>
                 {t}
               </button>
             ))}
           </div>
         </div>
         <div>
-          <label className="text-[10px] font-bold text-cyber-muted uppercase tracking-widest block mb-1">Title</label>
-          <input value={title} onChange={e => setTitle(e.target.value)}
+          <label className="field-label" htmlFor="notif-title">Title</label>
+          <input id="notif-title" value={title} onChange={e => setTitle(e.target.value)}
             placeholder="e.g. New Challenge Released!"
-            className="w-full bg-cyber-sidebar border border-cyber-border rounded px-3 py-2 text-white text-xs focus:outline-none focus:border-cyber-neon transition-all" />
+            className="input" />
         </div>
         <div>
-          <label className="text-[10px] font-bold text-cyber-muted uppercase tracking-widest block mb-1">Message</label>
-          <textarea value={message} onChange={e => setMessage(e.target.value)}
+          <label className="field-label" htmlFor="notif-message">Message</label>
+          <textarea id="notif-message" value={message} onChange={e => setMessage(e.target.value)}
             placeholder="e.g. A new Web challenge 'SQLi Master' has been added. Good luck!"
             rows={3}
-            className="w-full bg-cyber-sidebar border border-cyber-border rounded px-3 py-2 text-white text-xs focus:outline-none focus:border-cyber-neon transition-all resize-none" />
+            className="textarea min-h-[6rem]" />
         </div>
-        {msg && <p className="text-[11px] font-bold">{msg}</p>}
+        {msg && <StatusLine msg={msg} />}
         <button disabled={sending} onClick={send}
-          className="w-full py-3 bg-cyber-neon text-black text-[11px] font-bold uppercase tracking-widest rounded hover:bg-white transition-all disabled:opacity-50">
-          {sending ? 'Sending...' : '📢 Send to All Users'}
+          className={`btn btn-primary btn-lg btn-block ${sending ? 'is-loading' : ''}`}>
+          <Send className="w-4 h-4" />
+          {sending ? 'Sending...' : 'Send to All Users'}
         </button>
       </div>
-      <div className="w-80 self-start">
-        <h3 className="text-[10px] font-bold text-cyber-muted uppercase tracking-widest mb-3">Recent Notifications</h3>
+
+      <div className="min-w-0">
+        <h3 className="label-micro mb-3">Recent Notifications</h3>
         <div className="space-y-2">
           {history.length === 0 ? (
-            <p className="text-cyber-muted text-xs">No notifications sent yet</p>
+            <div className="surface">
+              <EmptyState icon={<Megaphone className="w-5 h-5" />} title="Nothing sent yet" hint="Your last ten broadcasts show up here." />
+            </div>
           ) : history.map(n => (
-            <div key={n.id} className={`p-3 rounded border text-xs relative ${typeColors[n.type] ?? typeColors.info}`}>
-              <button onClick={() => deleteNotif(n.id)} className="absolute top-2 right-2 text-current opacity-50 hover:opacity-100">×</button>
-              <p className="font-bold text-[10px] uppercase mb-0.5">{n.type}</p>
-              <p className="font-semibold">{n.title}</p>
-              <p className="opacity-75 text-[10px] mt-0.5">{n.message}</p>
-              <p className="opacity-50 text-[9px] mt-1">{new Date(n.created_at).toLocaleString()}</p>
+            <div key={n.id} className={`relative rounded-card border p-3.5 pr-10 ${typeColors[n.type] ?? typeColors.info}`}>
+              <button onClick={() => deleteNotif(n.id)}
+                aria-label={`Delete notification: ${n.title}`} title="Delete notification"
+                className="btn btn-ghost btn-sm btn-icon absolute top-2 right-2 text-current opacity-60 hover:opacity-100">
+                <X className="w-3.5 h-3.5" />
+              </button>
+              <p className="label-micro text-current opacity-80">{n.type}</p>
+              <p className="text-body font-semibold text-cyber-text mt-1">{n.title}</p>
+              <p className="text-small leading-relaxed text-text-secondary mt-1 break-words">{n.message}</p>
+              <p className="text-small font-mono text-text-muted mt-2">{new Date(n.created_at).toLocaleString()}</p>
             </div>
           ))}
         </div>
@@ -797,7 +1260,14 @@ function EventTab() {
     setTimeout(() => setMsg(''), 3000);
   };
 
-  if (!event) return <div className="text-cyber-muted text-xs">Loading event settings...</div>;
+  if (!event) return (
+    <div className="surface max-w-2xl p-gutter space-y-3">
+      <div className="skeleton skeleton-text w-40" />
+      <div className="skeleton h-10 w-full rounded-control" />
+      <div className="skeleton h-10 w-full rounded-control" />
+      <p className="label-micro pt-1">Loading event settings...</p>
+    </div>
+  );
 
   const now = new Date();
   const start = event.start_time ? new Date(event.start_time) : null;
@@ -805,52 +1275,77 @@ function EventTab() {
   const status = !event.is_active ? 'Inactive' : !start || !end ? 'Active (no time set)' : now < start ? '⏳ Scheduled' : now > end ? '🏁 Ended' : '🟢 LIVE';
 
   return (
-    <div className="max-w-lg space-y-6">
-      <div className="bg-cyber-card border border-cyber-border rounded-lg p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold uppercase tracking-widest text-cyber-neon">Event Settings</h3>
-          <span className="text-[10px] font-bold uppercase tracking-widest text-cyber-muted">{status}</span>
+    <div className="max-w-2xl space-y-6">
+      <div className="surface p-5 sm:p-gutter">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-5 border-b border-border-subtle">
+          <div className="flex items-center gap-3 min-w-0">
+            <span aria-hidden className="grid place-items-center w-9 h-9 shrink-0 rounded-control border border-border-neon bg-neon-wash text-cyber-neon">
+              <Settings2 className="w-4 h-4" />
+            </span>
+            <div className="min-w-0">
+              <h3 className="text-h3 text-cyber-text">Event Settings</h3>
+              <p className="text-small text-text-muted mt-0.5">Controls the timer, scoreboard freeze and registration.</p>
+            </div>
+          </div>
+          <span className={`badge ${status.includes('LIVE') ? 'badge-live' : status === 'Inactive' ? 'badge-locked' : 'badge-info'}`}>
+            {status}
+          </span>
         </div>
-        <div className="space-y-1">
-          <label className="text-[10px] font-bold text-cyber-muted uppercase tracking-widest block">Event Name</label>
-          <input type="text" value={event.name ?? ''} onChange={e => setEvent((p: any) => ({ ...p, name: e.target.value }))}
-            className="w-full bg-cyber-sidebar border border-cyber-border rounded px-4 py-3 text-white text-xs focus:outline-none focus:border-cyber-neon font-mono" />
+
+        <div className="mt-6 space-y-4">
+          <div>
+            <label className="field-label" htmlFor="event-name">Event Name</label>
+            <input id="event-name" type="text" value={event.name ?? ''} onChange={e => setEvent((p: any) => ({ ...p, name: e.target.value }))}
+              className="input" />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="min-w-0">
+              <label className="field-label" htmlFor="event-start">Start Time</label>
+              <input id="event-start" type="datetime-local" value={event.start_time ? event.start_time.slice(0, 16) : ''}
+                onChange={e => setEvent((p: any) => ({ ...p, start_time: e.target.value }))}
+                className="input" />
+            </div>
+            <div className="min-w-0">
+              <label className="field-label" htmlFor="event-end">End Time</label>
+              <input id="event-end" type="datetime-local" value={event.end_time ? event.end_time.slice(0, 16) : ''}
+                onChange={e => setEvent((p: any) => ({ ...p, end_time: e.target.value }))}
+                className="input" />
+            </div>
+          </div>
         </div>
-        <div className="space-y-1">
-          <label className="text-[10px] font-bold text-cyber-muted uppercase tracking-widest block">Start Time</label>
-          <input type="datetime-local" value={event.start_time ? event.start_time.slice(0, 16) : ''}
-            onChange={e => setEvent((p: any) => ({ ...p, start_time: e.target.value }))}
-            className="w-full bg-cyber-sidebar border border-cyber-border rounded px-4 py-3 text-white text-xs focus:outline-none focus:border-cyber-neon font-mono" />
+
+        <div className="mt-6 pt-6 border-t border-border-subtle">
+          <p className="field-label flex items-center gap-1.5"><CalendarClock aria-hidden className="w-3.5 h-3.5" /> Switches</p>
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 rounded-control border border-border-subtle bg-surface-inset px-4 py-3">
+              <input type="checkbox" id="active" checked={event.is_active ?? false}
+                onChange={e => setEvent((p: any) => ({ ...p, is_active: e.target.checked }))}
+                className="w-4 h-4 accent-cyber-neon shrink-0" />
+              <label htmlFor="active" className="text-label uppercase text-text-secondary cursor-pointer">Event Active</label>
+            </div>
+            <div className="flex items-center gap-3 rounded-control border border-border-subtle bg-surface-inset px-4 py-3">
+              <input type="checkbox" id="freeze" checked={event.freeze_scoreboard ?? false}
+                onChange={e => setEvent((p: any) => ({ ...p, freeze_scoreboard: e.target.checked }))}
+                className="w-4 h-4 accent-cyber-neon shrink-0" />
+              <label htmlFor="freeze" className="text-label uppercase text-text-secondary cursor-pointer">Freeze Scoreboard</label>
+            </div>
+            <div className="flex items-center gap-3 rounded-control border border-border-subtle bg-surface-inset px-4 py-3">
+              <input type="checkbox" id="registration" checked={event.registration_open ?? true}
+                onChange={e => setEvent((p: any) => ({ ...p, registration_open: e.target.checked }))}
+                className="w-4 h-4 accent-cyber-neon shrink-0" />
+              <label htmlFor="registration" className="text-label uppercase text-text-secondary cursor-pointer">Registration Open</label>
+            </div>
+          </div>
         </div>
-        <div className="space-y-1">
-          <label className="text-[10px] font-bold text-cyber-muted uppercase tracking-widest block">End Time</label>
-          <input type="datetime-local" value={event.end_time ? event.end_time.slice(0, 16) : ''}
-            onChange={e => setEvent((p: any) => ({ ...p, end_time: e.target.value }))}
-            className="w-full bg-cyber-sidebar border border-cyber-border rounded px-4 py-3 text-white text-xs focus:outline-none focus:border-cyber-neon font-mono" />
+
+        <div className="mt-6 pt-6 border-t border-border-subtle flex flex-wrap items-center gap-3">
+          <button onClick={save} disabled={saving}
+            className={`btn btn-primary btn-md ${saving ? 'is-loading' : ''}`}>
+            <Save className="w-4 h-4" />
+            {saving ? 'Saving...' : 'Save Event Settings'}
+          </button>
+          {msg && <StatusLine msg={msg} />}
         </div>
-        <div className="flex items-center gap-3">
-          <input type="checkbox" id="active" checked={event.is_active ?? false}
-            onChange={e => setEvent((p: any) => ({ ...p, is_active: e.target.checked }))}
-            className="w-4 h-4 accent-cyber-neon" />
-          <label htmlFor="active" className="text-[11px] font-bold text-cyber-muted uppercase tracking-widest cursor-pointer">Event Active</label>
-        </div>
-        <div className="flex items-center gap-3">
-          <input type="checkbox" id="freeze" checked={event.freeze_scoreboard ?? false}
-            onChange={e => setEvent((p: any) => ({ ...p, freeze_scoreboard: e.target.checked }))}
-            className="w-4 h-4 accent-cyber-neon" />
-          <label htmlFor="freeze" className="text-[11px] font-bold text-cyber-muted uppercase tracking-widest cursor-pointer">Freeze Scoreboard</label>
-        </div>
-        <div className="flex items-center gap-3">
-          <input type="checkbox" id="registration" checked={event.registration_open ?? true}
-            onChange={e => setEvent((p: any) => ({ ...p, registration_open: e.target.checked }))}
-            className="w-4 h-4 accent-cyber-neon" />
-          <label htmlFor="registration" className="text-[11px] font-bold text-cyber-muted uppercase tracking-widest cursor-pointer">Registration Open</label>
-        </div>
-        {msg && <p className="text-xs font-bold text-cyber-neon">{msg}</p>}
-        <button onClick={save} disabled={saving}
-          className="bg-cyber-neon text-black px-6 py-2 rounded text-[11px] font-bold uppercase tracking-widest hover:bg-white transition-all disabled:opacity-50">
-          {saving ? 'Saving...' : 'Save Event Settings'}
-        </button>
       </div>
     </div>
   );
@@ -914,85 +1409,169 @@ function TeamsTab() {
   };
 
   return (
-    <div className="flex gap-6">
-      <div className="flex-1 overflow-hidden rounded-lg border border-cyber-border">
-        <table className="w-full text-left">
-          <thead className="bg-cyber-sidebar/50 border-b border-cyber-border">
-            <tr>
-              {['#', 'Team Name', 'Members', 'Invite Code', 'Status', 'Actions'].map(h => (
-                <th key={h} className="px-4 py-4 text-[10px] font-bold text-cyber-muted uppercase tracking-widest">{h}</th>
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_19rem] items-start">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">
+          <h2 className="text-h3 text-cyber-text">Teams</h2>
+          <p className="text-small text-text-muted">Select a team to inspect members and its invite code.</p>
+        </div>
+
+        {/* Desktop / tablet: table */}
+        <TableFrame className="hidden md:block">
+          <table className="w-full text-left min-w-[720px]">
+            <thead className="bg-surface-rail border-b border-border-base">
+              <tr>
+                <Th>#</Th>
+                <Th>Team Name</Th>
+                <Th>Members</Th>
+                <Th>Invite Code</Th>
+                <Th>Status</Th>
+                <Th align="right">Actions</Th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-subtle">
+              {teams.map((t, i) => (
+                <tr key={t.id} onClick={() => setSelected(t)}
+                  title={`Inspect ${t.name}`}
+                  className={`cursor-pointer transition-colors duration-[var(--duration-fast)] hover:bg-surface-raised ${selected?.id === t.id ? 'bg-surface-raised' : ''}`}>
+                  <td className="px-5 py-4 text-small font-mono text-text-muted">{i + 1}</td>
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`text-body font-semibold ${t.is_banned ? 'line-through text-diff-hard' : 'text-cyber-text'}`}>{t.name}</span>
+                      {selected?.id === t.id && <span className="badge badge-neon">Selected</span>}
+                    </div>
+                  </td>
+                  <td className="px-5 py-4 text-small text-text-secondary whitespace-nowrap">
+                    <span className="font-mono">{t.member_count ?? 0}</span> members
+                  </td>
+                  <td className="px-5 py-4 text-small font-mono text-text-muted">••••••••</td>
+                  <td className="px-5 py-4">
+                    <span className={`badge ${t.is_banned ? 'badge-hard' : 'badge-solved'}`}>
+                      {t.is_banned ? 'Banned' : 'Active'}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="flex justify-end">
+                      {t.is_banned
+                        ? <button onClick={e => { e.stopPropagation(); act('unban', t.id); }} className="btn btn-success btn-sm">Unban</button>
+                        : <button onClick={e => { e.stopPropagation(); act('ban', t.id); }} className="btn btn-danger btn-sm">Ban</button>
+                      }
+                    </div>
+                  </td>
+                </tr>
               ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-cyber-border/50">
-            {teams.map((t, i) => (
-              <tr key={t.id} onClick={() => setSelected(t)}
-                className={`hover:bg-cyber-sidebar/30 cursor-pointer transition-colors ${selected?.id === t.id ? 'bg-cyber-sidebar/40' : ''}`}>
-                <td className="px-4 py-3 text-xs text-cyber-muted">{i + 1}</td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-sm font-medium ${t.is_banned ? 'text-red-400 line-through' : 'text-white'}`}>{t.name}</span>
-                    {t.is_banned && <span className="bg-red-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded uppercase">Banned</span>}
+              {teams.length === 0 && (
+                <tr><td colSpan={6} className="p-0">
+                  <EmptyState icon={<Shield className="w-5 h-5" />} title="No teams yet" hint="Teams appear here as soon as a player creates one." />
+                </td></tr>
+              )}
+            </tbody>
+          </table>
+        </TableFrame>
+
+        {/* Mobile: card list */}
+        <div className="md:hidden space-y-3">
+          {teams.map((t, i) => (
+            <div key={t.id} className={`surface p-4 ${selected?.id === t.id ? 'border-border-neon' : ''}`}>
+              <button type="button" onClick={() => setSelected(t)} className="w-full text-left focus-ring rounded-inset">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-mono text-small text-text-muted shrink-0">{i + 1}</span>
+                      <p className={`text-body font-semibold truncate ${t.is_banned ? 'line-through text-diff-hard' : 'text-cyber-text'}`}>{t.name}</p>
+                    </div>
+                    <p className="text-small text-text-muted mt-1">
+                      <span className="font-mono">{t.member_count ?? 0}</span> members · code ••••••••
+                    </p>
                   </div>
-                </td>
-                <td className="px-4 py-3 text-xs text-cyber-muted">{t.member_count ?? 0} members</td>
-                <td className="px-4 py-3 text-xs font-mono text-cyber-muted">••••••••</td>
-                <td className="px-4 py-3">
-                  <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded ${t.is_banned ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
+                  <span className={`badge shrink-0 ${t.is_banned ? 'badge-hard' : 'badge-solved'}`}>
                     {t.is_banned ? 'Banned' : 'Active'}
                   </span>
-                </td>
-                <td className="px-4 py-3">
-                  {t.is_banned
-                    ? <button onClick={e => { e.stopPropagation(); act('unban', t.id); }} className="text-[9px] bg-green-600/20 text-green-400 px-2 py-1 rounded hover:bg-green-600/40 font-bold uppercase">Unban</button>
-                    : <button onClick={e => { e.stopPropagation(); act('ban', t.id); }} className="text-[9px] bg-red-600/20 text-red-400 px-2 py-1 rounded hover:bg-red-600/40 font-bold uppercase">Ban</button>
-                  }
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+              </button>
+              <div className="mt-3 pt-3 border-t border-border-subtle flex justify-end">
+                {t.is_banned
+                  ? <button onClick={e => { e.stopPropagation(); act('unban', t.id); }} className="btn btn-success btn-sm">Unban</button>
+                  : <button onClick={e => { e.stopPropagation(); act('ban', t.id); }} className="btn btn-danger btn-sm">Ban</button>
+                }
+              </div>
+            </div>
+          ))}
+          {teams.length === 0 && (
+            <div className="surface">
+              <EmptyState icon={<Shield className="w-5 h-5" />} title="No teams yet" hint="Teams appear here as soon as a player creates one." />
+            </div>
+          )}
+        </div>
       </div>
 
       {selected && (
-        <div className="w-72 bg-cyber-card border border-cyber-border rounded-lg p-6 flex flex-col gap-4 self-start">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-white">{selected.name}</h3>
-            <button onClick={() => setSelected(null)} className="text-cyber-muted hover:text-white text-lg">×</button>
+        <aside className="surface p-5 flex flex-col gap-4 min-w-0 lg:sticky lg:top-6">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-h3 text-cyber-text truncate">{selected.name}</h3>
+              <p className="label-micro mt-1">Team detail</p>
+            </div>
+            <button onClick={() => setSelected(null)} aria-label="Close team detail" title="Close"
+              className="btn btn-ghost btn-sm btn-icon shrink-0">
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <div className="space-y-2 text-[10px] text-cyber-muted border-b border-cyber-border pb-4">
-            <div className="flex justify-between"><span>Status</span><span className={selected.is_banned ? 'text-red-400' : 'text-green-400'}>{selected.is_banned ? 'Banned' : 'Active'}</span></div>
-            <div className="flex justify-between"><span>Invite Code</span><span className="text-cyber-neon font-mono">{selInvite ?? '••••••••'}</span></div>
-            <div className="flex justify-between"><span>Members</span><span className="text-white">{members.length}</span></div>
-            <div className="flex justify-between"><span>Created</span><span className="text-white">{new Date(selected.created_at).toLocaleDateString()}</span></div>
-          </div>
-          <div className="border-b border-cyber-border pb-4">
-            <p className="text-[10px] font-bold text-cyber-muted uppercase tracking-widest mb-3">Members</p>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
+
+          <dl className="surface-inset px-3.5 py-3 space-y-2 text-small">
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-text-muted">Status</dt>
+              <dd><span className={`badge ${selected.is_banned ? 'badge-hard' : 'badge-solved'}`}>{selected.is_banned ? 'Banned' : 'Active'}</span></dd>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-text-muted">Invite Code</dt>
+              <dd className="font-mono text-cyber-neon truncate">{selInvite ?? '••••••••'}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-text-muted">Members</dt>
+              <dd className="font-mono text-cyber-text">{members.length}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-text-muted">Created</dt>
+              <dd className="font-mono text-text-secondary">{new Date(selected.created_at).toLocaleDateString()}</dd>
+            </div>
+          </dl>
+
+          <div>
+            <p className="label-micro mb-2">Members</p>
+            <div className="space-y-1.5 max-h-56 overflow-y-auto custom-scrollbar pr-1">
               {members.length === 0 ? (
-                <p className="text-[10px] text-cyber-muted">No members</p>
+                <p className="text-small text-text-muted py-2">No members</p>
               ) : members.map(m => (
-                <div key={m.id} className="flex items-center justify-between bg-cyber-sidebar/40 rounded px-2 py-1.5">
-                  <div>
-                    <p className="text-[11px] font-bold text-white">{m.username}</p>
-                    <p className="text-[9px] text-cyber-muted">{m.email}</p>
+                <div key={m.id} className="flex items-center justify-between gap-2 rounded-inset bg-surface-inset border border-border-subtle px-2.5 py-2">
+                  <div className="min-w-0">
+                    <p className="text-small font-semibold text-cyber-text truncate">{m.username}</p>
+                    <p className="text-small font-mono text-text-muted truncate">{m.email}</p>
                   </div>
                   {m.id === selected.captain_id && (
-                    <span className="text-[8px] font-bold bg-cyber-neon/20 text-cyber-neon px-1.5 py-0.5 rounded uppercase">Captain</span>
+                    <span className="badge badge-neon shrink-0">Captain</span>
                   )}
                 </div>
               ))}
             </div>
           </div>
-          {msg && <p className="text-[10px] font-bold text-center">{msg}</p>}
-          <div className="flex flex-col gap-2">
+
+          {msg && <StatusLine msg={msg} className="text-center" />}
+
+          <div className="flex flex-col gap-2 pt-1 border-t border-border-subtle">
+            <p className="label-micro pt-3">Danger zone</p>
             {selected.is_banned
-              ? <button disabled={loading} onClick={() => act('unban', selected.id)} className="w-full py-2 rounded text-[10px] font-bold uppercase tracking-widest bg-green-600/20 text-green-400 hover:bg-green-600/40 transition-all">✓ Unban Team</button>
-              : <button disabled={loading} onClick={() => act('ban', selected.id)} className="w-full py-2 rounded text-[10px] font-bold uppercase tracking-widest bg-red-600/20 text-red-400 hover:bg-red-600/40 transition-all">⊘ Ban Team</button>
+              ? <button disabled={loading} onClick={() => act('unban', selected.id)} className={`btn btn-success btn-sm btn-block ${loading ? 'is-loading' : ''}`}>Unban Team</button>
+              : <button disabled={loading} onClick={() => act('ban', selected.id)} className={`btn btn-danger btn-sm btn-block ${loading ? 'is-loading' : ''}`}>Ban Team</button>
             }
-            <button disabled={loading} onClick={() => act('delete', selected.id)} className="w-full py-2 rounded text-[10px] font-bold uppercase tracking-widest bg-red-900/30 text-red-500 hover:bg-red-900/50 transition-all mt-2">🗑 Delete Team</button>
+            <button disabled={loading} onClick={() => act('delete', selected.id)} className={`btn btn-danger btn-sm btn-block ${loading ? 'is-loading' : ''}`}>
+              <Trash2 className="w-3.5 h-3.5" /> Delete Team
+            </button>
+            <p className="text-small leading-relaxed text-text-muted">
+              Deleting is permanent and detaches every member. You will be asked to confirm.
+            </p>
           </div>
-        </div>
+        </aside>
       )}
     </div>
   );
