@@ -553,6 +553,23 @@ function UsersTab() {
     load();
   };
 
+  // An admin cannot be banned while they are an admin, so demoting is the
+  // first half of removing a rogue co-organiser's access.
+  const setRole = async (u: any, role: string) => {
+    if (!confirm(`Change ${u.username} from ${u.role} to ${role}?`)) return;
+    setBusy(u.id);
+    const { data, error } = await supabase.rpc('admin_set_user_role', {
+      p_user_id: u.id,
+      p_role: role,
+    });
+    setBusy(null);
+    if (error || data?.error) {
+      alert('Role change failed: ' + (error?.message ?? data.error));
+      return;
+    }
+    load();
+  };
+
   return (
     <div className="overflow-hidden rounded-lg border border-cyber-border">
       <table className="w-full text-left">
@@ -571,7 +588,18 @@ function UsersTab() {
                 {u.username}
               </td>
               <td className="px-4 py-4 text-[11px] font-mono text-cyber-muted">{u.email}</td>
-              <td className="px-4 py-4 text-[10px] font-bold uppercase text-cyber-muted">{u.role}</td>
+              <td className="px-4 py-4">
+                <select
+                  value={u.role}
+                  disabled={busy === u.id}
+                  onChange={e => setRole(u, e.target.value)}
+                  className="bg-cyber-sidebar border border-cyber-border rounded px-2 py-1 text-[10px] font-bold uppercase text-cyber-muted disabled:opacity-40"
+                >
+                  <option value="player">player</option>
+                  <option value="moderator">moderator</option>
+                  <option value="admin">admin</option>
+                </select>
+              </td>
               <td className="px-4 py-4 text-sm font-mono text-cyber-neon">{u.total_points}</td>
               <td className="px-4 py-4 text-sm text-cyber-muted">{u.solved_count}</td>
               <td className="px-4 py-4">
@@ -582,7 +610,12 @@ function UsersTab() {
               <td className="px-4 py-4 text-right">
                 {u.is_banned
                   ? <button disabled={busy === u.id} onClick={() => setBan(u, false)} className="text-[9px] bg-green-600/20 text-green-400 px-2 py-1 rounded hover:bg-green-600/40 font-bold uppercase disabled:opacity-40">Unban</button>
-                  : <button disabled={busy === u.id} onClick={() => setBan(u, true)} className="text-[9px] bg-red-600/20 text-red-400 px-2 py-1 rounded hover:bg-red-600/40 font-bold uppercase disabled:opacity-40">Ban</button>}
+                  : <button
+                      disabled={busy === u.id || u.role === 'admin'}
+                      title={u.role === 'admin' ? 'Change their role to player first' : undefined}
+                      onClick={() => setBan(u, true)}
+                      className="text-[9px] bg-red-600/20 text-red-400 px-2 py-1 rounded hover:bg-red-600/40 font-bold uppercase disabled:opacity-30 disabled:cursor-not-allowed"
+                    >Ban</button>}
               </td>
             </tr>
           ))}
