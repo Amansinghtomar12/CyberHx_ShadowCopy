@@ -232,6 +232,9 @@ serve(async (req) => {
       challenge_id: challengeId,
       team_id: profile.team_id,
       submitted_flag_hash: submittedFlagHash,
+      // Raw attempt, for cheat investigation. Column SELECT is revoked from
+      // authenticated, so only admin_list_submissions surfaces it.
+      submitted_flag: trimmedFlag,
       is_correct: isCorrect,
       ip_address: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
     });
@@ -242,6 +245,14 @@ serve(async (req) => {
         return new Response(JSON.stringify({
           correct: false, locked: true, maxAttempts, attemptsLeft: 0
         }), { headers: { ...cors, 'Content-Type': 'application/json' } });
+      }
+      // uniq_submission_correct_per_user_challenge: a concurrent request for
+      // the same challenge already recorded the solve. That is the duplicate
+      // losing the race, not an error worth surfacing.
+      if (insertError.code === '23505') {
+        return new Response(JSON.stringify({ correct: true, alreadySolved: true }), {
+          headers: { ...cors, 'Content-Type': 'application/json' }
+        });
       }
       throw insertError;
     }

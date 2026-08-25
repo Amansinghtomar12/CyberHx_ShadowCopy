@@ -1032,10 +1032,10 @@ function SubmissionsTab() {
   const [subs, setSubs] = useState<any[]>([]);
 
   useEffect(() => {
-    supabase.from('submissions')
-      .select('*, submitted_flag_hash, profiles(username), challenges(title)')
-      .order('submitted_at', { ascending: false })
-      .limit(100)
+    // admin_list_submissions, not a table read: SELECT on submissions is now
+    // granted per-column to authenticated and excludes submitted_flag, so the
+    // raw attempt is only reachable through this admin-gated RPC.
+    supabase.rpc('admin_list_submissions', { p_limit: 100 })
       .then(({ data }) => setSubs(data ?? []));
   }, []);
 
@@ -1053,7 +1053,7 @@ function SubmissionsTab() {
             <tr>
               <Th>User</Th>
               <Th>Challenge</Th>
-              <Th>Flag Hash</Th>
+              <Th>Submitted</Th>
               <Th>Result</Th>
               <Th align="right">Time</Th>
             </tr>
@@ -1061,9 +1061,16 @@ function SubmissionsTab() {
           <tbody className="divide-y divide-border-subtle">
             {subs.map(s => (
               <tr key={s.id} className="transition-colors duration-[var(--duration-fast)] hover:bg-surface-raised">
-                <td className="px-5 py-4 text-body font-semibold text-cyber-text">{(s.profiles as any)?.username}</td>
-                <td className="px-5 py-4 text-small text-text-secondary">{(s.challenges as any)?.title}</td>
-                <td className="px-5 py-4 text-small font-mono text-text-muted truncate max-w-[200px]">{s.submitted_flag_hash ? s.submitted_flag_hash.substring(0, 16) + '...' : '—'}</td>
+                <td className="px-5 py-4 text-body font-semibold text-cyber-text">{s.username}</td>
+                <td className="px-5 py-4 text-small text-text-secondary">{s.challenge_title}</td>
+                <td className="px-5 py-4 text-small font-mono max-w-[300px]">
+                  <span className="block truncate text-cyber-text" title={s.submitted_flag ?? ''}>
+                    {s.submitted_flag ?? '—'}
+                  </span>
+                  <span className="block truncate text-micro text-text-faint" title={s.submitted_flag_hash ?? ''}>
+                    {s.submitted_flag_hash ? s.submitted_flag_hash.substring(0, 16) + '…' : ''}
+                  </span>
+                </td>
                 <td className="px-5 py-4">
                   <span className={`badge ${s.is_correct ? 'badge-solved' : 'badge-hard'}`}>
                     {s.is_correct ? '✓ Correct' : '✗ Wrong'}
@@ -1089,16 +1096,16 @@ function SubmissionsTab() {
           <div key={s.id} className="surface p-3.5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-body font-semibold text-cyber-text truncate">{(s.profiles as any)?.username}</p>
-                <p className="text-small text-text-secondary truncate">{(s.challenges as any)?.title}</p>
+                <p className="text-body font-semibold text-cyber-text truncate">{s.username}</p>
+                <p className="text-small text-text-secondary truncate">{s.challenge_title}</p>
               </div>
               <span className={`badge shrink-0 ${s.is_correct ? 'badge-solved' : 'badge-hard'}`}>
                 {s.is_correct ? '✓' : '✗'}
               </span>
             </div>
             <div className="mt-2.5 pt-2.5 border-t border-border-subtle flex items-center justify-between gap-3">
-              <span className="text-small font-mono text-text-muted truncate">
-                {s.submitted_flag_hash ? s.submitted_flag_hash.substring(0, 16) + '...' : '—'}
+              <span className="text-small font-mono text-cyber-text truncate" title={s.submitted_flag ?? ''}>
+                {s.submitted_flag ?? '—'}
               </span>
               <span className="text-small font-mono text-text-muted whitespace-nowrap shrink-0">
                 {new Date(s.submitted_at).toLocaleString()}
