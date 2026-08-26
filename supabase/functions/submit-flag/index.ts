@@ -118,6 +118,17 @@ serve(async (req) => {
       });
     }
 
+    // Reject control characters. Postgres TEXT columns cannot hold a NUL byte
+    // and the plaintext audit log column would throw at insert time; without
+    // this the whole request 500'd on any submission containing \x00 through
+    // \x1F or \x7F. A well-formed flag never contains those, so refusing at
+    // the API layer is safe.
+    if (/[\x00-\x1F\x7F]/.test(flag)) {
+      return new Response(JSON.stringify({ error: 'Invalid flag: control characters are not allowed' }), {
+        status: 400, headers: { ...cors, 'Content-Type': 'application/json' }
+      });
+    }
+
     // 5. Check active event
     const { data: event } = await supabaseAdmin
       .from('event_settings').select('id, is_active, start_time, end_time').eq('id', 1).single();
