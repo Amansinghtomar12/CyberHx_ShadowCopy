@@ -1275,6 +1275,7 @@ function EventTab() {
   const [event, setEvent] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [freezing, setFreezing] = useState(false);
+  const [hiding, setHiding] = useState(false);
   const [msg, setMsg] = useState('');
 
   const loadEvent = () =>
@@ -1301,6 +1302,28 @@ function EventTab() {
     setSaving(false);
     setMsg(error ? '❌ ' + error.message : '✅ Event settings saved!');
     setTimeout(() => setMsg(''), 3000);
+  };
+
+  const toggleHidden = async () => {
+    if (!event) return;
+    const next = !event.hide_scores;
+    const warn = next
+      ? 'Hide the scoreboard from players?\n\nStandings, the Teams list and the Users list all go dark for everyone except admins. Solves keep counting. You will still see everything.'
+      : 'Show the scoreboard again?\n\nPlayers get the standings back immediately.';
+    if (!confirm(warn)) return;
+
+    setHiding(true);
+    const { data, error } = await supabase.rpc('admin_set_scoreboard_hidden', { p_hidden: next });
+    setHiding(false);
+
+    if (error || data?.error) {
+      setMsg('❌ ' + (error?.message ?? data.error));
+      setTimeout(() => setMsg(''), 5000);
+      return;
+    }
+    await loadEvent();
+    setMsg(next ? '🙈 Scoreboard hidden from players' : '👁 Scoreboard visible again');
+    setTimeout(() => setMsg(''), 5000);
   };
 
   const toggleFreeze = async () => {
@@ -1443,6 +1466,55 @@ function EventTab() {
                 : event.freeze_scoreboard ? 'Unfreeze Scoreboard' : 'Freeze Scoreboard'}
             </button>
           </div>
+
+          {/* ── Hide: stronger than freeze, players see nothing ────────── */}
+          <div
+            className="mt-2 rounded-control border px-4 py-4 flex flex-wrap items-center justify-between gap-4"
+            style={{
+              borderColor: event.hide_scores
+                ? 'var(--color-border-danger)' : 'var(--color-border-subtle)',
+              backgroundColor: event.hide_scores
+                ? 'var(--color-diff-hard-wash)' : 'var(--color-surface-inset)',
+            }}
+          >
+            <div className="min-w-0">
+              <p className="text-small text-cyber-text flex items-center gap-2">
+                {event.hide_scores
+                  ? <><EyeOff aria-hidden className="w-3.5 h-3.5" /> Hidden from players</>
+                  : <><Eye aria-hidden className="w-3.5 h-3.5" /> Visible to players</>}
+              </p>
+              <p className="text-small text-text-muted mt-1 max-w-md">
+                {event.hide_scores
+                  ? <>Standings, Teams and Users are dark for everyone but admins. Solves
+                      still count — nothing is lost.</>
+                  : <>Hiding blanks the scoreboard entirely, rather than freezing it at a
+                      moment. Use it to run a blackout without losing any progress.</>}
+              </p>
+            </div>
+            <button
+              onClick={toggleHidden}
+              disabled={hiding}
+              className={`btn btn-md shrink-0 ${event.hide_scores ? 'btn-secondary' : 'btn-danger'} ${hiding ? 'is-loading' : ''}`}
+            >
+              {event.hide_scores ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              {hiding
+                ? 'Working…'
+                : event.hide_scores ? 'Show Scoreboard' : 'Hide Scoreboard'}
+            </button>
+          </div>
+
+          {event.auto_froze_at && (
+            <p className="mt-3 text-small text-text-muted flex items-center gap-1.5">
+              <Lock aria-hidden className="w-3 h-3" />
+              Auto-froze at {new Date(event.auto_froze_at).toLocaleString()} when the event
+              end time passed.
+            </p>
+          )}
+          {!event.freeze_scoreboard && event.end_time && (
+            <p className="mt-3 text-small text-text-muted">
+              Freezes automatically at {new Date(event.end_time).toLocaleString()}.
+            </p>
+          )}
         </div>
 
         <div className="mt-6 pt-6 border-t border-border-subtle flex flex-wrap items-center gap-3">

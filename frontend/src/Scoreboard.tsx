@@ -6,7 +6,7 @@ import {
 import { motion, useReducedMotion } from 'motion/react';
 import {
   Trophy, Crown, Medal, Activity, Radio, Flag,
-  ArrowUp, ArrowDown, Minus, TrendingUp, Lock
+  ArrowUp, ArrowDown, Minus, TrendingUp, Lock, EyeOff
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 
@@ -315,6 +315,8 @@ export default function Scoreboard() {
   const [graphData, setGraphData] = useState<GraphPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [frozen, setFrozen] = useState(false);
+  const [hidden, setHidden] = useState(false);
+  const [ended, setEnded] = useState(false);
   const [freezeAt, setFreezeAt] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
@@ -355,19 +357,26 @@ export default function Scoreboard() {
     };
   }, []);
 
-  /** One cheap read, then the heavy pair only when the data can have moved. */
+  /** One cheap RPC, then the heavy pair only when the data can have moved.
+      scoreboard_state also performs the auto-freeze the first time anyone
+      looks after the event's end time has passed. */
   const refresh = async () => {
-    const { data: settings } = await supabase
-      .from('event_settings')
-      .select('freeze_scoreboard, freeze_time')
-      .order('id', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const { data: state } = await supabase.rpc('scoreboard_state');
 
-    const isFrozen = !!settings?.freeze_scoreboard;
-    const at: string | null = settings?.freeze_time ?? null;
+    const isHidden = !!state?.scores_hidden;
+    const isFrozen = !!state?.masked;
+    const at: string | null = state?.freeze_time ?? null;
+    setHidden(isHidden);
     setFrozen(isFrozen);
     setFreezeAt(at);
+    setEnded(!!state?.ended);
+
+    // Hidden: the views return no rows for us anyway, so do not ask.
+    if (isHidden) {
+      setTeams([]); setGraphData([]); fetchedFor.current = null;
+      setLoading(false);
+      return;
+    }
 
     // Frozen and already showing this generation's snapshot: nothing can have
     // changed, so skip the expensive calls entirely.
@@ -473,23 +482,56 @@ export default function Scoreboard() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {frozen ? (
+          {hidden ? (
+            <span className="badge badge-hard inline-flex items-center gap-1.5">
+              <EyeOff className="w-3 h-3" aria-hidden="true" /> Hidden
+            </span>
+          ) : frozen ? (
             <span className="badge badge-medium inline-flex items-center gap-1.5">
-              <Lock className="w-3 h-3" aria-hidden="true" /> Frozen
+              <Lock className="w-3 h-3" aria-hidden="true" /> {ended ? 'Final' : 'Frozen'}
             </span>
           ) : (
             <span className="badge badge-live">Live</span>
           )}
-          <span className="badge badge-neon font-mono tabular-nums">
-            {teams.length} {teams.length === 1 ? 'team' : 'teams'}
-          </span>
+          {!hidden && (
+            <span className="badge badge-neon font-mono tabular-nums">
+              {teams.length} {teams.length === 1 ? 'team' : 'teams'}
+            </span>
+          )}
           <span className="text-small text-text-muted">
-            {frozen
-              ? `Frozen${freezeAt ? ` at ${formatClock(freezeAt)}` : ''} — final standings hidden until the reveal`
-              : `Refreshes every 15 min${lastRefresh ? ` · ${formatClock(lastRefresh.toISOString())}` : ''}`}
+            {hidden
+              ? 'Hidden by the organisers'
+              : frozen
+                ? ended
+                  ? `Final standings as of ${freezeAt ? formatClock(freezeAt) : 'the close'}`
+                  : `Frozen${freezeAt ? ` at ${formatClock(freezeAt)}` : ''} — final standings hidden until the reveal`
+                : `Refreshes every 15 min${lastRefresh ? ` · ${formatClock(lastRefresh.toISOString())}` : ''}`}
           </span>
         </div>
       </header>
+
+      {/* ── blackout ─────────────────────────────────────────────── */}
+      {hidden ? (
+        <section className="surface p-10 sm:p-16 text-center">
+          <span
+            aria-hidden="true"
+            className="grid place-items-center w-14 h-14 mx-auto rounded-card border"
+            style={{
+              borderColor: 'var(--color-border-danger)',
+              backgroundColor: 'var(--color-diff-hard-wash)',
+              color: 'var(--color-diff-hard)',
+            }}
+          >
+            <EyeOff className="w-6 h-6" />
+          </span>
+          <h3 className="mt-5 text-h2 text-cyber-text">Scoreboard hidden</h3>
+          <p className="mt-2 mx-auto max-w-md text-body text-text-secondary">
+            The organisers have taken the standings offline for now. Keep solving —
+            every flag you submit still counts, and the board will return.
+          </p>
+        </section>
+      ) : (
+      <>
 
       {/* ── podium ───────────────────────────────────────────────── */}
       {loading ? (
@@ -686,6 +728,9 @@ export default function Scoreboard() {
           </div>
         </div>
       </section>
+
+      </>
+      )}
     </div>
   );
 }

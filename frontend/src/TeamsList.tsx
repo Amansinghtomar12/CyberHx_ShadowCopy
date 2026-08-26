@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Users, Trophy, SearchX } from 'lucide-react';
+import { Search, Users, Trophy, SearchX, EyeOff } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { supabase } from './lib/supabase';
 
@@ -45,16 +45,22 @@ export default function TeamsList() {
   const [teams, setTeams] = useState<TeamRow[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [hidden, setHidden] = useState(false);
 
+  // team_scores returns no rows at all while the organisers have the board
+  // hidden, so ask first -- otherwise a blackout is indistinguishable from
+  // "no teams have registered", which reads as a broken page.
   useEffect(() => {
-    supabase
-      .from('team_scores')
-      .select('*')
-      .order('total_points', { ascending: false })
-      .then(({ data }) => {
-        setTeams((data ?? []) as TeamRow[]);
-        setLoading(false);
-      });
+    (async () => {
+      const { data: state } = await supabase.rpc('scoreboard_state');
+      if (state?.scores_hidden) { setHidden(true); setLoading(false); return; }
+      const { data } = await supabase
+        .from('team_scores')
+        .select('*')
+        .order('total_points', { ascending: false });
+      setTeams((data ?? []) as TeamRow[]);
+      setLoading(false);
+    })();
   }, []);
 
   const filtered = teams.filter(t =>
@@ -78,6 +84,28 @@ export default function TeamsList() {
         </div>
         <hr className="divider mt-5" />
       </header>
+
+      {hidden ? (
+        <section className="surface p-10 sm:p-16 text-center">
+          <span
+            aria-hidden="true"
+            className="grid place-items-center w-14 h-14 mx-auto rounded-card border"
+            style={{
+              borderColor: 'var(--color-border-danger)',
+              backgroundColor: 'var(--color-diff-hard-wash)',
+              color: 'var(--color-diff-hard)',
+            }}
+          >
+            <EyeOff className="w-6 h-6" />
+          </span>
+          <h3 className="mt-5 text-h2 text-cyber-text">Team standings hidden</h3>
+          <p className="mt-2 mx-auto max-w-md text-body text-text-secondary">
+            The organisers have taken the scoreboard offline for now. Solves still
+            count — the directory returns when they bring it back.
+          </p>
+        </section>
+      ) : (
+      <>
 
       {/* ── Toolbar ───────────────────────────────────────────── */}
       <div className="mb-6 flex items-center gap-2 sm:gap-3">
@@ -184,6 +212,9 @@ export default function TeamsList() {
         <Trophy aria-hidden="true" className="w-3 h-3" />
         Ranked by total points
       </p>
+
+      </>
+      )}
     </div>
   );
 }
