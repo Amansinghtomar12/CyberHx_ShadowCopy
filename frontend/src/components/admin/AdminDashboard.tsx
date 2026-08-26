@@ -562,14 +562,44 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
 // ─────────────────────────────────────────
 export default function AdminDashboard() {
   // HARDENED: Auth guard — server-confirmed role check
-  const { profile, loading } = useAuth();
+  const { profile, loading, profileLoading, profileError } = useAuth();
 
-  if (loading) {
+  // Wait for the role, not just the session. Flipping to the denied screen
+  // while the profile request is still in flight is what made a healthy admin
+  // see Access Denied on every visit to this tab.
+  if (loading || profileLoading) {
     return (
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="flex items-center gap-3">
           <span aria-hidden className="w-4 h-4 rounded-pill border-2 border-border-strong border-t-cyber-neon animate-spin" />
           <span className="label-micro">Verifying access...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // A failed fetch is not a denial. Saying so is the difference between an
+  // organiser reloading the page and an organiser believing they were demoted
+  // in the middle of a live event.
+  if (profileError) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="surface max-w-sm w-full p-8 text-center">
+          <span
+            aria-hidden
+            className="grid place-items-center w-12 h-12 mx-auto rounded-card border"
+            style={{ borderColor: 'var(--color-border-strong)', backgroundColor: 'var(--color-surface-inset)' }}
+          >
+            <AlertTriangle className="w-5 h-5 text-text-secondary" />
+          </span>
+          <p className="mt-4 text-h3 text-cyber-text">Could not verify your account</p>
+          <p className="mt-2 text-body text-text-muted">{profileError}</p>
+          <p className="mt-2 text-small text-text-faint">
+            This is a connection problem, not a permissions one — your role has not changed.
+          </p>
+          <button onClick={() => window.location.reload()} className="btn btn-secondary btn-md mt-5">
+            Retry
+          </button>
         </div>
       </div>
     );

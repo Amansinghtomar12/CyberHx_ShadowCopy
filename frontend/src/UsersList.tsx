@@ -73,26 +73,51 @@ export default function UsersList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [hidden, setHidden] = useState(false);
+  const [total, setTotal] = useState<number | null>(null);
 
-  // user_scores returns nothing at all during a blackout, which would render
-  // as "no users registered". Ask whether the board is hidden first.
+  // Page size. This list used to fetch every row and filter in the browser;
+  // at 5000 players that is a ~5000-row payload and a full sort on the server
+  // for every visit, per visitor. Rank beyond this is not meaningful on a
+  // directory page -- search is how you find someone that far down.
+  const PAGE = 100;
+
+  // Total is a separate cheap count so the header can still say how many
+  // players exist, rather than reporting the page size as the population.
   useEffect(() => {
-    (async () => {
-      const { data: state } = await supabase.rpc('scoreboard_state');
-      if (state?.scores_hidden) { setHidden(true); setLoading(false); return; }
-      const { data } = await supabase
-        .from('user_scores')
-        .select('id, username, country, total_points, solved_count')
-        .order('total_points', { ascending: false })
-        .order('last_solve', { ascending: true });
-      setUsers((data ?? []) as UserRow[]);
-      setLoading(false);
-    })();
+    supabase
+      .from('user_scores')
+      .select('id', { count: 'exact', head: true })
+      .then(({ count }) => setTotal(count ?? null));
   }, []);
 
-  const filtered = users.filter(u =>
-    u.username.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Search runs server-side and debounced. user_scores also returns nothing at
+  // all during a blackout, which would render as "no users registered", so ask
+  // whether the board is hidden first.
+  useEffect(() => {
+    const term = searchTerm.trim();
+    const t = setTimeout(async () => {
+      const { data: state } = await supabase.rpc('scoreboard_state');
+      if (state?.scores_hidden) { setHidden(true); setLoading(false); return; }
+      setHidden(false);
+
+      let q = supabase
+        .from('user_scores')
+        .select('id, username, country, total_points, solved_count');
+      if (term) q = q.ilike('username', `${term}%`);
+
+      const { data } = await q
+        .order('total_points', { ascending: false })
+        .order('last_solve', { ascending: true })
+        .limit(PAGE);
+
+      setUsers((data ?? []) as UserRow[]);
+      setLoading(false);
+    }, term ? 300 : 0);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  const filtered = users;
+  const capped = !searchTerm.trim() && total !== null && total > PAGE;
 
   const reduced = prefersReducedMotion();
   const rise = reduced
@@ -114,7 +139,7 @@ export default function UsersList() {
             <h1 className="text-h1 text-cyber-text">Users</h1>
             <span className="badge badge-neon shrink-0">
               <Trophy className="h-3 w-3" aria-hidden="true" />
-              <span className="font-mono tabular-nums">{users.length}</span>
+              <span className="font-mono tabular-nums">{total ?? users.length}</span>
               registered
             </span>
           </div>
@@ -142,6 +167,12 @@ export default function UsersList() {
           </section>
         ) : (
         <>
+
+        {capped && (
+          <p className="mb-3 text-small text-text-muted">
+            Showing the top {PAGE} of {total} players — search by name to find anyone else.
+          </p>
+        )}
 
         {/* ── search ──────────────────────────────────────────────────── */}
         <div className="mb-6 flex items-center gap-2 sm:gap-3">

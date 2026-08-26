@@ -8,6 +8,12 @@ interface AuthState {
   profile: DBProfile | null;
   session: Session | null;
   loading: boolean;
+  /** True while the profile row is still being fetched for a known session.
+      Distinguishes "we do not know your role yet" from "you are not an admin". */
+  profileLoading: boolean;
+  /** Set when the profile could not be loaded after retries. Lets the UI say
+      "we could not read your account" instead of "access denied". */
+  profileError: string | null;
 }
 
 interface RegisterData {
@@ -23,38 +29,83 @@ export function useAuth() {
     profile: null,
     session: null,
     loading: true,
+    profileLoading: false,
+    profileError: null,
   });
 
+  // A failed profile fetch used to be swallowed: `if (!error && data)` with no
+  // else. profile stayed null, and a null profile renders byte-identically to
+  // a genuine demotion -- the Admin tab disappears (App.tsx) and the dashboard
+  // shows Access Denied (AdminDashboard.tsx). Under event load a transient 401
+  // during token refresh, a 503 while PostgREST reloads its schema cache after
+  // a deploy, or one dropped request is enough. An organiser then cannot tell
+  // "the network blipped" from "somebody took my admin away".
+  //
+  // So: retry a few times with backoff, and record the failure so the UI can
+  // say which of the two happened.
   const fetchProfile = useCallback(async (userId: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, username, avatar_url, country, bio, role, is_banned, is_hidden, team_id, affiliation, website, created_at')
-      .eq('id', userId)
-      .single();
-    if (!error && data) {
-      // Map role to is_admin/is_moderator for backward compatibility with UI
-      const profile = {
-        ...data,
-        is_admin: data.role === 'admin',
-        is_moderator: data.role === 'moderator',
-      } as DBProfile;
-      setState(prev => ({ ...prev, profile }));
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url, country, bio, role, is_banned, is_hidden, team_id, affiliation, website, created_at')
+        .eq('id', userId)
+        .single();
+
+      if (!error && data) {
+        const profile = {
+          ...data,
+          is_admin: data.role === 'admin',
+          is_moderator: data.role === 'moderator',
+        } as DBProfile;
+        setState(prev => ({ ...prev, profile, profileError: null, profileLoading: false }));
+        return;
+      }
+
+      // PGRST116 is "no rows": the profile genuinely is not there, which
+      // retrying cannot fix. Anything else is worth another go.
+      if ((error as any)?.code === 'PGRST116') break;
+      if (attempt < 2) await new Promise(r => setTimeout(r, 400 * (attempt + 1)));
     }
+
+    setState(prev => ({
+      ...prev,
+      profileError: 'Could not load your profile. Check your connection and reload.',
+      profileLoading: false,
+    }));
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setState(prev => ({ ...prev, session, user: session?.user ?? null, loading: false }));
+      if (cancelled) return;
+      // loading stays true until the profile resolves. Previously it flipped
+      // here while fetchProfile was still in flight, so every visit to the
+      // Admin tab passed through a guaranteed loading===false && profile===null
+      // window and flashed Access Denied even when nothing was wrong.
+      setState(prev => ({
+        ...prev,
+        session,
+        user: session?.user ?? null,
+        loading: false,
+        profileLoading: !!session?.user,
+      }));
       if (session?.user) fetchProfile(session.user.id);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setState(prev => ({ ...prev, session, user: session?.user ?? null }));
+      if (cancelled) return;
+      setState(prev => ({
+        ...prev,
+        session,
+        user: session?.user ?? null,
+        profileLoading: !!session?.user && !prev.profile,
+      }));
       if (session?.user) fetchProfile(session.user.id);
-      else setState(prev => ({ ...prev, profile: null }));
+      else setState(prev => ({ ...prev, profile: null, profileError: null, profileLoading: false }));
     });
 
-    return () => subscription.unsubscribe();
+    return () => { cancelled = true; subscription.unsubscribe(); };
   }, [fetchProfile]);
 
   const register = async ({ email, password, username, captchaToken }: RegisterData) => {

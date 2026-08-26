@@ -46,26 +46,45 @@ export default function TeamsList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [hidden, setHidden] = useState(false);
+  const [total, setTotal] = useState<number | null>(null);
+
+  // Bounded page. This list used to fetch every team and filter in the
+  // browser; search moves server-side so the payload does not grow with the
+  // event.
+  const PAGE = 100;
+
+  useEffect(() => {
+    supabase
+      .from('team_scores')
+      .select('id', { count: 'exact', head: true })
+      .then(({ count }) => setTotal(count ?? null));
+  }, []);
 
   // team_scores returns no rows at all while the organisers have the board
   // hidden, so ask first -- otherwise a blackout is indistinguishable from
   // "no teams have registered", which reads as a broken page.
   useEffect(() => {
-    (async () => {
+    const term = searchTerm.trim();
+    const t = setTimeout(async () => {
       const { data: state } = await supabase.rpc('scoreboard_state');
       if (state?.scores_hidden) { setHidden(true); setLoading(false); return; }
-      const { data } = await supabase
-        .from('team_scores')
-        .select('*')
-        .order('total_points', { ascending: false });
+      setHidden(false);
+
+      let q = supabase.from('team_scores').select('*');
+      if (term) q = q.ilike('name', `${term}%`);
+
+      const { data } = await q
+        .order('total_points', { ascending: false })
+        .limit(PAGE);
+
       setTeams((data ?? []) as TeamRow[]);
       setLoading(false);
-    })();
-  }, []);
+    }, term ? 300 : 0);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
 
-  const filtered = teams.filter(t =>
-    t.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = teams;
+  const capped = !searchTerm.trim() && total !== null && total > PAGE;
 
   const reduceMotion = useReducedMotion();
 
@@ -78,7 +97,7 @@ export default function TeamsList() {
           <h1 className="text-h1 text-cyber-text">Teams</h1>
           <span className="badge badge-neon shrink-0">
             <Trophy className="h-3 w-3" aria-hidden="true" />
-            <span className="font-mono tabular-nums">{teams.length}</span>
+            <span className="font-mono tabular-nums">{total ?? teams.length}</span>
             registered
           </span>
         </div>
@@ -106,6 +125,12 @@ export default function TeamsList() {
         </section>
       ) : (
       <>
+
+      {capped && (
+        <p className="mb-3 text-small text-text-muted">
+          Showing the top {PAGE} of {total} teams — search by name to find anyone else.
+        </p>
+      )}
 
       {/* ── Toolbar ───────────────────────────────────────────── */}
       <div className="mb-6 flex items-center gap-2 sm:gap-3">
