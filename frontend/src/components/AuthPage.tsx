@@ -118,6 +118,25 @@ function StatTile({ value, label, tone = 'default' }: {
   );
 }
 
+/**
+ * Build credit. Rendered in the hero on desktop and under the card below it,
+ * so the line is present at every width rather than only where the hero is.
+ * label-micro is uppercase by default; the names read better in their own
+ * casing, so the transform is cleared here.
+ */
+function BuildCredit({ className = '' }: { className?: string }) {
+  return (
+    <div className={`flex items-center gap-2 label-micro !normal-case !tracking-[0.06em] ${className}`}>
+      <Target className="h-3 w-3 shrink-0 text-cyber-neon" aria-hidden="true" />
+      <span>
+        Built by <span className="font-semibold text-text-secondary">Team CyberXoX</span>
+        <span className="mx-1.5 text-cyber-neon" aria-hidden="true">·</span>
+        Powered by <span className="font-semibold text-cyber-neon">CyberHX</span>
+      </span>
+    </div>
+  );
+}
+
 /* ══ Main component ═══════════════════════════════════════════════════════ */
 
 export default function AuthPage({ onSuccess }: AuthPageProps) {
@@ -300,9 +319,8 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                 </div>
 
                 {/* Bottom operator credit line */}
-                <div className="mt-auto pt-10 flex items-center gap-2 label-micro">
-                  <Target className="h-3 w-3 text-cyber-neon" aria-hidden="true" />
-                  <span>ORGANIZED BY CYBERHX · POWERED BY SUPABASE + VERCEL</span>
+                <div className="mt-auto pt-10">
+                  <BuildCredit />
                 </div>
               </div>
             </motion.section>
@@ -603,6 +621,10 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                 <span className="hidden sm:inline"> · </span>
                 No solutions may be shared
               </p>
+
+              {/* The hero carries this on desktop; repeat it here for the
+                  widths where the hero is hidden. */}
+              <BuildCredit className="mt-4 justify-center lg:hidden" />
             </motion.div>
           </div>
         </div>
