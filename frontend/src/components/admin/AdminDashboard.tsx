@@ -1430,15 +1430,23 @@ function TeamsTab() {
   const act = async (action: string, teamId: string) => {
     setLoading(true); setMsg('');
     let error: any = null;
-    if (action === 'ban') {
-      ({ error } = await supabase.from('teams').update({ is_banned: true }).eq('id', teamId));
-    } else if (action === 'unban') {
-      ({ error } = await supabase.from('teams').update({ is_banned: false }).eq('id', teamId));
+    // These go through SECURITY DEFINER RPCs rather than direct table writes:
+    // authenticated no longer holds UPDATE on teams.is_banned or DELETE on
+    // teams, so that a compromised or mistaken RLS policy cannot be the only
+    // thing standing between a captain and unbanning their own team.
+    if (action === 'ban' || action === 'unban') {
+      const { data, error: rpcError } = await supabase
+        .rpc('admin_set_team_ban', { p_team_id: teamId, p_banned: action === 'ban' });
+      error = rpcError ?? (data?.error ? { message: data.error } : null);
     } else if (action === 'delete') {
       if (!confirm('Delete this team permanently? Members will be removed from the team.')) { setLoading(false); return; }
-      await supabase.from('profiles').update({ team_id: null }).eq('team_id', teamId);
-      ({ error } = await supabase.from('teams').delete().eq('id', teamId));
-      setSelected(null);
+      // One RPC, one transaction: members were previously released by a
+      // separate request, so a failure between the two left them teamless
+      // with the team still there.
+      const { data, error: rpcError } = await supabase
+        .rpc('admin_delete_team', { p_team_id: teamId });
+      error = rpcError ?? (data?.error ? { message: data.error } : null);
+      if (!error) setSelected(null);
     }
     setLoading(false);
     setMsg(error ? '❌ ' + error.message : '✅ Done!');
