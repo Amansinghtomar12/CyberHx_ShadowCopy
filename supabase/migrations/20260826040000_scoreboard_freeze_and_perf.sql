@@ -30,10 +30,16 @@
 
 -- ══ 1. Snapshot tables ════════════════════════════════════════════════
 
+-- Mirror the agg tables column for column, hint_spend included. Scores are net
+-- of hint spend (20260825270000), so a snapshot that captured only
+-- total_points would hand every team back the points they had paid for hints
+-- the moment the board froze.
+
 CREATE TABLE IF NOT EXISTS public.frozen_user_score (
   user_id      uuid PRIMARY KEY REFERENCES public.profiles(id) ON DELETE CASCADE,
   total_points int NOT NULL DEFAULT 0,
   solved_count int NOT NULL DEFAULT 0,
+  hint_spend   int NOT NULL DEFAULT 0,
   last_solve   timestamptz
 );
 
@@ -41,8 +47,13 @@ CREATE TABLE IF NOT EXISTS public.frozen_team_score (
   team_id      uuid PRIMARY KEY REFERENCES public.teams(id) ON DELETE CASCADE,
   total_points int NOT NULL DEFAULT 0,
   solved_count int NOT NULL DEFAULT 0,
+  hint_spend   int NOT NULL DEFAULT 0,
   last_solve   timestamptz
 );
+
+-- Idempotent for a database that already has an earlier shape of these tables.
+ALTER TABLE public.frozen_user_score ADD COLUMN IF NOT EXISTS hint_spend int NOT NULL DEFAULT 0;
+ALTER TABLE public.frozen_team_score ADD COLUMN IF NOT EXISTS hint_spend int NOT NULL DEFAULT 0;
 
 -- No policies and no grants: these are internal. The score views are plain
 -- views, which read with the view owner's rights, so they can see these
@@ -86,13 +97,13 @@ BEGIN
 
     -- WHERE true is required: pg_safeupdate rejects a bare DELETE even here.
     DELETE FROM public.frozen_user_score WHERE true;
-    INSERT INTO public.frozen_user_score (user_id, total_points, solved_count, last_solve)
-    SELECT a.user_id, a.total_points, a.solved_count, a.last_solve
+    INSERT INTO public.frozen_user_score (user_id, total_points, solved_count, hint_spend, last_solve)
+    SELECT a.user_id, a.total_points, a.solved_count, COALESCE(a.hint_spend, 0), a.last_solve
     FROM public.user_score_agg a;
 
     DELETE FROM public.frozen_team_score WHERE true;
-    INSERT INTO public.frozen_team_score (team_id, total_points, solved_count, last_solve)
-    SELECT a.team_id, a.total_points, a.solved_count, a.last_solve
+    INSERT INTO public.frozen_team_score (team_id, total_points, solved_count, hint_spend, last_solve)
+    SELECT a.team_id, a.total_points, a.solved_count, COALESCE(a.hint_spend, 0), a.last_solve
     FROM public.team_score_agg a;
   ELSE
     NEW.freeze_time := NULL;
@@ -152,35 +163,49 @@ GRANT EXECUTE ON FUNCTION public.admin_set_scoreboard_freeze(boolean) TO authent
 -- and frozen sides are joined on their primary keys, which is an index lookup
 -- per row either way.
 
+-- total_points stays NET OF HINT SPEND and floored at zero, exactly as
+-- 20260825270000 defined it. The freeze only changes which row the arithmetic
+-- reads from. The COALESCE-wrapped is_banned / is_hidden tests are carried
+-- over verbatim too: a bare "is_banned = false" evaluates to NULL rather than
+-- true for a row where the flag was never set, which would silently drop that
+-- player off the board.
+
 CREATE OR REPLACE VIEW public.user_scores AS
 SELECT
   p.id, p.username, p.team_id, p.country, p.avatar_url,
-  CASE WHEN (SELECT public.scoreboard_is_masked())
-    THEN COALESCE(f.total_points, 0) ELSE COALESCE(a.total_points, 0) END AS total_points,
+  GREATEST(
+    CASE WHEN (SELECT public.scoreboard_is_masked())
+      THEN COALESCE(f.total_points, 0) - COALESCE(f.hint_spend, 0)
+      ELSE COALESCE(a.total_points, 0) - COALESCE(a.hint_spend, 0)
+    END, 0) AS total_points,
   CASE WHEN (SELECT public.scoreboard_is_masked())
     THEN COALESCE(f.solved_count, 0) ELSE COALESCE(a.solved_count, 0) END AS solved_count,
   CASE WHEN (SELECT public.scoreboard_is_masked())
     THEN f.last_solve ELSE a.last_solve END AS last_solve
 FROM public.profiles p
-LEFT JOIN public.user_score_agg   a ON a.user_id = p.id
+LEFT JOIN public.user_score_agg    a ON a.user_id = p.id
 LEFT JOIN public.frozen_user_score f ON f.user_id = p.id
-WHERE p.is_banned = false AND p.is_hidden = false;
+WHERE COALESCE(p.is_banned, false) = false
+  AND COALESCE(p.is_hidden, false) = false;
 
 CREATE OR REPLACE VIEW public.team_scores AS
 SELECT
   t.id, t.name,
   (SELECT COUNT(*)::int FROM public.profiles p
-    WHERE p.team_id = t.id AND p.is_banned = false) AS member_count,
-  CASE WHEN (SELECT public.scoreboard_is_masked())
-    THEN COALESCE(f.total_points, 0) ELSE COALESCE(a.total_points, 0) END AS total_points,
+    WHERE p.team_id = t.id AND COALESCE(p.is_banned, false) = false) AS member_count,
+  GREATEST(
+    CASE WHEN (SELECT public.scoreboard_is_masked())
+      THEN COALESCE(f.total_points, 0) - COALESCE(f.hint_spend, 0)
+      ELSE COALESCE(a.total_points, 0) - COALESCE(a.hint_spend, 0)
+    END, 0) AS total_points,
   CASE WHEN (SELECT public.scoreboard_is_masked())
     THEN COALESCE(f.solved_count, 0) ELSE COALESCE(a.solved_count, 0) END AS solved_count,
   CASE WHEN (SELECT public.scoreboard_is_masked())
     THEN f.last_solve ELSE a.last_solve END AS last_solve
 FROM public.teams t
-LEFT JOIN public.team_score_agg   a ON a.team_id = t.id
+LEFT JOIN public.team_score_agg    a ON a.team_id = t.id
 LEFT JOIN public.frozen_team_score f ON f.team_id = t.id
-WHERE t.is_banned = false;
+WHERE COALESCE(t.is_banned, false) = false;
 
 -- ══ 6. The progression graph must freeze with the board ═══════════════
 -- Otherwise the curve keeps drawing solves the standings table is hiding,
