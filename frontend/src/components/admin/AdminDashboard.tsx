@@ -171,6 +171,7 @@ interface ChallengeFormProps {
 }
 
 function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
+  const isEdit = !!initial?.id;
   const [form, setForm] = useState({
     title: initial?.title ?? '',
     category: initial?.category ?? 'web',
@@ -184,12 +185,18 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
     is_visible: initial?.is_visible ?? false,
   });
 
-  // Fetch flag securely via RPC if editing
+  // The flag is stored only as a hash, so there is nothing to prefill here.
+  // An empty field on edit means "keep the existing flag" -- see handleSave.
+
+  // Challenges saved through the old form had their flag overwritten with a
+  // placeholder. Nothing can recover the original -- only the hash was ever
+  // stored -- so say so plainly on the one screen that can fix it.
+  const [flagClobbered, setFlagClobbered] = useState(false);
   useEffect(() => {
     if (!initial?.id) return;
-    supabase.rpc('get_challenge_flag', { challenge_id: initial.id })
+    supabase.rpc('admin_challenges_needing_flag_reset')
       .then(({ data }) => {
-        if (data) setForm(p => ({ ...p, flag: data }));
+        setFlagClobbered(Array.isArray(data) && data.some((c: any) => c.id === initial.id));
       });
   }, [initial?.id]);
   const [hints, setHints] = useState<{ id?: string; text: string; cost: number }[]>([]);
@@ -219,8 +226,12 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
     setLinks(prev => prev.map((l, idx) => idx === i ? { ...l, [key]: val } : l));
 
   const handleSave = async () => {
-    if (!form.title || !form.flag || !form.description) {
-      setError('Title, description, and flag are required.');
+    if (!form.title || !form.description) {
+      setError('Title and description are required.');
+      return;
+    }
+    if (!isEdit && !form.flag.trim()) {
+      setError('A flag is required for a new challenge.');
       return;
     }
     setSaving(true);
@@ -231,7 +242,7 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
       points: Number(form.points),
       max_attempts: Number(form.max_attempts),
       description: form.description,
-      flag: form.flag,
+      flag: form.flag.trim(),
       author: form.author || 'Cyberhx Team',
       tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
       is_visible: form.is_visible,
@@ -376,16 +387,33 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
               <AlertTriangle aria-hidden className="w-4 h-4 shrink-0 mt-px" style={{ color: 'var(--color-diff-hard)' }} />
               <span>
                 <span className="block text-label uppercase" style={{ color: 'var(--color-diff-hard)' }}>
-                  Flag <span className="text-cyber-neon" aria-hidden>*</span>
+                  Flag {!isEdit && <span className="text-cyber-neon" aria-hidden>*</span>}
                 </span>
                 <span className="block text-small text-text-muted mt-1 leading-relaxed">
-                  Hashed server-side by <span className="font-mono">admin_upsert_challenge</span> — it is never sent back to a browser.
+                  {isEdit
+                    ? 'Leave blank to keep the current flag. Only type here to replace it — whatever you enter becomes the new flag.'
+                    : 'Hashed server-side by admin_upsert_challenge — it is never sent back to a browser.'}
                 </span>
               </span>
             </label>
+            {flagClobbered && (
+              <p
+                role="alert"
+                className="mb-3 rounded-control border p-3 text-small leading-relaxed"
+                style={{
+                  borderColor: 'var(--color-border-danger)',
+                  backgroundColor: 'var(--color-diff-hard-wash)',
+                  color: 'var(--color-diff-hard)',
+                }}
+              >
+                This challenge&rsquo;s flag was overwritten by an earlier save and no
+                longer matches anything a player can submit. Type the real flag below
+                to restore it &mdash; the original cannot be recovered automatically.
+              </p>
+            )}
             <input id="chal-flag" type="text" value={form.flag} onChange={e => setForm(p => ({ ...p, flag: e.target.value }))}
-              placeholder="FLAG{...}"
-              aria-invalid={(!!error && !form.flag) || undefined}
+              placeholder={isEdit ? 'Unchanged — type a new flag to replace it' : 'FLAG{...}'}
+              aria-invalid={(!isEdit && !!error && !form.flag) || undefined}
               className="input"
               style={{ borderColor: 'var(--color-border-danger)' }} />
           </div>
@@ -519,7 +547,10 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
           Cancel
         </button>
         <p className="text-small text-text-muted sm:ml-auto">
-          <span className="text-cyber-neon" aria-hidden>*</span> Title, description and flag are required.
+          <span className="text-cyber-neon" aria-hidden>*</span>{' '}
+          {isEdit
+            ? 'Title and description are required. A blank flag keeps the current one.'
+            : 'Title, description and flag are required.'}
         </p>
       </div>
     </div>
