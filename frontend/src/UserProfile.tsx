@@ -134,7 +134,9 @@ export default function UserProfile() {
     // Fetch fail count
     const { count: failCount } = await supabase
       .from('submissions')
-      .select('*', { count: 'exact', head: true })
+      // 'id', not '*': submitted_flag is revoked from authenticated (it is the
+      // admin-only plaintext audit column), and a '*' select list reaches it.
+      .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .eq('is_correct', false);
 
