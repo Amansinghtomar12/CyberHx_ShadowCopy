@@ -338,35 +338,37 @@ export default function Scoreboard() {
     const teamIdToName: Record<string, string> = {};
     top10Teams.forEach(t => { teamIdToName[t.id] = t.name; });
 
-    // 2. ✅ Secure RPC — challenges table directly access nahi hoti
-    const { data: subs, error } = await supabase
-      .rpc('get_solve_data', {
-        team_ids: top10Teams.map(t => t.id)
-      });
+    // 2. One row per scoring event for these teams: solves as positive points,
+    //    hint unlocks as negative, already ordered by time. Attribution matches
+    //    recompute_scores, so the curve ends where the standings table says.
+    const { data: events, error } = await supabase
+      .rpc('get_score_progression', { p_team_ids: top10Teams.map(t => t.id) });
 
-    if (error || !subs?.length) { setLoading(false); return; }
+    if (error || !events?.length) { setGraphData([]); setLoading(false); return; }
 
-    // 3. CTFd style graph: per team, count unique challenges only
+    // 3. CTFd style graph: running total per team, each event counted once.
     const teamPoints: Record<string, number> = {};
-    const teamSeenChallenges: Record<string, Set<string>> = {};
+    const seen: Record<string, Set<string>> = {};
     top10Names.forEach(name => {
       teamPoints[name] = 0;
-      teamSeenChallenges[name] = new Set();
+      seen[name] = new Set();
     });
 
     const points: GraphPoint[] = [];
 
-    subs.forEach((s: any) => {
-      const teamName = teamIdToName[s.team_id];
-      if (!teamName || !top10Names.includes(teamName)) return;
+    events.forEach((e: any) => {
+      const teamName = teamIdToName[e.team_id];
+      if (!teamName || !(teamName in teamPoints)) return;
 
-      if (teamSeenChallenges[teamName].has(s.challenge_id)) return;
-      teamSeenChallenges[teamName].add(s.challenge_id);
+      // event_key is the challenge id for a solve and the unlock id for a
+      // hint, so one key per event and no collisions between the two kinds.
+      if (seen[teamName].has(e.event_key)) return;
+      seen[teamName].add(e.event_key);
 
-      // ✅ FIX: s.points use karo, s.challenges?.points nahi
-      teamPoints[teamName] += s.points ?? 0;
+      // Clamped at zero to match team_scores, which floors the net total.
+      teamPoints[teamName] = Math.max(0, teamPoints[teamName] + (e.points ?? 0));
 
-      const time = new Date(s.submitted_at).toLocaleTimeString('en-US', {
+      const time = new Date(e.occurred_at).toLocaleTimeString('en-US', {
         hour: '2-digit', minute: '2-digit'
       });
 
