@@ -3,7 +3,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import {
   Flag, Eye, EyeOff, ShieldCheck, ShieldAlert, AlertTriangle,
-  Lock, Terminal, Trophy, Radio, Cpu, Zap, Globe2,
+  Lock, Terminal, Trophy, Radio, Cpu, Zap, Globe2, Target,
+  Wifi, ArrowRight, ChevronRight, Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
@@ -16,34 +17,112 @@ interface AuthPageProps {
   onSuccess: () => void;
 }
 
-/* ── presentational helpers (local, no behaviour) ─────────────────────────── */
+/* ══ Decorative helpers (local, purely presentational) ═════════════════════ */
 
-function BrandLockup({ compact = false }: { compact?: boolean }) {
+/** Viewfinder-style bracket that anchors the corners of the hero. */
+function CornerBracket({ position }: {
+  position: 'tl' | 'tr' | 'bl' | 'br';
+}) {
+  const pos = {
+    tl: 'top-6 left-6 border-t border-l',
+    tr: 'top-6 right-6 border-t border-r',
+    bl: 'bottom-6 left-6 border-b border-l',
+    br: 'bottom-6 right-6 border-b border-r',
+  }[position];
   return (
-    <span className="inline-flex items-center gap-3">
-      <span
-        aria-hidden="true"
-        className={`${compact ? 'w-10 h-10' : 'w-11 h-11'} relative inline-flex items-center justify-center rounded-control border border-border-neon bg-neon-wash shadow-neon`}
-      >
-        <Flag className={compact ? 'w-5 h-5 text-cyber-neon' : 'w-5 h-5 text-cyber-neon'} />
-      </span>
-      <span className="leading-none">
-        <span className={`block ${compact ? 'text-h2' : 'text-h1'} text-text-primary tracking-tight`}>
-          CYBER<span className="text-cyber-neon">HX</span>
-        </span>
-        <span className="mt-1 block label-micro">CTF · Capture the flag</span>
-      </span>
-    </span>
+    <span
+      aria-hidden="true"
+      className={`pointer-events-none absolute h-6 w-6 border-cyber-neon/40 ${pos}`}
+    />
   );
 }
 
-function FeatureLine({
-  icon: Icon,
-  title,
-  body,
-}: { icon: typeof Trophy; title: string; body: string }) {
+/** Concentric-circle "radar" element that rotates behind the hero content. */
+function BackgroundRadar({ reduceMotion }: { reduceMotion: boolean }) {
   return (
-    <li className="flex gap-3">
+    <motion.div
+      aria-hidden="true"
+      className="pointer-events-none absolute -top-24 -right-24 h-[520px] w-[520px] opacity-[0.09]"
+      animate={reduceMotion ? undefined : { rotate: 360 }}
+      transition={reduceMotion ? undefined : { duration: 90, ease: 'linear', repeat: Infinity }}
+    >
+      <svg viewBox="0 0 200 200" className="h-full w-full">
+        <defs>
+          <linearGradient id="scanline" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0%"   stopColor="#c6ff00" stopOpacity="0"/>
+            <stop offset="100%" stopColor="#c6ff00" stopOpacity="1"/>
+          </linearGradient>
+        </defs>
+        <circle cx="100" cy="100" r="98" fill="none" stroke="#c6ff00" strokeWidth="0.5" />
+        <circle cx="100" cy="100" r="80" fill="none" stroke="#c6ff00" strokeWidth="0.4" />
+        <circle cx="100" cy="100" r="60" fill="none" stroke="#c6ff00" strokeWidth="0.3" />
+        <circle cx="100" cy="100" r="40" fill="none" stroke="#c6ff00" strokeWidth="0.3" />
+        <circle cx="100" cy="100" r="20" fill="none" stroke="#c6ff00" strokeWidth="0.3" />
+        <line x1="100" y1="0"  x2="100" y2="200" stroke="#c6ff00" strokeWidth="0.3" />
+        <line x1="0"   y1="100" x2="200" y2="100" stroke="#c6ff00" strokeWidth="0.3" />
+        <line x1="100" y1="100" x2="200" y2="100" stroke="url(#scanline)" strokeWidth="1.5" />
+      </svg>
+    </motion.div>
+  );
+}
+
+/** Auto-scrolling category marquee — reads as live telemetry. */
+function CategoryTicker({ reduceMotion }: { reduceMotion: boolean }) {
+  const items = [
+    'WEB EXPLOITATION', 'CRYPTOGRAPHY', 'BINARY EXPLOITATION',
+    'REVERSE ENGINEERING', 'FORENSICS', 'OSINT', 'STEGANOGRAPHY',
+    'MISC',
+  ];
+  const line = items.map((t, i) => (
+    <React.Fragment key={i}>
+      <span className="text-cyber-neon">◈</span>
+      <span className="mx-4 label-micro !text-text-secondary">{t}</span>
+    </React.Fragment>
+  ));
+  return (
+    <div className="relative overflow-hidden border-y border-border-subtle py-3">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 left-0 w-24"
+        style={{ background: 'linear-gradient(to right, var(--color-cyber-bg), transparent)' }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 right-0 w-24"
+        style={{ background: 'linear-gradient(to left, var(--color-cyber-bg), transparent)' }}
+      />
+      <motion.div
+        className="flex whitespace-nowrap"
+        animate={reduceMotion ? undefined : { x: ['0%', '-50%'] }}
+        transition={reduceMotion ? undefined : { duration: 42, ease: 'linear', repeat: Infinity }}
+      >
+        <div className="flex shrink-0 items-center">{line}</div>
+        <div className="flex shrink-0 items-center" aria-hidden="true">{line}</div>
+      </motion.div>
+    </div>
+  );
+}
+
+function StatTile({ value, label, tone = 'default' }: {
+  value: string; label: string; tone?: 'default' | 'live' | 'neon';
+}) {
+  const valueTone =
+    tone === 'live' ? 'text-emerald-400'
+    : tone === 'neon' ? 'text-cyber-neon'
+    : 'text-text-primary';
+  return (
+    <div className="rounded-control border border-border-subtle bg-surface-inset/60 px-4 py-3">
+      <div className={`font-mono text-2xl leading-none ${valueTone}`}>{value}</div>
+      <div className="mt-1.5 label-micro">{label}</div>
+    </div>
+  );
+}
+
+function FeatureLine({ icon: Icon, title, body }: {
+  icon: typeof Trophy; title: string; body: string;
+}) {
+  return (
+    <li className="flex items-start gap-3">
       <span
         aria-hidden="true"
         className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-control border border-border-subtle bg-surface-inset"
@@ -52,26 +131,13 @@ function FeatureLine({
       </span>
       <span className="min-w-0">
         <span className="block text-body font-semibold text-text-primary leading-tight">{title}</span>
-        <span className="mt-0.5 block text-small text-text-muted">{body}</span>
+        <span className="mt-0.5 block text-small text-text-muted leading-snug">{body}</span>
       </span>
     </li>
   );
 }
 
-function TelemetryRow({ label, value, tone = 'muted' }: {
-  label: string; value: string; tone?: 'muted' | 'live' | 'neon';
-}) {
-  const colour =
-    tone === 'live' ? 'text-emerald-400'
-    : tone === 'neon' ? 'text-cyber-neon'
-    : 'text-text-secondary';
-  return (
-    <div className="flex items-center justify-between gap-3 py-1.5 border-b border-border-subtle/60 last:border-0">
-      <span className="label-micro">{label}</span>
-      <span className={`font-mono text-small ${colour}`}>{value}</span>
-    </div>
-  );
-}
+/* ══ Main component ═══════════════════════════════════════════════════════ */
 
 export default function AuthPage({ onSuccess }: AuthPageProps) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -84,7 +150,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
   const turnstileRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
   const { login, register, loginWithGoogle } = useAuth();
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReducedMotion() ?? false;
 
   // Load Turnstile script
   useEffect(() => {
@@ -175,335 +241,410 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
   const ease = [0.22, 1, 0.36, 1] as const;
 
   return (
-    <div className="min-h-screen bg-cyber-bg flex items-center justify-center px-4 py-6 sm:py-10 overflow-x-hidden">
+    <div className="min-h-screen bg-cyber-bg overflow-x-hidden relative">
       <AmbientBackground intensity="normal" />
 
-      <div className="page-shell w-full max-w-md lg:max-w-[62rem]">
-        <div className="grid items-stretch gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:gap-8">
+      {/* Full-viewport viewfinder brackets — signal that this is a serious environment */}
+      <div className="hidden lg:block">
+        <CornerBracket position="tl" />
+        <CornerBracket position="tr" />
+        <CornerBracket position="bl" />
+        <CornerBracket position="br" />
+      </div>
 
-          {/* ── Brand / telemetry column (lg+) ─────────────────────────── */}
-          <motion.section
-            initial={reduceMotion ? false : { opacity: 0, x: -12 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4, ease }}
-            className="hidden lg:flex lg:flex-col"
-          >
-            <div className="surface relative overflow-hidden p-7 flex-1 flex flex-col">
-              {/* Corner accent */}
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute right-0 top-0 h-24 w-24"
-                style={{
-                  background:
-                    'radial-gradient(circle at top right, var(--color-neon-glow), transparent 70%)',
-                }}
-              />
+      <div className="page-shell min-h-screen flex items-center justify-center px-4 py-8 sm:py-10">
+        <div className="w-full max-w-md lg:max-w-[86rem]">
 
-              {/* Status pill */}
-              <div className="inline-flex w-fit items-center gap-2 rounded-pill border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                </span>
-                <span className="label-micro text-emerald-300">Systems online</span>
-              </div>
+          <div className="grid items-stretch gap-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:gap-10 xl:gap-14">
 
-              <div className="mt-6">
-                <BrandLockup />
-              </div>
+            {/* ══ HERO COLUMN ══════════════════════════════════════════════ */}
+            <motion.section
+              initial={reduceMotion ? false : { opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, ease }}
+              className="hidden lg:flex lg:flex-col lg:min-w-0 relative"
+            >
+              <BackgroundRadar reduceMotion={reduceMotion} />
 
-              <p className="mt-5 max-w-sm text-body text-text-secondary leading-relaxed">
-                A live competition environment for offensive security. Solve, submit,
-                climb the board — every second on the clock counts.
-              </p>
-
-              {/* Feature list — denser */}
-              <ul className="mt-6 space-y-3.5">
-                <FeatureLine
-                  icon={Terminal}
-                  title="Curated challenge tracks"
-                  body="Web · Crypto · Reversing · Pwn · Forensics · OSINT"
-                />
-                <FeatureLine
-                  icon={Trophy}
-                  title="Live scoreboard"
-                  body="Dynamic scoring and first-blood tracking, updated on solve."
-                />
-                <FeatureLine
-                  icon={Lock}
-                  title="Hardened access"
-                  body="Captcha-gated auth · RLS-isolated data · rate-limited flag submit"
-                />
-              </ul>
-
-              {/* Live telemetry panel — fills space with purposeful density */}
-              <div className="mt-auto pt-6">
-                <div className="rounded-control border border-border-subtle bg-surface-inset p-4">
-                  <div className="mb-2 flex items-center gap-2">
-                    <Radio className="h-3 w-3 text-cyber-neon" aria-hidden="true" />
-                    <span className="label-micro text-text-secondary">System telemetry</span>
+              <div className="relative flex-1 flex flex-col">
+                {/* Top status row */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="inline-flex items-center gap-2 rounded-pill border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    </span>
+                    <span className="label-micro text-emerald-300">Operations live</span>
                   </div>
-                  <TelemetryRow label="Framework"  value="CyberHX v2.0" tone="neon" />
-                  <TelemetryRow label="Auth layer" value="OAuth · Password" />
-                  <TelemetryRow label="Protection" value="Turnstile" tone="live" />
-                  <TelemetryRow label="Status"     value="Ready" tone="live" />
+                  <div className="inline-flex items-center gap-2 rounded-pill border border-border-subtle bg-surface-inset px-3 py-1.5">
+                    <Wifi className="h-3 w-3 text-cyber-neon" aria-hidden="true" />
+                    <span className="label-micro">Secure channel · TLS 1.3</span>
+                  </div>
+                  <div className="inline-flex items-center gap-2 rounded-pill border border-border-subtle bg-surface-inset px-3 py-1.5">
+                    <Radio className="h-3 w-3 text-cyber-neon" aria-hidden="true" />
+                    <span className="label-micro">v2.0</span>
+                  </div>
+                </div>
+
+                {/* Massive brand wordmark */}
+                <div className="mt-8 xl:mt-10">
+                  <div className="inline-flex items-center gap-2 mb-3">
+                    <span className="h-px w-8 bg-cyber-neon" aria-hidden="true" />
+                    <span className="label-micro !text-cyber-neon">// CTF PLATFORM</span>
+                  </div>
+                  <h1
+                    className="font-bold text-text-primary tracking-tight leading-[0.9]"
+                    style={{ fontSize: 'clamp(3.5rem, 8vw, 7rem)' }}
+                  >
+                    CYBER<span className="text-cyber-neon text-glow">HX</span>
+                  </h1>
+                  <p className="mt-5 max-w-xl text-h3 text-text-secondary leading-relaxed">
+                    A live competition environment for offensive security.
+                    <br />
+                    <span className="text-cyber-neon">Solve.</span>{' '}
+                    <span className="text-cyber-neon">Submit.</span>{' '}
+                    <span className="text-cyber-neon">Climb the board.</span>
+                  </p>
+                </div>
+
+                {/* Stat tile row */}
+                <div className="mt-8 grid grid-cols-4 gap-3 max-w-2xl">
+                  <StatTile value="8"    label="Categories"  tone="neon" />
+                  <StatTile value="3"    label="Difficulties" />
+                  <StatTile value="LIVE" label="Event"       tone="live" />
+                  <StatTile value="24/7" label="Uptime"      tone="live" />
+                </div>
+
+                {/* Category ticker */}
+                <div className="mt-8">
+                  <CategoryTicker reduceMotion={reduceMotion} />
+                </div>
+
+                {/* Feature list — inline, denser */}
+                <ul className="mt-8 grid grid-cols-1 xl:grid-cols-3 gap-4 max-w-4xl">
+                  <FeatureLine
+                    icon={Terminal}
+                    title="Curated tracks"
+                    body="Web · Crypto · Rev · Pwn · Forensics · OSINT"
+                  />
+                  <FeatureLine
+                    icon={Trophy}
+                    title="Live scoreboard"
+                    body="Dynamic scoring and first-blood tracking"
+                  />
+                  <FeatureLine
+                    icon={Lock}
+                    title="Hardened access"
+                    body="Captcha · RLS isolation · rate limits"
+                  />
+                </ul>
+
+                {/* Bottom operator credit line */}
+                <div className="mt-auto pt-10 flex items-center gap-2 label-micro">
+                  <Target className="h-3 w-3 text-cyber-neon" aria-hidden="true" />
+                  <span>ORGANIZED BY CYBERHX · POWERED BY SUPABASE + VERCEL</span>
                 </div>
               </div>
-            </div>
-          </motion.section>
+            </motion.section>
 
-          {/* ── Auth column ─────────────────────────────────────────────── */}
-          <motion.div
-            initial={reduceMotion ? false : { opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, ease }}
-            className="w-full lg:min-w-0"
-          >
-            {/* Compact logo — below lg only */}
-            <div className="mb-5 text-center lg:hidden">
-              <div className="inline-flex flex-col items-center gap-2">
-                <BrandLockup compact />
-              </div>
-            </div>
-
-            {/* Card */}
-            <div className="surface shadow-e5 relative overflow-hidden">
-              {/* lime hairline along the top edge */}
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-x-0 top-0 h-px"
-                style={{ background: 'linear-gradient(90deg, transparent, var(--color-neon), transparent)', opacity: 0.6 }}
-              />
-
-              {/* Tab toggle — anchored at top, doubles as header */}
-              <div
-                role="group"
-                aria-label="Authentication mode"
-                className="grid grid-cols-2 border-b border-border-subtle"
-              >
-                {(['login', 'register'] as const).map(m => {
-                  const active = mode === m;
-                  return (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => { setMode(m); setError(''); }}
-                      aria-pressed={active}
-                      className={`focus-ring relative py-3.5 text-small font-semibold uppercase tracking-widest transition-colors duration-[var(--duration-fast)] ${
-                        active
-                          ? 'text-cyber-neon bg-neon-wash/40'
-                          : 'text-text-muted hover:text-text-primary hover:bg-surface-raised'
-                      }`}
-                    >
-                      {m === 'login' ? 'Sign In' : 'Register'}
-                      {active && (
-                        <span
-                          aria-hidden="true"
-                          className="absolute inset-x-6 bottom-0 h-0.5 bg-cyber-neon shadow-neon"
-                        />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="p-5 sm:p-6">
-                <header className="mb-5">
-                  <h2 className="text-h3 text-text-primary">
-                    {mode === 'login' ? 'Access terminal' : 'Create operative'}
-                  </h2>
-                  <p className="mt-1 text-small text-text-muted">
-                    {mode === 'login'
-                      ? 'Authenticate to resume your run.'
-                      : 'Register a handle to enter the competition.'}
-                  </p>
-                </header>
-
-                {/* Registration closed banner */}
-                {mode === 'register' && !registrationOpen && (
-                  <div
-                    role="status"
-                    className="mb-4 flex items-start gap-3 rounded-control border p-3"
-                    style={{
-                      borderColor: 'var(--color-border-danger)',
-                      backgroundColor: 'var(--color-diff-hard-wash)',
-                    }}
+            {/* ══ AUTH CARD COLUMN ═════════════════════════════════════════ */}
+            <motion.div
+              initial={reduceMotion ? false : { opacity: 0, y: 16, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.5, ease, delay: 0.1 }}
+              className="w-full lg:min-w-0"
+            >
+              {/* Compact logo — below lg only */}
+              <div className="mb-6 text-center lg:hidden">
+                <div className="inline-flex flex-col items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="relative inline-flex h-14 w-14 items-center justify-center rounded-card border border-border-neon bg-neon-wash shadow-neon"
                   >
-                    <Lock className="mt-px h-4 w-4 shrink-0" style={{ color: 'var(--color-diff-hard)' }} aria-hidden="true" />
-                    <span className="text-small" style={{ color: 'var(--color-diff-hard)' }}>
-                      Registration is currently closed.
-                    </span>
-                  </div>
-                )}
+                    <Flag className="h-7 w-7 text-cyber-neon" />
+                  </span>
+                  <span className="text-h1 text-text-primary tracking-tight leading-none">
+                    CYBER<span className="text-cyber-neon">HX</span>
+                  </span>
+                  <span className="label-micro">CTF Platform · v2.0</span>
+                </div>
+              </div>
 
-                <form onSubmit={handleSubmit} className="space-y-3.5">
-                  <AnimatePresence mode="wait">
-                    {mode === 'register' && (
-                      <motion.div
-                        key="username"
-                        initial={reduceMotion ? false : { opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={reduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
-                        transition={{ duration: 0.22, ease }}
-                        className="overflow-hidden"
+              {/* Card wrapper with layered depth */}
+              <div className="relative">
+                {/* Soft glow behind the card */}
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -inset-4 rounded-card opacity-60 blur-2xl"
+                  style={{ background: 'radial-gradient(circle at 50% 30%, var(--color-neon-glow), transparent 65%)' }}
+                />
+
+                {/* Card */}
+                <div className="surface shadow-e5 relative overflow-hidden">
+                  {/* Top hairline */}
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 top-0 h-px"
+                    style={{ background: 'linear-gradient(90deg, transparent, var(--color-neon), transparent)', opacity: 0.7 }}
+                  />
+
+                  {/* Tab toggle bar */}
+                  <div
+                    role="group"
+                    aria-label="Authentication mode"
+                    className="grid grid-cols-2 border-b border-border-subtle bg-surface-inset/30"
+                  >
+                    {(['login', 'register'] as const).map(m => {
+                      const active = mode === m;
+                      return (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => { setMode(m); setError(''); }}
+                          aria-pressed={active}
+                          className={`focus-ring relative py-4 text-body font-bold uppercase tracking-[0.2em] transition-all duration-[var(--duration-fast)] ${
+                            active
+                              ? 'text-cyber-neon bg-neon-wash/40'
+                              : 'text-text-muted hover:text-text-primary hover:bg-surface-raised'
+                          }`}
+                        >
+                          {m === 'login' ? 'Sign In' : 'Register'}
+                          {active && (
+                            <motion.span
+                              layoutId="auth-tab-underline"
+                              aria-hidden="true"
+                              className="absolute inset-x-6 bottom-0 h-0.5 bg-cyber-neon shadow-neon"
+                              transition={{ duration: 0.25, ease }}
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="p-6 sm:p-7">
+                    {/* Big, confident header */}
+                    <header className="mb-6">
+                      <div className="inline-flex items-center gap-2 mb-2">
+                        <Sparkles className="h-3.5 w-3.5 text-cyber-neon" aria-hidden="true" />
+                        <span className="label-micro !text-cyber-neon">
+                          {mode === 'login' ? '// AUTH GATEWAY' : '// NEW OPERATIVE'}
+                        </span>
+                      </div>
+                      <h2 className="text-h1 text-text-primary tracking-tight leading-tight">
+                        {mode === 'login' ? 'Access terminal' : 'Enter the arena'}
+                      </h2>
+                      <p className="mt-2 text-small text-text-muted">
+                        {mode === 'login'
+                          ? 'Authenticate to resume your run.'
+                          : 'Register a handle to enter the competition.'}
+                      </p>
+                    </header>
+
+                    {/* Registration closed banner */}
+                    {mode === 'register' && !registrationOpen && (
+                      <div
+                        role="status"
+                        className="mb-4 flex items-start gap-3 rounded-control border p-3"
+                        style={{
+                          borderColor: 'var(--color-border-danger)',
+                          backgroundColor: 'var(--color-diff-hard-wash)',
+                        }}
                       >
-                        <div>
-                          <label className="field-label" htmlFor="auth-username">Username</label>
-                          <input
-                            id="auth-username"
-                            type="text"
-                            autoComplete="username"
-                            placeholder="operative_handle"
-                            value={form.username}
-                            onChange={e => setForm(p => ({ ...p, username: e.target.value }))}
-                            className="input"
-                          />
-                          <p className="mt-1 text-micro text-text-faint">3–30 characters · letters, numbers, _ or -</p>
-                        </div>
-                      </motion.div>
+                        <Lock className="mt-px h-4 w-4 shrink-0" style={{ color: 'var(--color-diff-hard)' }} aria-hidden="true" />
+                        <span className="text-small" style={{ color: 'var(--color-diff-hard)' }}>
+                          Registration is currently closed.
+                        </span>
+                      </div>
                     )}
-                  </AnimatePresence>
 
-                  <div>
-                    <label className="field-label" htmlFor="auth-email">Email</label>
-                    <input
-                      id="auth-email"
-                      type="email"
-                      autoComplete="email"
-                      placeholder="operative@domain.com"
-                      value={form.email}
-                      onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
-                      className="input"
-                    />
-                  </div>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                      <AnimatePresence mode="wait">
+                        {mode === 'register' && (
+                          <motion.div
+                            key="username"
+                            initial={reduceMotion ? false : { opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                            transition={{ duration: 0.22, ease }}
+                            className="overflow-hidden"
+                          >
+                            <div>
+                              <label className="field-label" htmlFor="auth-username">Username</label>
+                              <input
+                                id="auth-username"
+                                type="text"
+                                autoComplete="username"
+                                placeholder="operative_handle"
+                                value={form.username}
+                                onChange={e => setForm(p => ({ ...p, username: e.target.value }))}
+                                className="input"
+                              />
+                              <p className="mt-1 text-micro text-text-faint">3–30 characters · letters, numbers, _ or -</p>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
 
-                  <div>
-                    <label className="field-label" htmlFor="auth-password">Password</label>
-                    <div className="relative">
-                      <input
-                        id="auth-password"
-                        type={showPass ? 'text' : 'password'}
-                        autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                        placeholder="••••••••"
-                        value={form.password}
-                        onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
-                        className="input pr-11"
-                      />
+                      <div>
+                        <label className="field-label" htmlFor="auth-email">Email</label>
+                        <input
+                          id="auth-email"
+                          type="email"
+                          autoComplete="email"
+                          placeholder="operative@domain.com"
+                          value={form.email}
+                          onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
+                          className="input"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="field-label" htmlFor="auth-password">Password</label>
+                        <div className="relative">
+                          <input
+                            id="auth-password"
+                            type={showPass ? 'text' : 'password'}
+                            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                            placeholder="••••••••"
+                            value={form.password}
+                            onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
+                            className="input pr-11"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPass(p => !p)}
+                            aria-label={showPass ? 'Hide password' : 'Show password'}
+                            aria-pressed={showPass}
+                            className="focus-ring absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded-inset text-text-muted transition-colors duration-[var(--duration-fast)] hover:bg-surface-raised hover:text-text-primary"
+                          >
+                            {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Cloudflare Turnstile Captcha */}
+                      <div className="rounded-control border border-border-subtle bg-surface-inset px-3 py-2.5">
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <span className="inline-flex items-center gap-1.5 label-micro">
+                            <Cpu className="h-3 w-3 text-text-muted" aria-hidden="true" />
+                            Human verification
+                          </span>
+                          <span
+                            className={`badge ${captchaToken ? 'badge-solved' : 'badge-locked'}`}
+                            aria-live="polite"
+                          >
+                            {captchaToken
+                              ? <ShieldCheck className="h-3 w-3" aria-hidden="true" />
+                              : <ShieldAlert className="h-3 w-3" aria-hidden="true" />}
+                            {captchaToken ? 'Verified' : 'Pending'}
+                          </span>
+                        </div>
+                        <div className="custom-scrollbar w-full overflow-x-auto">
+                          <div className="flex min-w-fit justify-center">
+                            <div ref={turnstileRef} />
+                          </div>
+                        </div>
+                      </div>
+
+                      {error && (
+                        <motion.p
+                          initial={reduceMotion ? false : { opacity: 0, y: -4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.2, ease }}
+                          role="alert"
+                          className="flex items-start gap-2.5 rounded-control border p-2.5 text-small"
+                          style={{
+                            borderColor: 'var(--color-border-danger)',
+                            backgroundColor: 'var(--color-diff-hard-wash)',
+                            color: 'var(--color-diff-hard)',
+                          }}
+                        >
+                          <AlertTriangle className="mt-px h-4 w-4 shrink-0" aria-hidden="true" />
+                          <span className="min-w-0 break-words">{error}</span>
+                        </motion.p>
+                      )}
+
+                      {/* Bigger, more confident primary CTA */}
+                      <button
+                        type="submit"
+                        disabled={loading || !captchaToken}
+                        className={`btn btn-primary btn-lg btn-block group !py-4 !text-body !tracking-[0.2em] ${loading ? 'is-loading' : ''}`}
+                      >
+                        {loading ? (
+                          'Authenticating...'
+                        ) : mode === 'login' ? (
+                          <>
+                            <Zap className="h-4 w-4" aria-hidden="true" />
+                            Access Terminal
+                            <ArrowRight className="h-4 w-4 transition-transform duration-[var(--duration-fast)] group-hover:translate-x-1" aria-hidden="true" />
+                          </>
+                        ) : (
+                          <>
+                            <Flag className="h-4 w-4" aria-hidden="true" />
+                            Enlist Operative
+                            <ArrowRight className="h-4 w-4 transition-transform duration-[var(--duration-fast)] group-hover:translate-x-1" aria-hidden="true" />
+                          </>
+                        )}
+                      </button>
+
+                      {/* Divider */}
+                      <div className="flex items-center gap-3 pt-1">
+                        <span className="divider block flex-1" aria-hidden="true" />
+                        <span className="label-micro">or continue with</span>
+                        <span className="divider block flex-1" aria-hidden="true" />
+                      </div>
+
+                      {/* Google OAuth */}
                       <button
                         type="button"
-                        onClick={() => setShowPass(p => !p)}
-                        aria-label={showPass ? 'Hide password' : 'Show password'}
-                        aria-pressed={showPass}
-                        className="focus-ring absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded-inset text-text-muted transition-colors duration-[var(--duration-fast)] hover:bg-surface-raised hover:text-text-primary"
+                        onClick={async () => {
+                          setError('');
+                          setLoading(true);
+                          const result = await loginWithGoogle();
+                          if (result?.error) {
+                            setError(result.error);
+                            setLoading(false);
+                          }
+                        }}
+                        disabled={loading}
+                        className="btn btn-secondary btn-block"
                       >
-                        {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
+                          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
+                          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                        </svg>
+                        Continue with Google
                       </button>
-                    </div>
+                    </form>
                   </div>
 
-                  {/* Cloudflare Turnstile Captcha — compact */}
-                  <div className="rounded-control border border-border-subtle bg-surface-inset px-3 py-2.5">
-                    <div className="mb-2 flex items-center justify-between gap-3">
+                  {/* Card footer */}
+                  <div className="border-t border-border-subtle bg-surface-inset/50 px-6 py-3">
+                    <div className="flex items-center justify-between gap-3">
                       <span className="inline-flex items-center gap-1.5 label-micro">
-                        <Cpu className="h-3 w-3 text-text-muted" aria-hidden="true" />
-                        Human verification
+                        <Globe2 className="h-3 w-3" aria-hidden="true" />
+                        <span>ctf.cyberhx.com</span>
                       </span>
-                      <span
-                        className={`badge ${captchaToken ? 'badge-solved' : 'badge-locked'}`}
-                        aria-live="polite"
-                      >
-                        {captchaToken
-                          ? <ShieldCheck className="h-3 w-3" aria-hidden="true" />
-                          : <ShieldAlert className="h-3 w-3" aria-hidden="true" />}
-                        {captchaToken ? 'Verified' : 'Pending'}
+                      <span className="inline-flex items-center gap-1.5 label-micro">
+                        <ChevronRight className="h-3 w-3 text-cyber-neon" aria-hidden="true" />
+                        <span className="font-mono">v2.0 · CTF-EDITION</span>
                       </span>
                     </div>
-                    <div className="custom-scrollbar w-full overflow-x-auto">
-                      <div className="flex min-w-fit justify-center">
-                        <div ref={turnstileRef} />
-                      </div>
-                    </div>
                   </div>
-
-                  {error && (
-                    <motion.p
-                      initial={reduceMotion ? false : { opacity: 0, y: -4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.2, ease }}
-                      role="alert"
-                      className="flex items-start gap-2.5 rounded-control border p-2.5 text-small"
-                      style={{
-                        borderColor: 'var(--color-border-danger)',
-                        backgroundColor: 'var(--color-diff-hard-wash)',
-                        color: 'var(--color-diff-hard)',
-                      }}
-                    >
-                      <AlertTriangle className="mt-px h-4 w-4 shrink-0" aria-hidden="true" />
-                      <span className="min-w-0 break-words">{error}</span>
-                    </motion.p>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={loading || !captchaToken}
-                    className={`btn btn-primary btn-lg btn-block ${loading ? 'is-loading' : ''}`}
-                  >
-                    {loading
-                      ? 'Authenticating...'
-                      : mode === 'login'
-                        ? <><Zap className="h-4 w-4" aria-hidden="true" /> Access Terminal</>
-                        : <><Flag className="h-4 w-4" aria-hidden="true" /> Create Operative</>}
-                  </button>
-
-                  {/* Divider */}
-                  <div className="flex items-center gap-3 pt-1">
-                    <span className="divider block flex-1" aria-hidden="true" />
-                    <span className="label-micro">or continue with</span>
-                    <span className="divider block flex-1" aria-hidden="true" />
-                  </div>
-
-                  {/* Google OAuth */}
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setError('');
-                      setLoading(true);
-                      const result = await loginWithGoogle();
-                      if (result?.error) {
-                        setError(result.error);
-                        setLoading(false);
-                      }
-                    }}
-                    disabled={loading}
-                    className="btn btn-secondary btn-block"
-                  >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                    </svg>
-                    Continue with Google
-                  </button>
-                </form>
-              </div>
-
-              {/* Card footer with meta info */}
-              <div className="border-t border-border-subtle bg-surface-inset/50 px-5 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="inline-flex items-center gap-1.5 label-micro">
-                    <Globe2 className="h-3 w-3" aria-hidden="true" />
-                    <span>ctf.cyberhx.com</span>
-                  </span>
-                  <span className="label-micro font-mono">v2.0</span>
                 </div>
               </div>
-            </div>
 
-            <p className="mt-4 text-center label-micro">
-              By continuing you agree to fair-play rules · No solutions may be shared
-            </p>
-          </motion.div>
+              <p className="mt-5 text-center label-micro leading-relaxed">
+                By continuing you agree to fair-play rules
+                <br className="sm:hidden" />
+                <span className="hidden sm:inline"> · </span>
+                No solutions may be shared
+              </p>
+            </motion.div>
+          </div>
         </div>
       </div>
     </div>
