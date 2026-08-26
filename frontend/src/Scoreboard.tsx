@@ -355,6 +355,18 @@ export default function Scoreboard() {
     });
 
     const points: GraphPoint[] = [];
+    const snapshot = (at: Date): GraphPoint => {
+      const point: GraphPoint = { time: formatClock(at.toISOString()) };
+      top10Names.forEach(name => { point[name] = teamPoints[name]; });
+      return point;
+    };
+
+    // Baseline: every team flat on zero a minute before the first event.
+    // Without it a competition with one solve has a single x-value, and an
+    // area chart with one point draws isolated dots rather than a line, which
+    // reads as broken rather than as early.
+    const firstAt = new Date(events[0].occurred_at);
+    points.push(snapshot(new Date(firstAt.getTime() - 60_000)));
 
     events.forEach((e: any) => {
       const teamName = teamIdToName[e.team_id];
@@ -368,14 +380,14 @@ export default function Scoreboard() {
       // Clamped at zero to match team_scores, which floors the net total.
       teamPoints[teamName] = Math.max(0, teamPoints[teamName] + (e.points ?? 0));
 
-      const time = new Date(e.occurred_at).toLocaleTimeString('en-US', {
-        hour: '2-digit', minute: '2-digit'
-      });
-
-      const point: GraphPoint = { time };
-      top10Names.forEach(name => { point[name] = teamPoints[name]; });
-      points.push(point);
+      points.push(snapshot(new Date(e.occurred_at)));
     });
+
+    // Carry the standings forward to now, so the board reads as live between
+    // solves instead of stopping at whenever the last one landed. Skipped when
+    // it would just repeat the last label.
+    const now = snapshot(new Date());
+    if (now.time !== points[points.length - 1]?.time) points.push(now);
 
     setGraphData(points);
     setLoading(false);
