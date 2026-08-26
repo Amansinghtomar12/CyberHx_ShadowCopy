@@ -574,6 +574,25 @@
     margin-bottom: 0.375rem;
   }
 
+  /* ── Auth card type scale ──────────────────────────────────────────────
+     The sign-in card is the first surface a competitor ever sees, and the
+     10px app-wide micro size reads as too small there — field labels and
+     helper text sit far below the size of the form controls they describe.
+     Redeclare the size tokens on the card so every class that resolves them
+     (.field-label, .label-micro, .input, .text-small, .text-body …) steps up
+     together. Scoped to this one element: the dense in-app screens keep the
+     tighter scale they were tuned for. */
+  .auth-scale {
+    --text-micro: 0.75rem;
+    --text-micro--letter-spacing: 0.14em;
+    --text-small: 0.9375rem;
+    --text-body: 1rem;
+  }
+  .auth-scale .field-label {
+    color: var(--color-text-secondary);
+    margin-bottom: 0.5rem;
+  }
+
   /* ══ BADGES ════════════════════════════════════════════════════════════ */
   .badge {
     display: inline-flex;

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import {
   Flag, Eye, EyeOff, ShieldCheck, ShieldAlert, AlertTriangle,
-  Lock, Terminal, Trophy, Radio, Cpu, Zap, Globe2, Target,
+  Lock, Radio, Cpu, Zap, Globe2, Target,
   Wifi, ArrowRight, ChevronRight, Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
@@ -115,25 +115,6 @@ function StatTile({ value, label, tone = 'default' }: {
       <div className={`font-mono text-2xl leading-none ${valueTone}`}>{value}</div>
       <div className="mt-1.5 label-micro">{label}</div>
     </div>
-  );
-}
-
-function FeatureLine({ icon: Icon, title, body }: {
-  icon: typeof Trophy; title: string; body: string;
-}) {
-  return (
-    <li className="flex items-start gap-3">
-      <span
-        aria-hidden="true"
-        className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-control border border-border-subtle bg-surface-inset"
-      >
-        <Icon className="h-3.5 w-3.5 text-cyber-neon" />
-      </span>
-      <span className="min-w-0">
-        <span className="block text-body font-semibold text-text-primary leading-tight">{title}</span>
-        <span className="mt-0.5 block text-small text-text-muted leading-snug">{body}</span>
-      </span>
-    </li>
   );
 }
 
@@ -253,9 +234,9 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
       </div>
 
       <div className="page-shell min-h-screen flex items-center justify-center px-4 py-8 sm:py-10">
-        <div className="w-full max-w-md lg:max-w-[86rem]">
+        <div className="w-full max-w-lg lg:max-w-[82rem]">
 
-          <div className="grid items-stretch gap-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:gap-10 xl:gap-14">
+          <div className="grid items-stretch gap-6 lg:grid-cols-[minmax(0,1fr)_31rem] lg:gap-10 xl:gap-12">
 
             {/* ══ HERO COLUMN ══════════════════════════════════════════════ */}
             <motion.section
@@ -290,17 +271,15 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                 <div className="mt-8 xl:mt-10">
                   <div className="inline-flex items-center gap-2 mb-3">
                     <span className="h-px w-8 bg-cyber-neon" aria-hidden="true" />
-                    <span className="label-micro !text-cyber-neon">// CTF PLATFORM</span>
+                    <span className="label-micro !text-cyber-neon">CTF Platform</span>
                   </div>
                   <h1
                     className="font-bold text-text-primary tracking-tight leading-[0.9]"
-                    style={{ fontSize: 'clamp(3.5rem, 8vw, 7rem)' }}
+                    style={{ fontSize: 'clamp(3.25rem, 6.6vw, 6rem)' }}
                   >
                     CYBER<span className="text-cyber-neon text-glow">HX</span>
                   </h1>
-                  <p className="mt-5 max-w-xl text-h3 text-text-secondary leading-relaxed">
-                    A live competition environment for offensive security.
-                    <br />
+                  <p className="mt-4 max-w-md text-h3 text-text-secondary leading-snug">
                     <span className="text-cyber-neon">Solve.</span>{' '}
                     <span className="text-cyber-neon">Submit.</span>{' '}
                     <span className="text-cyber-neon">Climb the board.</span>
@@ -319,25 +298,6 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                 <div className="mt-8">
                   <CategoryTicker reduceMotion={reduceMotion} />
                 </div>
-
-                {/* Feature list — inline, denser */}
-                <ul className="mt-8 grid grid-cols-1 xl:grid-cols-3 gap-4 max-w-4xl">
-                  <FeatureLine
-                    icon={Terminal}
-                    title="Curated tracks"
-                    body="Web · Crypto · Rev · Pwn · Forensics · OSINT"
-                  />
-                  <FeatureLine
-                    icon={Trophy}
-                    title="Live scoreboard"
-                    body="Dynamic scoring and first-blood tracking"
-                  />
-                  <FeatureLine
-                    icon={Lock}
-                    title="Hardened access"
-                    body="Captcha · RLS isolation · rate limits"
-                  />
-                </ul>
 
                 {/* Bottom operator credit line */}
                 <div className="mt-auto pt-10 flex items-center gap-2 label-micro">
@@ -380,7 +340,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                 />
 
                 {/* Card */}
-                <div className="surface shadow-e5 relative overflow-hidden">
+                <div className="auth-scale surface shadow-e5 relative overflow-hidden">
                   {/* Top hairline */}
                   <span
                     aria-hidden="true"
@@ -428,7 +388,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                       <div className="inline-flex items-center gap-2 mb-2">
                         <Sparkles className="h-3.5 w-3.5 text-cyber-neon" aria-hidden="true" />
                         <span className="label-micro !text-cyber-neon">
-                          {mode === 'login' ? '// AUTH GATEWAY' : '// NEW OPERATIVE'}
+                          {mode === 'login' ? 'Auth Gateway' : 'New Operative'}
                         </span>
                       </div>
                       <h2 className="text-h1 text-text-primary tracking-tight leading-tight">
