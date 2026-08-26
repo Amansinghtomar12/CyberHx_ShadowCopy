@@ -314,14 +314,45 @@ export default function Scoreboard() {
   const [teams, setTeams] = useState<TeamScore[]>([]);
   const [graphData, setGraphData] = useState<GraphPoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [frozen, setFrozen] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
   useEffect(() => {
-    fetchScoreboard();
-    const interval = setInterval(fetchScoreboard, 60000);
-    return () => clearInterval(interval);
+    let timer: ReturnType<typeof setTimeout>;
+    let delay = 15 * 60_000;
+    let cancelled = false;
+
+    const tick = async () => {
+      try { await fetchScoreboard(); delay = 15 * 60_000; }
+      catch { delay = Math.min(delay * 2, 300_000); }
+      if (!cancelled) timer = setTimeout(tick, delay);
+    };
+
+    tick();
+
+    const onVis = () => {
+      if (document.hidden) { clearTimeout(timer); }
+      else { clearTimeout(timer); delay = 15 * 60_000; tick(); }
+    };
+    document.addEventListener('visibilitychange', onVis);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, []);
 
   const fetchScoreboard = async () => {
+    // 0. Check if scoreboard is frozen by admin
+    const { data: settings } = await supabase
+      .from('event_settings')
+      .select('freeze_scoreboard')
+      .order('id', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setFrozen(!!settings?.freeze_scoreboard);
+
     // 1. Get top teams
     const { data: teamData } = await supabase
       .from('team_scores')
@@ -390,6 +421,7 @@ export default function Scoreboard() {
     if (now.time !== points[points.length - 1]?.time) points.push(now);
 
     setGraphData(points);
+    setLastRefresh(new Date());
     setLoading(false);
   };
 
@@ -416,11 +448,19 @@ export default function Scoreboard() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="badge badge-live">Live</span>
+          {frozen ? (
+            <span className="badge badge-medium">Frozen</span>
+          ) : (
+            <span className="badge badge-live">Live</span>
+          )}
           <span className="badge badge-neon font-mono tabular-nums">
             {teams.length} {teams.length === 1 ? 'team' : 'teams'}
           </span>
-          <span className="text-small text-text-muted">Refreshes every 60s</span>
+          <span className="text-small text-text-muted">
+            {frozen
+              ? 'Scoreboard frozen by admin'
+              : `Refreshes every 15 min${lastRefresh ? ` · ${lastRefresh.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : ''}`}
+          </span>
         </div>
       </header>
 

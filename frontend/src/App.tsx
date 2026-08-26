@@ -173,7 +173,7 @@ function NotificationBell({ userId }: { userId: string }) {
   useEffect(() => {
     if (!userId) return;
     fetchNotifs();
-    const interval = setInterval(fetchNotifs, 30000);
+    const interval = setInterval(fetchNotifs, 120_000);
     return () => clearInterval(interval);
   }, [userId]);
 
@@ -371,15 +371,19 @@ export default function App() {
     });
   }, [user]);
 
-  // ── Polling: refresh every 30s instead of Realtime (scales to 10K+ users) ──
-  // Realtime has 200 concurrent connection limit on free tier
-  // Polling uses zero persistent connections
+  // ── Polling: refresh every 2 min instead of Realtime ──
+  // Realtime has 200 concurrent connection limit on free/pro tier.
+  // Polling uses zero persistent connections.
+  // At 4500 users, 1 req/120s = 37.5 req/s (vs 75 at 60s).
   useEffect(() => {
     if (!user) return;
-    const interval = setInterval(() => {
-      fetchAllSolveData();
-    }, 60000); // every 60 seconds
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchAllSolveData, 120_000);
+    const onVis = () => { if (!document.hidden) fetchAllSolveData(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, [user, fetchAllSolveData]);
 
   // ── Event settings ───────────────────────────────────────
