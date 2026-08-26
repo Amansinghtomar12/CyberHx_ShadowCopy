@@ -6,7 +6,7 @@ import {
 import { motion, useReducedMotion } from 'motion/react';
 import {
   Trophy, Crown, Medal, Activity, Radio, Flag,
-  ArrowUp, ArrowDown, Minus, TrendingUp
+  ArrowUp, ArrowDown, Minus, TrendingUp, Lock
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 
@@ -315,15 +315,27 @@ export default function Scoreboard() {
   const [graphData, setGraphData] = useState<GraphPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [frozen, setFrozen] = useState(false);
+  const [freezeAt, setFreezeAt] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+
+  /* Which freeze generation the standings on screen were fetched for.
+     null  = the data on screen is live.
+     <iso> = the data on screen is the snapshot taken at that freeze_time.
+     While frozen these cannot change, so we skip the two expensive calls
+     (team_scores + get_score_progression) and poll only the boolean. That
+     turns the final hour of an event -- peak traffic, everyone watching the
+     board -- into a single tiny read per client per cycle. */
+  const fetchedFor = useRef<string | null>(null);
+
+  const REFRESH_MS = 15 * 60_000;
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
-    let delay = 15 * 60_000;
+    let delay = REFRESH_MS;
     let cancelled = false;
 
     const tick = async () => {
-      try { await fetchScoreboard(); delay = 15 * 60_000; }
+      try { await refresh(); delay = REFRESH_MS; }
       catch { delay = Math.min(delay * 2, 300_000); }
       if (!cancelled) timer = setTimeout(tick, delay);
     };
@@ -332,7 +344,7 @@ export default function Scoreboard() {
 
     const onVis = () => {
       if (document.hidden) { clearTimeout(timer); }
-      else { clearTimeout(timer); delay = 15 * 60_000; tick(); }
+      else { clearTimeout(timer); delay = REFRESH_MS; tick(); }
     };
     document.addEventListener('visibilitychange', onVis);
 
@@ -343,16 +355,29 @@ export default function Scoreboard() {
     };
   }, []);
 
-  const fetchScoreboard = async () => {
-    // 0. Check if scoreboard is frozen by admin
+  /** One cheap read, then the heavy pair only when the data can have moved. */
+  const refresh = async () => {
     const { data: settings } = await supabase
       .from('event_settings')
-      .select('freeze_scoreboard')
+      .select('freeze_scoreboard, freeze_time')
       .order('id', { ascending: false })
       .limit(1)
       .maybeSingle();
-    setFrozen(!!settings?.freeze_scoreboard);
 
+    const isFrozen = !!settings?.freeze_scoreboard;
+    const at: string | null = settings?.freeze_time ?? null;
+    setFrozen(isFrozen);
+    setFreezeAt(at);
+
+    // Frozen and already showing this generation's snapshot: nothing can have
+    // changed, so skip the expensive calls entirely.
+    if (isFrozen && fetchedFor.current === at) { setLoading(false); return; }
+
+    await fetchScoreboard();
+    fetchedFor.current = isFrozen ? at : null;
+  };
+
+  const fetchScoreboard = async () => {
     // 1. Get top teams
     const { data: teamData } = await supabase
       .from('team_scores')
@@ -449,7 +474,9 @@ export default function Scoreboard() {
 
         <div className="flex flex-wrap items-center gap-2">
           {frozen ? (
-            <span className="badge badge-medium">Frozen</span>
+            <span className="badge badge-medium inline-flex items-center gap-1.5">
+              <Lock className="w-3 h-3" aria-hidden="true" /> Frozen
+            </span>
           ) : (
             <span className="badge badge-live">Live</span>
           )}
@@ -458,8 +485,8 @@ export default function Scoreboard() {
           </span>
           <span className="text-small text-text-muted">
             {frozen
-              ? 'Scoreboard frozen by admin'
-              : `Refreshes every 15 min${lastRefresh ? ` · ${lastRefresh.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : ''}`}
+              ? `Frozen${freezeAt ? ` at ${formatClock(freezeAt)}` : ''} — final standings hidden until the reveal`
+              : `Refreshes every 15 min${lastRefresh ? ` · ${formatClock(lastRefresh.toISOString())}` : ''}`}
           </span>
         </div>
       </header>

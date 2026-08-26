@@ -5,7 +5,7 @@ import { useAuth } from '../../hooks/useAuth';
 import {
   Plus, Eye, EyeOff, Trash2, Edit3, Shield, Users, Flag, Activity, RotateCcw,
   X, AlertTriangle, Megaphone, Zap, Lightbulb, Link2, Save, Inbox, Lock,
-  Settings2, ListChecks, Hash, Send, CalendarClock,
+  Settings2, ListChecks, Hash, Send, CalendarClock, Radio,
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { resetEventScores } from '../../api/submitFlag';
@@ -1274,13 +1274,19 @@ function NotificationsTab() {
 function EventTab() {
   const [event, setEvent] = useState<any>(null);
   const [saving, setSaving] = useState(false);
+  const [freezing, setFreezing] = useState(false);
   const [msg, setMsg] = useState('');
 
-  useEffect(() => {
+  const loadEvent = () =>
     supabase.from('event_settings').select('*').order('id', { ascending: false }).limit(1).single()
       .then(({ data }) => setEvent(data));
-  }, []);
 
+  useEffect(() => { loadEvent(); }, []);
+
+  // freeze_scoreboard is deliberately NOT in this payload. It is owned by the
+  // Freeze control below, which writes it through its own RPC. Including it
+  // here would let a Save with stale form state silently unfreeze a board that
+  // was frozen from another tab moments earlier.
   const save = async () => {
     if (!event) return;
     setSaving(true);
@@ -1289,13 +1295,36 @@ function EventTab() {
       start_time: event.start_time,
       end_time: event.end_time,
       is_active: event.is_active,
-      freeze_scoreboard: event.freeze_scoreboard,
       registration_open: event.registration_open,
       mode: event.mode,
     }).eq('id', event.id);
     setSaving(false);
     setMsg(error ? '❌ ' + error.message : '✅ Event settings saved!');
     setTimeout(() => setMsg(''), 3000);
+  };
+
+  const toggleFreeze = async () => {
+    if (!event) return;
+    const next = !event.freeze_scoreboard;
+    const warn = next
+      ? 'Freeze the scoreboard?\n\nPlayers will see the standings exactly as they are right now. Solves keep counting behind the scenes, and you will still see live scores.'
+      : 'Unfreeze the scoreboard?\n\nEvery solve landed during the freeze becomes visible to players immediately.';
+    if (!confirm(warn)) return;
+
+    setFreezing(true);
+    const { data, error } = await supabase.rpc('admin_set_scoreboard_freeze', { p_frozen: next });
+    setFreezing(false);
+
+    if (error || data?.error) {
+      setMsg('❌ ' + (error?.message ?? data.error));
+      setTimeout(() => setMsg(''), 5000);
+      return;
+    }
+    await loadEvent();
+    setMsg(next
+      ? `🔒 Scoreboard frozen — ${data.teams_captured ?? 0} teams captured`
+      : '🔓 Scoreboard unfrozen — live standings restored');
+    setTimeout(() => setMsg(''), 5000);
   };
 
   if (!event) return (
@@ -1362,17 +1391,57 @@ function EventTab() {
               <label htmlFor="active" className="text-label uppercase text-text-secondary cursor-pointer">Event Active</label>
             </div>
             <div className="flex items-center gap-3 rounded-control border border-border-subtle bg-surface-inset px-4 py-3">
-              <input type="checkbox" id="freeze" checked={event.freeze_scoreboard ?? false}
-                onChange={e => setEvent((p: any) => ({ ...p, freeze_scoreboard: e.target.checked }))}
-                className="w-4 h-4 accent-cyber-neon shrink-0" />
-              <label htmlFor="freeze" className="text-label uppercase text-text-secondary cursor-pointer">Freeze Scoreboard</label>
-            </div>
-            <div className="flex items-center gap-3 rounded-control border border-border-subtle bg-surface-inset px-4 py-3">
               <input type="checkbox" id="registration" checked={event.registration_open ?? true}
                 onChange={e => setEvent((p: any) => ({ ...p, registration_open: e.target.checked }))}
                 className="w-4 h-4 accent-cyber-neon shrink-0" />
               <label htmlFor="registration" className="text-label uppercase text-text-secondary cursor-pointer">Registration Open</label>
             </div>
+          </div>
+        </div>
+
+        {/* ── Scoreboard freeze: its own control, applied instantly ────── */}
+        <div className="mt-6 pt-6 border-t border-border-subtle">
+          <p className="field-label flex items-center gap-1.5">
+            <Lock aria-hidden className="w-3.5 h-3.5" /> Scoreboard
+          </p>
+          <div
+            className="rounded-control border px-4 py-4 flex flex-wrap items-center justify-between gap-4"
+            style={{
+              borderColor: event.freeze_scoreboard
+                ? 'var(--color-border-neon)' : 'var(--color-border-subtle)',
+              backgroundColor: event.freeze_scoreboard
+                ? 'color-mix(in srgb, var(--color-neon) 8%, transparent)'
+                : 'var(--color-surface-inset)',
+            }}
+          >
+            <div className="min-w-0">
+              <p className="text-small text-cyber-text flex items-center gap-2">
+                {event.freeze_scoreboard ? (
+                  <><Lock aria-hidden className="w-3.5 h-3.5 text-cyber-neon" /> Frozen</>
+                ) : (
+                  <><Radio aria-hidden className="w-3.5 h-3.5" /> Live</>
+                )}
+              </p>
+              <p className="text-small text-text-muted mt-1 max-w-md">
+                {event.freeze_scoreboard
+                  ? <>Players see the standings captured at{' '}
+                      <span className="font-mono text-cyber-text">
+                        {event.freeze_time ? new Date(event.freeze_time).toLocaleString() : 'freeze time'}
+                      </span>. Solves still count — you see live scores.</>
+                  : <>Players see live standings. Freezing captures them so the final
+                      placings stay hidden until you reveal them.</>}
+              </p>
+            </div>
+            <button
+              onClick={toggleFreeze}
+              disabled={freezing}
+              className={`btn btn-md shrink-0 ${event.freeze_scoreboard ? 'btn-secondary' : 'btn-primary'} ${freezing ? 'is-loading' : ''}`}
+            >
+              <Lock className="w-4 h-4" />
+              {freezing
+                ? 'Working…'
+                : event.freeze_scoreboard ? 'Unfreeze Scoreboard' : 'Freeze Scoreboard'}
+            </button>
           </div>
         </div>
 
