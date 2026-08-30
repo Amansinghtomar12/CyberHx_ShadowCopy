@@ -50,6 +50,31 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
+    // 0. Per-IP DoS budget. The DB trigger caps each account at 30/min, but a
+    // burst from one machine can spin up dozens of accounts and multiply that.
+    // 60 requests per IP per minute is loose enough to be invisible to a real
+    // player and tight enough to cost an attacker nothing they can spend. We
+    // check *before* JWT verification so a flood costs one indexed SELECT
+    // instead of a Supabase-hosted RS256 verify. On x-forwarded-for we take
+    // the leftmost hop, which is what Deno Deploy sets from the client TLS
+    // termination; we do not trust deeper hops for enforcement.
+    const clientIp = (req.headers.get('x-forwarded-for') ?? '')
+      .split(',')[0]?.trim();
+    if (clientIp) {
+      const { error: ipLimitErr } = await supabaseAdmin.rpc('check_rate_limit', {
+        p_bucket: 'submit-flag-ip',
+        p_key: clientIp,
+        p_window_seconds: 60,
+        p_max_hits: 60,
+      });
+      if (ipLimitErr?.message?.includes('Rate limit exceeded')) {
+        return new Response(JSON.stringify({
+          correct: false,
+          error: 'Too many requests from your network. Wait a minute and try again.',
+        }), { status: 429, headers: { ...cors, 'Content-Type': 'application/json' } });
+      }
+    }
+
     // 1. Authenticate
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
