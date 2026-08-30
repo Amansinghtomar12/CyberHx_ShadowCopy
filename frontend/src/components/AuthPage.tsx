@@ -618,7 +618,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                     <div className="flex items-center justify-between gap-3">
                       <span className="inline-flex items-center gap-1.5 label-micro">
                         <Globe2 className="h-3 w-3" aria-hidden="true" />
-                        <span>ctf.cyberhx.com</span>
+                        <span>ctf.nullorigin.com</span>
                       </span>
                       <span className="inline-flex items-center gap-1.5 label-micro">
                         <ChevronRight className="h-3 w-3 text-cyber-neon" aria-hidden="true" />

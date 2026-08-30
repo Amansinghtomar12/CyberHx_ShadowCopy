@@ -6,7 +6,7 @@
 
   <!-- Homepage — highest priority -->
   <url>
-    <loc>https://ctf.cyberhx.com/</loc>
+    <loc>https://ctf.nullorigin.com/</loc>
     <lastmod>2025-04-30</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
@@ -14,7 +14,7 @@
 
   <!-- Scoreboard — frequently updated, good for crawl -->
   <url>
-    <loc>https://ctf.cyberhx.com/scoreboard</loc>
+    <loc>https://ctf.nullorigin.com/scoreboard</loc>
     <lastmod>2025-04-30</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
@@ -22,7 +22,7 @@
 
   <!-- Challenges listing page -->
   <url>
-    <loc>https://ctf.cyberhx.com/challenges</loc>
+    <loc>https://ctf.nullorigin.com/challenges</loc>
     <lastmod>2025-04-30</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -30,7 +30,7 @@
 
   <!-- Teams page -->
   <url>
-    <loc>https://ctf.cyberhx.com/teams</loc>
+    <loc>https://ctf.nullorigin.com/teams</loc>
     <lastmod>2025-04-30</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
@@ -38,7 +38,7 @@
 
   <!-- Users / Players page -->
   <url>
-    <loc>https://ctf.cyberhx.com/users</loc>
+    <loc>https://ctf.nullorigin.com/users</loc>
     <lastmod>2025-04-30</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
@@ -46,7 +46,7 @@
 
   <!-- Register / Signup -->
   <url>
-    <loc>https://ctf.cyberhx.com/register</loc>
+    <loc>https://ctf.nullorigin.com/register</loc>
     <lastmod>2025-04-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
