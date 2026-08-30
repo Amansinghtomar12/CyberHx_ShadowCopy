@@ -447,9 +447,9 @@ export default function App() {
 
   // Admin always sees challenges regardless of event status
   const canSubmit = profile?.is_admin || eventStatus === 'live';
-  const isTeamMode = eventSettings?.mode === 'team';
+  const isTeamMode = eventSettings?.mode !== 'individual';
   const hasTeam = !!(profile?.team_id);
-  const needsTeam = !hasTeam && !profile?.is_admin;  // Always require team
+  const needsTeam = !hasTeam;  // Server refuses teamless solves; admins included
   const canSeeChallenges = profile?.is_admin || eventStatus !== 'inactive';
 
   // ── Presentation-only derivations ────────────────────────

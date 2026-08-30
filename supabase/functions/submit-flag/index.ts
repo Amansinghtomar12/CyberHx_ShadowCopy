@@ -94,6 +94,23 @@ serve(async (req) => {
       });
     }
 
+    // Every solve belongs to a team. A submission with no team_id scores for
+    // the individual and for nobody else: team_score_agg only counts rows where
+    // team_id IS NOT NULL, and the scoreboard reads team_scores. So a teamless
+    // player watches their own total climb while the competition never sees a
+    // point of it -- and the likeliest way in is not an API call, it is leaving
+    // a team mid-event, which allow_team_changes permits by default.
+    //
+    // Refuse it here rather than letting the row land. The UI already asks for
+    // a team before showing challenges; this is the half that a direct call, a
+    // stale tab or a mid-event team change would otherwise walk straight past.
+    if (!profile.team_id) {
+      return new Response(JSON.stringify({
+        correct: false,
+        error: 'Create or join a team before submitting. Playing solo is fine — make a team of one.'
+      }), { status: 403, headers: { ...cors, 'Content-Type': 'application/json' } });
+    }
+
     // Admins test their own challenges, so throttling them serves no purpose.
     const isAdmin = profile.role === 'admin';
 
