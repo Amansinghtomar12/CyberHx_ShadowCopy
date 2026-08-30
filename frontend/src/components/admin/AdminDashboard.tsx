@@ -898,6 +898,12 @@ function AdminDashboardInner() {
 function UsersTab() {
   const [users, setUsers] = useState<any[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const { profile } = useAuth();
+
+  // Ownership is a property of a row, so "am I the owner" is read off my own
+  // row rather than tracked separately -- one source of truth, and it stays
+  // correct the moment a transfer lands and the list reloads.
+  const iAmOwner = users.some(u => u.id === profile?.id && u.is_owner);
 
   // admin_list_users, not user_scores: that view filters banned players out,
   // so a banned user would disappear from this table and could never be
@@ -941,11 +947,38 @@ function UsersTab() {
     load();
   };
 
+  // Handing over is not undoable from this screen -- the moment it lands the
+  // button disappears for you and appears for them -- so it asks for the
+  // username in full rather than a yes/no nobody reads.
+  const transferOwnership = async (u: any) => {
+    const typed = prompt(
+      `Hand ownership of this platform to ${u.username}?\n\n` +
+      `They will be able to demote you, and only they can hand it back.\n\n` +
+      `Type their username to confirm:`
+    );
+    if (typed === null) return;
+    if (typed.trim() !== u.username) {
+      alert('That did not match. Ownership was not transferred.');
+      return;
+    }
+    setBusy(u.id);
+    const { data, error } = await supabase.rpc('admin_transfer_ownership', { p_user_id: u.id });
+    setBusy(null);
+    if (error || data?.error) {
+      alert('Transfer failed: ' + (error?.message ?? data.error));
+      return;
+    }
+    load();
+  };
+
+  const ownerRoleHint = 'The owner\'s role cannot be changed. Hand ownership over instead.';
+
   return (
     <div>
       <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">
         <h2 className="text-h3 text-cyber-text">Players</h2>
         <p className="text-small text-text-muted">
+          The <span className="text-cyber-text">owner</span> cannot be demoted or banned by anyone.
           Banning an admin is blocked — demote to <span className="font-mono text-text-secondary">player</span> first.
         </p>
       </div>
@@ -970,15 +1003,24 @@ function UsersTab() {
               <tr key={u.id} className={`transition-colors duration-[var(--duration-fast)] hover:bg-surface-raised ${busy === u.id ? 'opacity-60' : ''}`}>
                 <td className="px-5 py-4 text-small font-mono text-text-muted">{i + 1}</td>
                 <td className="px-5 py-4">
-                  <span className={`text-body font-semibold ${u.is_banned ? 'line-through text-diff-hard' : 'text-cyber-text'}`}>
-                    {u.username}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-body font-semibold ${u.is_banned ? 'line-through text-diff-hard' : 'text-cyber-text'}`}>
+                      {u.username}
+                    </span>
+                    {u.is_owner && (
+                      <span className="badge badge-solved shrink-0" title="Owner — cannot be demoted or banned by anyone.">
+                        <Shield aria-hidden className="w-3 h-3" />
+                        Owner
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-5 py-4 text-small font-mono text-text-muted">{u.email}</td>
                 <td className="px-5 py-4">
                   <select
                     value={u.role}
-                    disabled={busy === u.id}
+                    disabled={busy === u.id || u.is_owner}
+                    title={u.is_owner ? ownerRoleHint : undefined}
                     onChange={e => setRole(u, e.target.value)}
                     aria-label={`Role for ${u.username}`}
                     className="select w-[8.5rem] py-1.5"
@@ -996,8 +1038,24 @@ function UsersTab() {
                   </span>
                 </td>
                 <td className="px-5 py-4">
-                  <div className="flex justify-end">
-                    {u.is_banned
+                  <div className="flex justify-end items-center gap-2">
+                    {iAmOwner && !u.is_owner && u.role === 'admin' && !u.is_banned && (
+                      <button
+                        disabled={busy === u.id}
+                        onClick={() => transferOwnership(u)}
+                        title={`Hand ownership to ${u.username}`}
+                        className="btn btn-outline btn-sm"
+                      >
+                        <Shield aria-hidden className="w-3 h-3" />
+                        Hand over
+                      </button>
+                    )}
+                    {u.is_owner
+                      ? <button disabled title="The owner cannot be banned." className="btn btn-danger btn-sm">
+                          <Lock aria-hidden className="w-3 h-3" />
+                          Ban
+                        </button>
+                      : u.is_banned
                       ? <button disabled={busy === u.id} onClick={() => setBan(u, false)}
                           className={`btn btn-success btn-sm ${busy === u.id ? 'is-loading' : ''}`}>Unban</button>
                       : <button
@@ -1033,6 +1091,12 @@ function UsersTab() {
                   <p className={`text-body font-semibold truncate ${u.is_banned ? 'line-through text-diff-hard' : 'text-cyber-text'}`}>
                     {u.username}
                   </p>
+                  {u.is_owner && (
+                    <span className="badge badge-solved shrink-0" title="Owner — cannot be demoted or banned by anyone.">
+                      <Shield aria-hidden className="w-3 h-3" />
+                      Owner
+                    </span>
+                  )}
                 </div>
                 <p className="font-mono text-small text-text-muted truncate mt-1">{u.email}</p>
               </div>
@@ -1053,7 +1117,8 @@ function UsersTab() {
             <div className="mt-3 pt-3 border-t border-border-subtle flex items-center gap-2">
               <select
                 value={u.role}
-                disabled={busy === u.id}
+                disabled={busy === u.id || u.is_owner}
+                title={u.is_owner ? ownerRoleHint : undefined}
                 onChange={e => setRole(u, e.target.value)}
                 aria-label={`Role for ${u.username}`}
                 className="select flex-1 py-1.5"
@@ -1062,7 +1127,19 @@ function UsersTab() {
                 <option value="moderator">moderator</option>
                 <option value="admin">admin</option>
               </select>
-              {u.is_banned
+              {iAmOwner && !u.is_owner && u.role === 'admin' && !u.is_banned && (
+                <button disabled={busy === u.id} onClick={() => transferOwnership(u)}
+                  title={`Hand ownership to ${u.username}`} className="btn btn-outline btn-sm">
+                  <Shield aria-hidden className="w-3 h-3" />
+                  Hand over
+                </button>
+              )}
+              {u.is_owner
+                ? <button disabled title="The owner cannot be banned." className="btn btn-danger btn-sm">
+                    <Lock aria-hidden className="w-3 h-3" />
+                    Ban
+                  </button>
+                : u.is_banned
                 ? <button disabled={busy === u.id} onClick={() => setBan(u, false)}
                     className={`btn btn-success btn-sm ${busy === u.id ? 'is-loading' : ''}`}>Unban</button>
                 : <button
