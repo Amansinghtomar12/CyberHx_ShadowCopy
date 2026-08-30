@@ -21,7 +21,7 @@ import { supabase, DBChallenge, UserScore, TeamScore } from '../lib/supabase';
 // document is hidden (Page Visibility API). On error the interval doubles
 // up to `maxMs`; on success it resets to `intervalMs`.
 
-function usePolling(fn: () => Promise<void>, intervalMs: number, enabled = true) {
+export function usePolling(fn: () => Promise<void>, intervalMs: number, enabled = true) {
   const fnRef = useRef(fn);
   fnRef.current = fn;
 
@@ -62,6 +62,28 @@ function usePolling(fn: () => Promise<void>, intervalMs: number, enabled = true)
       document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [intervalMs, enabled]);
+}
+
+// ── Demand-driven refresh ────────────────────────────────────────────
+// Long poll intervals are what let this platform serve 5000 people, but they
+// also mean a player who clicks onto a view sees whatever was fetched up to
+// fifteen minutes ago. The fix is not a shorter timer -- it is refetching when
+// the player actually arrives, which is one request per deliberate navigation
+// instead of a continuous stream from everyone at once.
+//
+// The throttle is the safety rail: without it, flipping between tabs would
+// fire a request per click. With it, the cost of even an agitated user is
+// bounded to one refresh per window.
+export function useThrottled(fn: () => void, minMs = 20_000) {
+  const last = useRef(0);
+  const fnRef = useRef(fn);
+  fnRef.current = fn;
+  return useCallback(() => {
+    const now = Date.now();
+    if (now - last.current < minMs) return;
+    last.current = now;
+    fnRef.current();
+  }, [minMs]);
 }
 
 // ─────────────────────────────────────────

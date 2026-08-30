@@ -39,7 +39,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Category, Challenge } from './types';
 import { DBChallenge, supabase } from './lib/supabase';
-import { useChallenges } from './hooks/useData';
+import { useChallenges, usePolling, useThrottled } from './hooks/useData';
 import { submitFlag, getUnlockedHints, unlockHint } from './api/submitFlag';
 import { useAuth } from './hooks/useAuth';
 import Scoreboard from './Scoreboard';
@@ -280,7 +280,7 @@ export default function App() {
   const [eventSettings, setEventSettings] = useState<any>(null);
   const [eventStatus, setEventStatus] = useState<'waiting' | 'live' | 'ended' | 'inactive'>('live');
 
-  const { challenges: dbChallenges, loading: challengesLoading } = useChallenges();
+  const { challenges: dbChallenges, loading: challengesLoading, refetch: refetchChallenges } = useChallenges();
 
   const reduce = useReducedMotion();
 
@@ -348,9 +348,22 @@ export default function App() {
     setFirstBloodMap(fb);
   }, [user]);
 
+  // Solve counts, first blood and teammates' solves change constantly during
+  // an event. usePolling also refetches when the tab becomes visible again,
+  // so coming back from another window shows the real board.
+  usePolling(fetchAllSolveData, 5 * 60_000, !!user);
+
+  // Arriving at the board is a much better refresh signal than a timer: it
+  // means the player is looking at this data right now. Throttled so that
+  // clicking between views repeatedly costs one refresh, not one per click.
+  const refreshBoard = useThrottled(() => {
+    void refetchChallenges();
+    void fetchAllSolveData();
+  }, 20_000);
+
   useEffect(() => {
-    fetchAllSolveData();
-  }, [fetchAllSolveData]);
+    if (currentView === 'challenges') refreshBoard();
+  }, [currentView, refreshBoard]);
 
   // ── Load unlocked hints + their texts ───────────────────
   useEffect(() => {
