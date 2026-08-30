@@ -147,55 +147,118 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
   const [loading, setLoading] = useState(false);
   const [registrationOpen, setRegistrationOpen] = useState(true);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  // Why this is a state machine and not just a token:
+  //
+  // The captcha is a hard gate -- submit stays disabled until a token exists.
+  // So every way the widget can fail to produce one is a way a visitor gets
+  // locked out of the platform entirely, and the old code had no name for any
+  // of them. The script tag had no onerror, and the poll waiting for
+  // window.turnstile had no timeout, so a blocked challenges.cloudflare.com
+  // (ad blocker, VPN, corporate proxy, a network that simply does not route
+  // there) left the badge on "Pending" forever with nothing on screen to read
+  // and a submit button that would never enable. error-callback discarded its
+  // argument, so a widget that rendered and then failed -- a hostname missing
+  // from the Turnstile widget's allow-list gives 110200 -- said nothing about
+  // why either.
+  //
+  // With 5k registrations landing in one window, some fraction of them will
+  // hit one of these. Naming the state lets us tell each of them what is
+  // wrong and give them a retry that does not cost a page reload.
+  type CaptchaState = 'loading' | 'ready' | 'error' | 'blocked' | 'unconfigured';
+  const [captchaState, setCaptchaState] = useState<CaptchaState>(
+    TURNSTILE_SITE_KEY ? 'loading' : 'unconfigured',
+  );
+  const [captchaCode, setCaptchaCode] = useState<string | null>(null);
+  const [captchaAttempt, setCaptchaAttempt] = useState(0);
   const turnstileRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
   const { login, register, loginWithGoogle } = useAuth();
   const reduceMotion = useReducedMotion() ?? false;
 
-  // Load Turnstile script
+  // Load Turnstile script. Keyed on captchaAttempt so "Try again" can re-fetch
+  // a script that failed the first time -- a stale tag is removed first,
+  // because the browser will not re-request a src it has already given up on.
   useEffect(() => {
-    if (document.getElementById('cf-turnstile-script')) return;
+    if (!TURNSTILE_SITE_KEY) return;
+    if ((window as any).turnstile) return;
+
+    document.getElementById('cf-turnstile-script')?.remove();
+
     const script = document.createElement('script');
     script.id = 'cf-turnstile-script';
     script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
     script.async = true;
     script.defer = true;
+    script.onerror = () => setCaptchaState('blocked');
     document.head.appendChild(script);
-  }, []);
+  }, [captchaAttempt]);
 
   // Render Turnstile widget
   useEffect(() => {
+    if (!TURNSTILE_SITE_KEY) return;
+    let cancelled = false;
+
     const render = () => {
-      if (!TURNSTILE_SITE_KEY || !turnstileRef.current || !(window as any).turnstile) return;
+      if (cancelled || !turnstileRef.current || !(window as any).turnstile) return;
       if (widgetIdRef.current) {
-        (window as any).turnstile.remove(widgetIdRef.current);
+        // remove() throws if the widget is already gone; that is fine here.
+        try { (window as any).turnstile.remove(widgetIdRef.current); } catch { /* already removed */ }
         widgetIdRef.current = null;
       }
       widgetIdRef.current = (window as any).turnstile.render(turnstileRef.current, {
         sitekey: TURNSTILE_SITE_KEY,
         theme: 'dark',
-        callback: (token: string) => setCaptchaToken(token),
-        'expired-callback': () => setCaptchaToken(null),
-        'error-callback': () => setCaptchaToken(null),
+        callback: (token: string) => {
+          setCaptchaToken(token);
+          setCaptchaCode(null);
+          setCaptchaState('ready');
+        },
+        'expired-callback': () => {
+          setCaptchaToken(null);
+          setCaptchaState('loading');
+        },
+        // Cloudflare hands us a numeric code. We deliberately do NOT return
+        // true here: that would suppress Turnstile's own error box, and our
+        // message is meant to sit under it, not replace it.
+        'error-callback': (code?: string) => {
+          setCaptchaToken(null);
+          setCaptchaCode(typeof code === 'string' ? code : null);
+          setCaptchaState('error');
+        },
       });
     };
 
-    // Wait for script to load
+    // Wait for the script, but not forever.
+    const started = Date.now();
     const interval = setInterval(() => {
       if ((window as any).turnstile) {
         clearInterval(interval);
         render();
+        return;
+      }
+      // Twenty seconds is far longer than a cold CDN fetch on a bad phone
+      // connection. Past that the script is not arriving.
+      if (Date.now() - started > 20_000) {
+        clearInterval(interval);
+        if (!cancelled) setCaptchaState(s => (s === 'loading' ? 'blocked' : s));
       }
     }, 200);
 
-    return () => clearInterval(interval);
-  }, []);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [captchaAttempt]);
+
+  const retryCaptcha = () => {
+    setCaptchaToken(null);
+    setCaptchaCode(null);
+    setCaptchaState('loading');
+    setCaptchaAttempt(n => n + 1);
+  };
 
   // Reset captcha when mode changes
   useEffect(() => {
     setCaptchaToken(null);
     if (widgetIdRef.current && (window as any).turnstile) {
-      (window as any).turnstile.reset(widgetIdRef.current);
+      try { (window as any).turnstile.reset(widgetIdRef.current); } catch { /* not rendered */ }
     }
   }, [mode]);
 
@@ -215,7 +278,17 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
     setError('');
 
     if (!captchaToken) {
-      setError('Please complete the captcha verification.');
+      // "Complete the captcha" is a lie when there is no captcha on screen to
+      // complete. Say what actually happened instead.
+      setError(
+        captchaState === 'blocked'
+          ? 'The verification widget could not load, so sign-in is blocked. See the note above it.'
+          : captchaState === 'error'
+          ? 'Verification failed to load. Use "Try again" above the sign-in button.'
+          : captchaState === 'unconfigured'
+          ? 'Human verification is not configured for this site. Please contact the organisers.'
+          : 'Please complete the captcha verification.',
+      );
       return;
     }
     setLoading(true);
@@ -529,7 +602,13 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                             {captchaToken
                               ? <ShieldCheck className="h-3 w-3" aria-hidden="true" />
                               : <ShieldAlert className="h-3 w-3" aria-hidden="true" />}
-                            {captchaToken ? 'Verified' : 'Pending'}
+                            {captchaToken
+                              ? 'Verified'
+                              : captchaState === 'blocked' || captchaState === 'unconfigured'
+                              ? 'Unavailable'
+                              : captchaState === 'error'
+                              ? 'Failed'
+                              : 'Pending'}
                           </span>
                         </div>
                         <div className="custom-scrollbar w-full overflow-x-auto">
@@ -537,6 +616,50 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                             <div ref={turnstileRef} />
                           </div>
                         </div>
+
+                        {/* Turnstile draws its own error box, but it says only
+                            that something went wrong. This is the part that
+                            tells the visitor what to do about it. */}
+                        {!captchaToken && captchaState !== 'loading' && (
+                          <div className="mt-2 rounded-inset border border-border-subtle bg-surface-raised px-3 py-2">
+                            <p className="text-small text-text-secondary">
+                              {captchaState === 'blocked' && (
+                                <>
+                                  The verification widget could not be reached. An ad
+                                  blocker, privacy extension, VPN or restricted network
+                                  can block{' '}
+                                  <span className="text-cyber-text">challenges.cloudflare.com</span>.
+                                  Allow it for this site, or switch network, then try again.
+                                </>
+                              )}
+                              {captchaState === 'error' && (
+                                <>
+                                  Verification could not start
+                                  {captchaCode ? <> (code <span className="text-cyber-text">{captchaCode}</span>)</> : null}.
+                                  This is usually temporary — try again. If it keeps
+                                  happening, tell the organisers the code above.
+                                </>
+                              )}
+                              {captchaState === 'unconfigured' && (
+                                <>
+                                  Human verification is not configured for this
+                                  deployment. Sign-in cannot proceed until the
+                                  organisers set it up.
+                                </>
+                              )}
+                            </p>
+                            {captchaState !== 'unconfigured' && (
+                              <button
+                                type="button"
+                                onClick={retryCaptcha}
+                                className="focus-ring mt-2 inline-flex items-center gap-1.5 rounded-inset border border-border-subtle px-2.5 py-1 text-small text-text-primary transition-colors duration-[var(--duration-fast)] hover:bg-surface-inset"
+                              >
+                                <Wifi className="h-3 w-3" aria-hidden="true" />
+                                Try again
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {error && (
