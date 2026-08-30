@@ -1306,6 +1306,12 @@ function EventTab() {
   const [saving, setSaving] = useState(false);
   const [freezing, setFreezing] = useState(false);
   const [hiding, setHiding] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [clearChallenges, setClearChallenges] = useState(true);
+  const [clearTeams, setClearTeams] = useState(true);
+  const [clearNotifs, setClearNotifs] = useState(true);
+  const [confirmText, setConfirmText] = useState('');
   const [msg, setMsg] = useState('');
 
   const loadEvent = () =>
@@ -1332,6 +1338,38 @@ function EventTab() {
     setSaving(false);
     setMsg(error ? '❌ ' + error.message : '✅ Event settings saved!');
     setTimeout(() => setMsg(''), 3000);
+  };
+
+  // Destructive and irreversible, so it asks for the event name to be typed
+  // rather than relying on a confirm() nobody reads. Everything it clears is
+  // listed on the button itself.
+  const startNewEvent = async () => {
+    if (!event) return;
+    if (confirmText.trim() !== 'START NEW EVENT') return;
+
+    setStarting(true);
+    const { data, error } = await supabase.rpc('admin_start_new_event', {
+      p_name: newName.trim() || null,
+      p_clear_challenges: clearChallenges,
+      p_clear_teams: clearTeams,
+      p_clear_notifications: clearNotifs,
+    });
+    setStarting(false);
+
+    if (error || data?.error) {
+      setMsg('❌ ' + (error?.message ?? data.error));
+      setTimeout(() => setMsg(''), 6000);
+      return;
+    }
+    setConfirmText('');
+    setNewName('');
+    await loadEvent();
+    setMsg(
+      `✅ New event ready — cleared ${data.submissions_cleared} submissions, ` +
+      `${data.challenges_cleared} challenges, ${data.teams_cleared} teams. ` +
+      `${data.users_kept} user accounts kept.`
+    );
+    setTimeout(() => setMsg(''), 12000);
   };
 
   const toggleHidden = async () => {
@@ -1554,6 +1592,73 @@ function EventTab() {
             {saving ? 'Saving...' : 'Save Event Settings'}
           </button>
           {msg && <StatusLine msg={msg} />}
+        </div>
+
+        {/* ── Start a new event: wipes this one, keeps the accounts ────── */}
+        <div className="mt-8 pt-6 border-t-2" style={{ borderColor: 'var(--color-border-danger)' }}>
+          <p className="field-label flex items-center gap-1.5" style={{ color: 'var(--color-diff-hard)' }}>
+            <RotateCcw aria-hidden className="w-3.5 h-3.5" /> Start a new event
+          </p>
+          <p className="text-small text-text-muted mt-1 max-w-xl">
+            Clears this event and leaves the platform ready for the next one. Scores,
+            solves, hint unlocks and the frozen scoreboard always go.
+            <b className="text-cyber-text"> Player accounts are never deleted</b> — people
+            log back in with the same email next time. The new event starts inactive with
+            no dates, so you can set it up before anyone sees it.
+          </p>
+
+          <div className="mt-4 grid gap-3 sm:max-w-xl">
+            <div>
+              <label className="field-label" htmlFor="new-event-name">New event name</label>
+              <input id="new-event-name" type="text" value={newName} className="input w-full"
+                placeholder={event.name ?? 'e.g. Recruitment CTF 2027'}
+                onChange={e => setNewName(e.target.value)} />
+              <p className="text-small text-text-muted mt-1">Leave blank to keep “{event.name}”.</p>
+            </div>
+
+            <div className="space-y-2">
+              {[
+                { id: 'cc', on: clearChallenges, set: setClearChallenges,
+                  label: 'Delete all challenges', sub: 'Their hints, files and flags go with them. Uncheck to reuse the same set.' },
+                { id: 'ct', on: clearTeams, set: setClearTeams,
+                  label: 'Delete all teams', sub: 'Members are released, not deleted. They form new teams next event.' },
+                { id: 'cn', on: clearNotifs, set: setClearNotifs,
+                  label: 'Clear notifications', sub: 'Removes announcements from the last event.' },
+              ].map(o => (
+                <div key={o.id} className="flex items-start gap-3 rounded-control border border-border-subtle bg-surface-inset px-4 py-3">
+                  <input type="checkbox" id={o.id} checked={o.on} onChange={e => o.set(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 accent-cyber-neon shrink-0" />
+                  <label htmlFor={o.id} className="cursor-pointer min-w-0">
+                    <span className="text-small text-cyber-text">{o.label}</span>
+                    <span className="block text-small text-text-muted mt-0.5">{o.sub}</span>
+                  </label>
+                </div>
+              ))}
+            </div>
+
+            <div>
+              <label className="field-label" htmlFor="confirm-new-event">
+                Type <span className="font-mono text-cyber-text">START NEW EVENT</span> to enable the button
+              </label>
+              <input id="confirm-new-event" type="text" value={confirmText} className="input w-full"
+                autoComplete="off" placeholder="START NEW EVENT"
+                onChange={e => setConfirmText(e.target.value)} />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={startNewEvent}
+                disabled={starting || confirmText.trim() !== 'START NEW EVENT'}
+                className={`btn btn-danger btn-md ${starting ? 'is-loading' : ''}`}
+              >
+                <RotateCcw className="w-4 h-4" />
+                {starting ? 'Clearing…' : 'Start New Event'}
+              </button>
+              <span className="text-small text-text-muted">
+                Export the final scoreboard first — this cannot be undone.
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
