@@ -982,6 +982,8 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, points, isSolv
         <button
           type="button"
           onClick={onClick}
+          /* Runs its own tilt + specular above; keeps SurfaceLight off it. */
+          data-selflit=""
           className={`card-interactive group relative flex h-full w-full flex-col overflow-hidden p-5 text-left ${
             isSolved ? 'border-border-neon' : ''
           }`}

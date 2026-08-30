@@ -961,20 +961,20 @@
     transform-style: preserve-3d;
   }
   .card-interactive::after { z-index: 1; }
-  .card-interactive[data-tilt] {
+  .card-interactive[data-tilt]:not([data-selflit]) {
     background-image:
       linear-gradient(to bottom, rgba(255, 255, 255, 0.022), transparent 42%),
       radial-gradient(320px circle at var(--mx, 50%) var(--my, 0%),
         rgba(198, 255, 0, 0.075), transparent 60%);
   }
-  .card-interactive[data-tilt]:hover {
+  .card-interactive[data-tilt]:not([data-selflit]):hover {
     transform:
       perspective(900px)
       rotateX(calc(var(--ty, 0) * -1.6deg))
       rotateY(calc(var(--tx, 0) * 1.6deg))
       translateY(-3px);
   }
-  .surface-overlay[data-tilt] {
+  .surface-overlay[data-tilt]:not([data-selflit]) {
     background-image:
       linear-gradient(to bottom, rgba(255, 255, 255, 0.022), transparent 42%),
       radial-gradient(420px circle at var(--mx, 50%) var(--my, 0%),

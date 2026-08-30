@@ -24,7 +24,17 @@
  */
 import { useEffect } from 'react';
 
-const LIGHTABLE = '.holo, .card-interactive, .surface-overlay';
+// data-selflit marks a panel that already drives its own tilt and specular.
+// The challenge card is the case that matters: it has a bespoke ±4°/±5° tilt
+// on a wrapper with its own perspective. Adopting it here would apply a second
+// rotation to the inner element on a different axis, and the two transforms
+// visibly fight. Opting out is cheaper and more honest than trying to detect
+// the collision.
+const LIGHTABLE = [
+  '.holo:not([data-selflit])',
+  '.card-interactive:not([data-selflit])',
+  '.surface-overlay:not([data-selflit])',
+].join(', ');
 
 export default function SurfaceLight() {
   useEffect(() => {
