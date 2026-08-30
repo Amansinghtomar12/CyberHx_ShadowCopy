@@ -5,10 +5,12 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const ALLOWED_ORIGINS = (Deno.env.get('ALLOWED_ORIGINS') ?? '').split(',').map(s => s.trim()).filter(Boolean);
 const RATE_LIMIT_SECONDS = 10; // min seconds between submissions per user per challenge
-const GLOBAL_RATE_LIMIT = 30; // max submissions per user per minute across all challenges
 
-// In-memory rate limit store (per Edge Function instance)
-const globalRateLimits = new Map<string, number[]>();
+// The global "N per minute" cap used to live in this Map, but every isolate
+// had its own copy so the real ceiling scaled with instance count -- useless
+// at 5k. It is now enforced by a BEFORE trigger on submissions, so every
+// isolate agrees on the same count. The per-challenge cooldown is still a
+// pre-INSERT read further down so we can tell the client how long to wait.
 
 function getCorsHeaders(origin: string | null) {
   // Strict CORS: only allow configured origins
@@ -27,21 +29,6 @@ function getCorsHeaders(origin: string | null) {
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'X-Content-Type-Options': 'nosniff',
   };
-}
-
-function checkGlobalRateLimit(userId: string): boolean {
-  const now = Date.now();
-  const window = 60_000; // 1 minute
-  const timestamps = globalRateLimits.get(userId) ?? [];
-  const recent = timestamps.filter(t => now - t < window);
-  globalRateLimits.set(userId, recent);
-  return recent.length < GLOBAL_RATE_LIMIT;
-}
-
-function recordGlobalAttempt(userId: string) {
-  const timestamps = globalRateLimits.get(userId) ?? [];
-  timestamps.push(Date.now());
-  globalRateLimits.set(userId, timestamps);
 }
 
 serve(async (req) => {
@@ -113,13 +100,6 @@ serve(async (req) => {
 
     // Admins test their own challenges, so throttling them serves no purpose.
     const isAdmin = profile.role === 'admin';
-
-    // 3. Global rate limit (in-memory, per Edge Function instance)
-    if (!isAdmin && !checkGlobalRateLimit(user.id)) {
-      return new Response(JSON.stringify({
-        correct: false, error: 'Too many submissions. Slow down.'
-      }), { status: 429, headers: { ...cors, 'Content-Type': 'application/json' } });
-    }
 
     // 4. Parse + validate input
     const { challengeId, flag } = await req.json();
@@ -267,12 +247,19 @@ serve(async (req) => {
       ip_address: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
     });
 
-    // If the DB trigger blocked it (max attempts race condition protection)
+    // If a DB trigger blocked the insert. Two shapes to handle:
+    //   Max attempts exceeded  -> the per-challenge attempt cap (410)
+    //   Rate limit exceeded    -> the shared 30/min cap (429)
     if (insertError) {
       if (insertError.message?.includes('Max attempts exceeded')) {
         return new Response(JSON.stringify({
           correct: false, locked: true, maxAttempts, attemptsLeft: 0
         }), { headers: { ...cors, 'Content-Type': 'application/json' } });
+      }
+      if (insertError.message?.includes('Rate limit exceeded')) {
+        return new Response(JSON.stringify({
+          correct: false, error: 'Too many submissions. Wait a minute and try again.'
+        }), { status: 429, headers: { ...cors, 'Content-Type': 'application/json' } });
       }
       // uniq_submission_correct_per_user_challenge: a concurrent request for
       // the same challenge already recorded the solve. That is the duplicate
@@ -284,9 +271,6 @@ serve(async (req) => {
       }
       throw insertError;
     }
-
-    // Record in global rate limiter
-    recordGlobalAttempt(user.id);
 
     return new Response(JSON.stringify({
       correct: isCorrect,
