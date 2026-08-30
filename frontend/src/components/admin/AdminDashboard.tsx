@@ -1345,11 +1345,16 @@ function EventTab() {
   // listed on the button itself.
   const startNewEvent = async () => {
     if (!event) return;
+    if (!newName.trim()) {
+      setMsg('❌ Give the new event a name first.');
+      setTimeout(() => setMsg(''), 5000);
+      return;
+    }
     if (confirmText.trim() !== 'START NEW EVENT') return;
 
     setStarting(true);
     const { data, error } = await supabase.rpc('admin_start_new_event', {
-      p_name: newName.trim() || null,
+      p_name: newName.trim(),
       p_clear_challenges: clearChallenges,
       p_clear_teams: clearTeams,
       p_clear_notifications: clearNotifs,
@@ -1609,11 +1614,18 @@ function EventTab() {
 
           <div className="mt-4 grid gap-3 sm:max-w-xl">
             <div>
-              <label className="field-label" htmlFor="new-event-name">New event name</label>
+              <label className="field-label" htmlFor="new-event-name">
+                New event name <span style={{ color: 'var(--color-diff-hard)' }}>*</span>
+              </label>
               <input id="new-event-name" type="text" value={newName} className="input w-full"
-                placeholder={event.name ?? 'e.g. Recruitment CTF 2027'}
+                maxLength={80} required aria-required="true"
+                placeholder="e.g. NullOrigin CTF 2027"
                 onChange={e => setNewName(e.target.value)} />
-              <p className="text-small text-text-muted mt-1">Leave blank to keep “{event.name}”.</p>
+              <p className="text-small text-text-muted mt-1">
+                {newName.trim()
+                  ? <>Players will see “<span className="text-cyber-text">{newName.trim()}</span>” on the scoreboard and sidebar.</>
+                  : <>Required. Without it the new event would keep the old name, “{event.name}”.</>}
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -1642,13 +1654,14 @@ function EventTab() {
               </label>
               <input id="confirm-new-event" type="text" value={confirmText} className="input w-full"
                 autoComplete="off" placeholder="START NEW EVENT"
+                disabled={!newName.trim()}
                 onChange={e => setConfirmText(e.target.value)} />
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={startNewEvent}
-                disabled={starting || confirmText.trim() !== 'START NEW EVENT'}
+                disabled={starting || !newName.trim() || confirmText.trim() !== 'START NEW EVENT'}
                 className={`btn btn-danger btn-md ${starting ? 'is-loading' : ''}`}
               >
                 <RotateCcw className="w-4 h-4" />
