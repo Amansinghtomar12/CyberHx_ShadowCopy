@@ -23,6 +23,39 @@ interface RegisterData {
   captchaToken?: string;
 }
 
+/** Strip the +tag alias the same way handle_new_user does, so we can name the
+    address the server actually collided on. */
+function normaliseEmail(email: string): string {
+  const at = email.lastIndexOf('@');
+  if (at < 1) return email.toLowerCase();
+  const local = email.slice(0, at).split('+')[0];
+  return (local + email.slice(at)).toLowerCase();
+}
+
+/**
+ * Supabase Auth collapses ANY exception raised inside the handle_new_user
+ * trigger into one opaque string: "Database error saving new user". The
+ * trigger's own message -- "An account already exists for this email address"
+ * -- is logged server-side and never reaches the browser.
+ *
+ * In practice that string has one dominant cause: the account already exists
+ * under its normalised form. Registration treats name+tag@host as the same
+ * address as name@host (20260825270000), which is deliberate -- it stops one
+ * person farming accounts with plus-aliases -- but a player who uses aliases
+ * for their own filing sees only a database error and assumes the site is
+ * broken. Say what actually happened instead.
+ */
+function signupErrorMessage(raw: string, email: string): string {
+  if (/database error saving new user/i.test(raw)) {
+    const norm = normaliseEmail(email);
+    const aliased = norm !== email.toLowerCase();
+    return aliased
+      ? `An account already exists for ${norm}. Registration ignores the "+" part of an address, so ${email} counts as the same address. Sign in instead, or register with a different email.`
+      : 'An account already exists for this email address. Try signing in instead, or use a different email.';
+  }
+  return raw;
+}
+
 export function useAuth() {
   const [state, setState] = useState<AuthState>({
     user: null,
@@ -130,7 +163,7 @@ export function useAuth() {
       }
     });
 
-    if (error) return { error: error.message };
+    if (error) return { error: signupErrorMessage(error.message, email) };
     return { data };
   };
 
