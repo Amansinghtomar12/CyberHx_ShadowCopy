@@ -50,6 +50,7 @@ import UserProfile from './UserProfile';
 import Settings from './Settings';
 import AdminDashboard from './components/admin/AdminDashboard';
 import AmbientBackground from './components/AmbientBackground';
+import BreachConfirm from './components/BreachConfirm';
 import SurfaceLight from './components/environment/SurfaceLight';
 
 function dbToChallenge(c: DBChallenge, solveCount = 0): Challenge {
@@ -1112,6 +1113,9 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  // Only a solve that happens in this session replays the acknowledgement.
+  // isSolved is already true when reopening a finished challenge.
+  const [justBreached, setJustBreached] = useState(false);
   const [solvers, setSolvers] = useState<Solver[]>([]);
   const [solversLoading, setSolversLoading] = useState(false);
   const [realSolveCount, setRealSolveCount] = useState(challenge.solvedCount);
@@ -1161,6 +1165,9 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
     if (result.correct) {
       onSolve(challenge.id);
       setSuccessMsg(result.message ?? 'Module Decrypted Successfully 🎉');
+      // alreadySolved comes back when a concurrent request won the race; that
+      // is not a fresh breach and should not be celebrated twice.
+      if (!result.alreadySolved) setJustBreached(true);
     } else if (result.locked) {
       setError('Terminal Locked: Maximum attempts reached.');
     } else {
@@ -1198,6 +1205,11 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
         aria-label={challenge.title}
         className="surface-overlay relative w-full max-w-2xl overflow-hidden"
       >
+        <AnimatePresence>
+          {justBreached && (
+            <BreachConfirm points={points} onDone={() => setJustBreached(false)} />
+          )}
+        </AnimatePresence>
         <div className="flex items-center justify-between gap-3 px-3 sm:px-5 py-3 border-b border-border-base bg-surface-rail">
           <div className="flex min-w-0 gap-1">
             <button
