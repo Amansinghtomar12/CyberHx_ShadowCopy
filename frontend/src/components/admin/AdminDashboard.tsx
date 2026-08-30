@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { resetEventScores } from '../../api/submitFlag';
+import DateTimeField from '../DateTimeField';
 // HARDENED: Challenge CRUD via admin_upsert_challenge RPC
 // HARDENED: Reset via admin_reset_event RPC (no client-side DELETE)
 
@@ -1462,18 +1463,20 @@ function EventTab() {
               className="input" />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="min-w-0">
-              <label className="field-label" htmlFor="event-start">Start Time</label>
-              <input id="event-start" type="datetime-local" value={event.start_time ? event.start_time.slice(0, 16) : ''}
-                onChange={e => setEvent((p: any) => ({ ...p, start_time: e.target.value }))}
-                className="input" />
-            </div>
-            <div className="min-w-0">
-              <label className="field-label" htmlFor="event-end">End Time</label>
-              <input id="event-end" type="datetime-local" value={event.end_time ? event.end_time.slice(0, 16) : ''}
-                onChange={e => setEvent((p: any) => ({ ...p, end_time: e.target.value }))}
-                className="input" />
-            </div>
+            <DateTimeField
+              id="event-start"
+              label="Start Time"
+              value={event.start_time}
+              onChange={v => setEvent((p: any) => ({ ...p, start_time: v }))}
+              hint="Click to open the calendar. Stored in your local timezone."
+            />
+            <DateTimeField
+              id="event-end"
+              label="End Time"
+              value={event.end_time}
+              onChange={v => setEvent((p: any) => ({ ...p, end_time: v }))}
+              hint="Click to open the calendar. The scoreboard auto-freezes here."
+            />
           </div>
         </div>
 
