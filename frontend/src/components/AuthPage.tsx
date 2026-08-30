@@ -9,6 +9,7 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 import AmbientBackground from './AmbientBackground';
+import SurfaceLight from './environment/SurfaceLight';
 
 // ── Turnstile Site Key — from environment variable ──
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || '';
@@ -330,6 +331,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
   return (
     <div className="min-h-screen bg-cyber-bg overflow-x-hidden relative">
       <AmbientBackground intensity="normal" />
+      <SurfaceLight />
 
       {/* Full-viewport viewfinder brackets — signal that this is a serious environment */}
       <div className="hidden lg:block">

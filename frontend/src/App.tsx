@@ -50,6 +50,7 @@ import UserProfile from './UserProfile';
 import Settings from './Settings';
 import AdminDashboard from './components/admin/AdminDashboard';
 import AmbientBackground from './components/AmbientBackground';
+import SurfaceLight from './components/environment/SurfaceLight';
 
 function dbToChallenge(c: DBChallenge, solveCount = 0): Challenge {
   return {
@@ -474,6 +475,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-cyber-bg text-cyber-text font-sans">
       <AmbientBackground />
+      <SurfaceLight />
 
       <div className="page-shell min-h-screen flex flex-col">
         {/* Header */}
