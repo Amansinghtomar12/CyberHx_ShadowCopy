@@ -199,11 +199,15 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
     }
   }, [mode]);
 
+  // Via RPC, not a table read. anon has no SELECT on event_settings (revoked
+  // in 20260826030000), so the old .from('event_settings') query returned a
+  // 42501 for every logged-out visitor -- which is everyone who sees this
+  // page. The error was discarded and registrationOpen stayed true, so the
+  // closed-registration banner could never appear.
   React.useEffect(() => {
-    supabase.from('event_settings').select('registration_open').order('id', { ascending: false }).limit(1).single()
-      .then(({ data }) => {
-        if (data && data.registration_open === false) setRegistrationOpen(false);
-      });
+    supabase.rpc('registration_is_open').then(({ data, error }) => {
+      if (!error && data === false) setRegistrationOpen(false);
+    });
   }, []);
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -220,6 +224,16 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
     if (mode === 'login') {
       result = await login(form.email, form.password, captchaToken);
     } else {
+      // Re-ask at submit rather than trusting the value fetched on mount: a
+      // tab left open across the moment registration closed would otherwise
+      // sail past this and get the server's opaque rejection instead.
+      const { data: stillOpen, error: openErr } = await supabase.rpc('registration_is_open');
+      if (!openErr && stillOpen === false) {
+        setRegistrationOpen(false);
+        setError('Registration is currently closed.');
+        setLoading(false);
+        return;
+      }
       if (!registrationOpen) { setError('Registration is currently closed.'); setLoading(false); return; }
       if (!form.username.trim()) { setError('Username required'); setLoading(false); return; }
       if (form.username.length < 3) { setError('Username must be at least 3 characters'); setLoading(false); return; }
