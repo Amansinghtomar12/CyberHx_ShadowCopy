@@ -1,25 +1,37 @@
 {
   "name": "CyberHX CTF",
   "short_name": "CyberHX",
-  "description": "Free Capture The Flag platform — Web, Crypto, Pwn, Rev, OSINT challenges.",
+  "description": "Free Capture The Flag platform \u2014 Web, Crypto, Pwn, Rev, OSINT challenges.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0d1117",
-  "theme_color": "#0d1117",
+  "background_color": "#060b10",
+  "theme_color": "#060b10",
   "lang": "en",
   "icons": [
     {
-      "src": "/favicon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png"
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
     },
     {
-      "src": "/favicon-512x512.png",
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ],
-  "categories": ["education", "games", "utilities"],
+  "categories": [
+    "education",
+    "games",
+    "utilities"
+  ],
   "screenshots": [
     {
       "src": "/og-image.jpg",
