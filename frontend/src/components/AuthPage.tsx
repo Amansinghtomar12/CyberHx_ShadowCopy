@@ -12,6 +12,7 @@ import AmbientBackground from './AmbientBackground';
 import SurfaceLight from './environment/SurfaceLight';
 import { setMood } from './environment/mood';
 import MagneticElement from './environment/MagneticElement';
+import AccessSequence from './AccessSequence';
 
 // ── Turnstile Site Key — from environment variable ──
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || '';
@@ -173,6 +174,9 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
   );
   const [captchaCode, setCaptchaCode] = useState<string | null>(null);
   const [captchaAttempt, setCaptchaAttempt] = useState(0);
+  // 'verifying' runs alongside the network request rather than after it, so
+  // the sequence costs no time the user was not already spending.
+  const [phase, setPhase] = useState<'idle' | 'verifying' | 'granted'>('idle');
   const turnstileRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
   const { login, register, loginWithGoogle } = useAuth();
@@ -299,6 +303,10 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
       return;
     }
     setLoading(true);
+    setPhase('verifying');
+    // The network answering is the environment waking up. App sets its own
+    // mood on arrival, so this only has to cover the handover.
+    setMood('compete');
 
     let result;
     if (mode === 'login') {
@@ -311,24 +319,31 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
       if (!openErr && stillOpen === false) {
         setRegistrationOpen(false);
         setError('Registration is currently closed.');
-        setLoading(false);
+        setLoading(false); setPhase('idle'); setMood('auth');
         return;
       }
-      if (!registrationOpen) { setError('Registration is currently closed.'); setLoading(false); return; }
-      if (!form.username.trim()) { setError('Username required'); setLoading(false); return; }
-      if (form.username.length < 3) { setError('Username must be at least 3 characters'); setLoading(false); return; }
+      const abort = (msg: string) => { setError(msg); setLoading(false); setPhase('idle'); setMood('auth'); };
+      if (!registrationOpen) { abort('Registration is currently closed.'); return; }
+      if (!form.username.trim()) { abort('Username required'); return; }
+      if (form.username.length < 3) { abort('Username must be at least 3 characters'); return; }
       result = await register({ email: form.email, password: form.password, username: form.username, captchaToken });
     }
 
     setLoading(false);
     if (result?.error) {
+      // A wrong password is not a moment. Stand the sequence down and let the
+      // form say what happened.
+      setPhase('idle');
+      setMood('auth');
       setError(result.error as string);
       if (widgetIdRef.current && (window as any).turnstile) {
         (window as any).turnstile.reset(widgetIdRef.current);
         setCaptchaToken(null);
       }
     } else {
-      onSuccess();
+      // Hand over only once the acknowledgement beat has played;
+      // AccessSequence calls onSuccess itself.
+      setPhase('granted');
     }
   };
 
@@ -454,6 +469,18 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
 
                 {/* Card */}
                 <div className="auth-scale surface shadow-e5 relative overflow-hidden">
+                  {/* Covers the whole card, inside its rounding, and takes
+                      pointer events — which is what locks the form while a
+                      request is in flight. */}
+                  <AnimatePresence>
+                    {phase !== 'idle' && (
+                      <AccessSequence
+                        mode={mode === 'login' ? 'login' : 'register'}
+                        granted={phase === 'granted'}
+                        onDone={onSuccess}
+                      />
+                    )}
+                  </AnimatePresence>
                   {/* Top hairline */}
                   <span
                     aria-hidden="true"
