@@ -52,6 +52,7 @@ import AdminDashboard from './components/admin/AdminDashboard';
 import AmbientBackground from './components/AmbientBackground';
 import BreachConfirm from './components/BreachConfirm';
 import SurfaceLight from './components/environment/SurfaceLight';
+import { setMood, type Mood } from './components/environment/mood';
 
 function dbToChallenge(c: DBChallenge, solveCount = 0): Challenge {
   return {
@@ -364,6 +365,20 @@ export default function App() {
   useEffect(() => {
     if (currentView === 'challenges') refreshBoard();
   }, [currentView, refreshBoard]);
+
+  // Same geometry, same palette, different energy. Moving from the board to
+  // the scoreboard should feel like walking into a busier room rather than
+  // loading another site, so the lattice eases between these over ~1s.
+  useEffect(() => {
+    const MOODS: Record<string, Mood> = {
+      challenges: 'focus',
+      scoreboard: 'compete',
+      teams: 'compete',
+      users: 'compete',
+      admin: 'focus',
+    };
+    setMood(MOODS[currentView] ?? 'calm');
+  }, [currentView]);
 
   // ── Load unlocked hints + their texts ───────────────────
   useEffect(() => {
@@ -859,10 +874,11 @@ export default function App() {
                           </span>
                           <span aria-hidden="true" className="divider flex-1" />
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
-                          {challengesByDiff[diff.id].map((challenge) => (
+                        <div className="stagger grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
+                          {challengesByDiff[diff.id].map((challenge, i) => (
                             <ChallengeCard
                               key={challenge.id}
+                              index={i}
                               challenge={challenge}
                               points={getPoints(challenge)}
                               isSolved={isChallengeSolved(challenge.id)}
@@ -947,6 +963,8 @@ export default function App() {
 
 interface ChallengeCardProps {
   challenge: Challenge;
+  /** Position in its group — drives the staggered entrance only. */
+  index?: number;
   points: number;
   isSolved: boolean;
   solvedBy?: string;
@@ -954,7 +972,7 @@ interface ChallengeCardProps {
   onClick: () => void;
 }
 
-const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, points, isSolved, solvedBy, isFirstBlood, onClick }) => {
+const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, points, isSolved, solvedBy, isFirstBlood, onClick }) => {
   const reduce = useReducedMotion();
   const tiltRef = useRef<HTMLDivElement>(null);
   const CategoryIcon = CATEGORY_ICON[challenge.category] ?? Boxes;
@@ -981,7 +999,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, points, isSolv
   };
 
   return (
-    <div className="h-full [perspective:1100px]">
+    <div className="h-full [perspective:1100px]" style={{ ['--i' as string]: index }}>
       <div
         ref={tiltRef}
         onPointerMove={handlePointerMove}

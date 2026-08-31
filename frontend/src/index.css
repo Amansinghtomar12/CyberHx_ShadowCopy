@@ -1109,6 +1109,27 @@
     color: var(--color-text-muted);
   }
 
+  /* ══ MAGNETIC ══════════════════════════════════════════════════════════
+     A wrapper that must not disturb the layout of what it wraps. The
+     transform is written by MagneticElement; this only supplies the box and
+     guarantees the compositor keeps it on its own layer. */
+  .magnetic {
+    display: inline-block;
+    will-change: transform;
+  }
+
+  /* ══ STAGGER — the interface assembling itself ═════════════════════════
+     Lists do not appear, they arrive in order. --i is the row index, set
+     inline by whatever renders the list; the cap keeps a 200-item board from
+     taking eight seconds to finish landing.
+
+     The delay is applied to a transform+opacity animation only, so a long
+     list costs the compositor nothing extra. */
+  .stagger > * {
+    animation: stagger-in 420ms var(--ease-out-quint) both;
+    animation-delay: calc(min(var(--i, 0), 14) * 32ms);
+  }
+
   /* ══ DATA — numbers that feel instrumented ═════════════════════════════ */
   .readout {
     font-family: var(--font-mono);
@@ -1134,6 +1155,10 @@
   from { opacity: 0; transform: translateY(10px); clip-path: inset(0 0 100% 0); }
   60%  { opacity: 1; }
   to   { opacity: 1; transform: translateY(0);    clip-path: inset(0 0 0% 0); }
+}
+@keyframes stagger-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
 }
 @keyframes boot-pulse {
   0%, 100% { transform: scale(1);   opacity: 1; }
@@ -1170,4 +1195,6 @@
   .scan-in { animation: none !important; }
   .boot::before, .boot::after, .boot-core { animation: none !important; }
   .breach-ring, .breach-scan { display: none; }
+  .stagger > * { animation: none !important; }
+  .magnetic { transform: none !important; }
 }

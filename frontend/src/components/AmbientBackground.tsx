@@ -19,7 +19,8 @@
  * <AmbientBackground intensity="normal" />. Every page keeps working.
  */
 import { useEffect, useRef, useState } from 'react';
-import { createLattice, type LatticeHandle, type Tier } from './environment/lattice';
+import { createLattice, type LatticeHandle } from './environment/lattice';
+import { getCapability } from './environment/performance';
 
 export interface AmbientBackgroundProps {
   /** 'subtle' (default) sits far behind the UI; 'normal' brings it forward. */
@@ -27,23 +28,17 @@ export interface AmbientBackgroundProps {
   className?: string;
 }
 
-type Mode = Tier | 'static';
+type Mode = 'high' | 'medium' | 'static';
 
-/** Decided once per page load. Nothing here is worth re-measuring. */
+/**
+ * Capability is decided once, centrally, by the PerformanceManager. This used
+ * to run its own checks, which meant the background and the cursor systems
+ * could disagree about the same device.
+ */
 function detectMode(): Mode {
-  if (typeof window === 'undefined') return 'static';
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return 'static';
-
-  const nav = navigator as Navigator & { deviceMemory?: number };
-  const mem = nav.deviceMemory ?? 4;
-  const cores = navigator.hardwareConcurrency ?? 4;
-  const coarse = window.matchMedia('(pointer: coarse)').matches;
-
-  // A device that reports 2GB or two cores is telling us it has other things
-  // to spend its battery on.
-  if (mem <= 2 || cores <= 2) return 'static';
-  if (coarse || mem <= 4 || cores <= 4) return 'medium';
-  return 'high';
+  const cap = getCapability();
+  if (!cap.webgl) return 'static';
+  return cap.tier === 'high' ? 'high' : 'medium';
 }
 
 export default function AmbientBackground({

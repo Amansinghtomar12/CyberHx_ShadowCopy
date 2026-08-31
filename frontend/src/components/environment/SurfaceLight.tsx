@@ -23,6 +23,7 @@
  *   the tilt would fight the scroll.
  */
 import { useEffect } from 'react';
+import { getCapability } from './performance';
 
 // data-selflit marks a panel that already drives its own tilt and specular.
 // The challenge card is the case that matters: it has a bespoke ±4°/±5° tilt
@@ -38,10 +39,9 @@ const LIGHTABLE = [
 
 export default function SurfaceLight() {
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    // No cursor to track, and reduced-motion users asked us not to.
-    if (window.matchMedia('(pointer: coarse)').matches) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    // One authority for "can this device afford pointer effects" — covers
+    // touch, reduced motion and weak hardware in a single answer.
+    if (!getCapability().pointerFx) return;
 
     let current: HTMLElement | null = null;
     let pending: { el: HTMLElement; x: number; y: number } | null = null;

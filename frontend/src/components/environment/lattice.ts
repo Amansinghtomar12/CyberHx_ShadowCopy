@@ -30,6 +30,8 @@
  *   fixed 320-node buffer.
  */
 
+import { subscribeMood, moodProfile } from './mood';
+
 export type Tier = 'high' | 'medium';
 
 export interface LatticeOptions {
@@ -60,7 +62,7 @@ const TIERS = {
  * unit, so a line either arrives whole or not at all.
  */
 const TRANSFORM = `
-  uniform float uTime, uCamZ, uAspect, uPresence;
+  uniform float uTime, uCamZ, uAspect, uPresence, uTraffic;
   uniform vec2  uMouse;   // −1..1, spring-smoothed
 
   vec3 latticePos(vec3 home, float seed, float anchorZ) {
@@ -116,7 +118,7 @@ const FIELD_VS = `
 const FIELD_FS = `
   precision mediump float;
   varying vec2 vUV;
-  uniform float uTime, uAspect, uPresence;
+  uniform float uTime, uAspect, uPresence, uTraffic;
   uniform vec2  uMouse;
 
   // Distance to a ring of radius r, used for the distant megastructures.
@@ -194,7 +196,7 @@ const PULSE_VS = `
   void main() {
     // Payload position along the wire. Each pulse has its own speed and phase,
     // so traffic never marches in lockstep.
-    float t = fract(uTime * (0.055 + fract(aSeed * 7.13) * 0.075) + aSeed);
+    float t = fract(uTime * (0.055 + fract(aSeed * 7.13) * 0.075) * uTraffic + aSeed);
     vec3 home = mix(aA, aB, t);
     vec3 p = latticePos(home, aSeed, aAnchorZ);
     gl_Position = project(p);
@@ -388,11 +390,17 @@ export function createLattice(
     pulseAnchor[i] = A.z;
   }
 
-  const quad = buffer(gl, new Float32Array([-1, -1, 3, -1, -1, 3]));
-  const bNodePos = buffer(gl, nodePos), bNodeSeed = buffer(gl, nodeSeed), bNodeSize = buffer(gl, nodeSize);
-  const bEdgePos = buffer(gl, edgePos), bEdgeSeed = buffer(gl, edgeSeed), bEdgeAnchor = buffer(gl, edgeAnchor);
-  const bPulseA = buffer(gl, pulseA), bPulseB = buffer(gl, pulseB);
-  const bPulseSeed = buffer(gl, pulseSeed), bPulseAnchor = buffer(gl, pulseAnchor);
+  // Tracked so destroy() can actually free them. Relying on loseContext alone
+  // leaves the driver to guess when to reclaim, which on a long-lived SPA
+  // session means several megabytes of dead buffers per remount.
+  const owned: WebGLBuffer[] = [];
+  const track = (b: WebGLBuffer) => { owned.push(b); return b; };
+
+  const quad = track(buffer(gl, new Float32Array([-1, -1, 3, -1, -1, 3])));
+  const bNodePos = track(buffer(gl, nodePos)), bNodeSeed = track(buffer(gl, nodeSeed)), bNodeSize = track(buffer(gl, nodeSize));
+  const bEdgePos = track(buffer(gl, edgePos)), bEdgeSeed = track(buffer(gl, edgeSeed)), bEdgeAnchor = track(buffer(gl, edgeAnchor));
+  const bPulseA = track(buffer(gl, pulseA)), bPulseB = track(buffer(gl, pulseB));
+  const bPulseSeed = track(buffer(gl, pulseSeed)), bPulseAnchor = track(buffer(gl, pulseAnchor));
 
   // Every location we have ever enabled, so each pass can start from a known
   // clean slate instead of inheriting the previous program's wiring.
@@ -414,6 +422,7 @@ export function createLattice(
   const uniforms = (p: WebGLProgram) => ({
     time: U(p, 'uTime'), camZ: U(p, 'uCamZ'),
     aspect: U(p, 'uAspect'), mouse: U(p, 'uMouse'), presence: U(p, 'uPresence'),
+    traffic: U(p, 'uTraffic'),
   });
   const uField = uniforms(progField), uEdge = uniforms(progEdge);
   const uPulse = uniforms(progPulse), uNode = uniforms(progNode);
@@ -425,6 +434,19 @@ export function createLattice(
   // chases it. Without the second stage the whole world twitches with the
   // mouse and the effect reads as cheap.
   let mx = 0, my = 0, tmx = 0, tmy = 0;
+
+  // Mood: the world shifts energy as you move between views. Targets are set
+  // by navigation; the live values chase them over about a second so the
+  // change is felt rather than seen.
+  let pres = moodProfile().presence * opts.presence;
+  let drift = moodProfile().drift;
+  let traffic = moodProfile().traffic;
+  let tPres = pres, tDrift = drift, tTraffic = traffic;
+  const unsubMood = subscribeMood(p => {
+    tPres = p.presence * opts.presence;
+    tDrift = p.drift;
+    tTraffic = p.traffic;
+  });
 
   const dprCap = Math.min(window.devicePixelRatio || 1, cfg.dpr);
 
@@ -450,16 +472,22 @@ export function createLattice(
     const dt = Math.min(0.05, last ? (now - last) / 1000 : 0.016);
     last = now;
     t += dt;
-    camZ -= dt * 7.2;                       // perpetual forward drift
+    camZ -= dt * 7.2 * drift;               // perpetual forward drift
 
     mx += (tmx - mx) * Math.min(1, dt * 2.4);
     my += (tmy - my) * Math.min(1, dt * 2.4);
+
+    const ease = Math.min(1, dt * 1.6);
+    pres    += (tPres - pres) * ease;
+    drift   += (tDrift - drift) * ease;
+    traffic += (tTraffic - traffic) * ease;
 
     const set = (u: ReturnType<typeof uniforms>) => {
       gl.uniform1f(u.time, t);
       gl.uniform1f(u.camZ, camZ);
       gl.uniform1f(u.aspect, aspect);
-      gl.uniform1f(u.presence, opts.presence);
+      gl.uniform1f(u.presence, pres);
+      gl.uniform1f(u.traffic, traffic);
       gl.uniform2f(u.mouse, mx, my);
     };
 
@@ -507,7 +535,13 @@ export function createLattice(
     setPointer: (x, y) => { tmx = x; tmy = y; },
     setRunning: (on) => { running = on; if (on) last = 0; },
     destroy: () => {
+      unsubMood();
       cancelAnimationFrame(raf);
+      // Free what we allocated before dropping the context, so a remount does
+      // not accumulate GPU memory across a long session.
+      owned.forEach(b => gl.deleteBuffer(b));
+      owned.length = 0;
+      [progField, progEdge, progPulse, progNode].forEach(pr => gl.deleteProgram(pr));
       const ext = gl.getExtension('WEBGL_lose_context');
       if (ext) ext.loseContext();
     },

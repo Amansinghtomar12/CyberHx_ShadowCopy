@@ -10,6 +10,8 @@ import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 import AmbientBackground from './AmbientBackground';
 import SurfaceLight from './environment/SurfaceLight';
+import { setMood } from './environment/mood';
+import MagneticElement from './environment/MagneticElement';
 
 // ── Turnstile Site Key — from environment variable ──
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || '';
@@ -175,6 +177,10 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
   const widgetIdRef = useRef<string | null>(null);
   const { login, register, loginWithGoogle } = useAuth();
   const reduceMotion = useReducedMotion() ?? false;
+
+  // Arrival: the environment is at its most present here because there is no
+  // application chrome competing with it yet.
+  useEffect(() => { setMood('auth'); }, []);
 
   // Load Turnstile script. Keyed on captchaAttempt so "Try again" can re-fetch
   // a script that failed the first time -- a stale tag is removed first,
@@ -682,7 +688,11 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                         </motion.p>
                       )}
 
-                      {/* Bigger, more confident primary CTA */}
+                      {/* Bigger, more confident primary CTA. The one control
+                          on this page that acknowledges the cursor before it
+                          arrives — magnetism means "this one matters", so it
+                          is used once and nowhere else here. */}
+                      <MagneticElement className="w-full" radius={140} strength={5}>
                       <button
                         type="submit"
                         disabled={loading || !captchaToken}
@@ -704,6 +714,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                           </>
                         )}
                       </button>
+                      </MagneticElement>
 
                       {/* Divider */}
                       <div className="flex items-center gap-3 pt-1">
