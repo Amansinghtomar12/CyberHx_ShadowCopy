@@ -65,6 +65,14 @@ const TRANSFORM = `
   uniform float uTime, uCamZ, uAspect, uPresence, uTraffic;
   uniform vec2  uMouse;   // −1..1, spring-smoothed
 
+  // A wave travelling the depth of the slab. Nodes brighten as it reaches
+  // them, so the field reads as carrying activity rather than just existing.
+  float energyWave(float z) {
+    float phase = fract(uTime * 0.055);
+    float d = abs(fract((-z / ${DEPTH}.0) - phase + 0.5) - 0.5) * 2.0;
+    return pow(1.0 - d, 9.0);
+  }
+
   vec3 latticePos(vec3 home, float seed, float anchorZ) {
     // Each node breathes around its home so the lattice never looks welded.
     vec3 p = home;
@@ -153,6 +161,25 @@ const FIELD_FS = `
     // A cold pool of light low and left keeps the palette from going monotone.
     col += vec3(0.10, 0.20, 0.34) * 0.055 / (1.0 + length(p - vec2(-0.9, -0.85)) * 3.2);
 
+    // Volumetric shafts. Angled beams drifting across the upper field, masked
+    // to fade out before they reach the ground where the content sits.
+    float beam = 0.0;
+    for (int i = 0; i < 3; i++) {
+      float fi = float(i);
+      float ang = 0.42 + fi * 0.13;
+      // Project onto a tilted axis, then take a narrow band around it.
+      float u = p.x * cos(ang) - p.y * sin(ang) + sin(uTime * 0.045 + fi * 2.1) * 0.9;
+      beam += (1.0 - smoothstep(0.0, 0.36, abs(u))) * (0.55 + 0.45 * sin(uTime * 0.11 + fi));
+    }
+    col += vec3(0.26, 0.40, 0.14) * beam * 0.020
+         * smoothstep(-0.9, 0.6, vUV.y) * uPresence;
+
+    // Nebula: two decorrelated sine fields standing in for cheap noise. Gives
+    // the void some internal structure so it is never a flat black rectangle.
+    float n = sin(p.x * 1.7 + uTime * 0.03) * sin(p.y * 2.1 - uTime * 0.025)
+            + sin(p.x * 3.3 - uTime * 0.017) * sin(p.y * 2.9 + uTime * 0.021) * 0.5;
+    col += vec3(0.12, 0.20, 0.30) * smoothstep(0.35, 1.4, n) * 0.05;
+
     // Vignette last, so nothing above competes with foreground text.
     col *= 1.0 - smoothstep(0.55, 1.65, length(p)) * 0.65;
 
@@ -176,7 +203,7 @@ const EDGE_VS = `
     gl_Position = project(p);
     // Links are the quietest element on screen by design: they describe the
     // topology without ever competing with the nodes sitting on top of them.
-    vAlpha = depthFade(p) * 0.26 * (0.7 + 0.3 * uPresence);
+    vAlpha = depthFade(p) * 0.26 * (0.7 + 0.3 * uPresence) * (1.0 + energyWave(p.z) * 2.2);
   }
 `;
 const EDGE_FS = `
@@ -242,7 +269,10 @@ const NODE_VS = `
     // Slow individual respiration keeps the field from reading as static
     // even when the camera and cursor are both still.
     float breathe = 0.72 + 0.28 * sin(uTime * 0.85 + aSeed * 6.283);
-    vAlpha = depthFade(p) * breathe * (0.85 + 0.35 * uPresence) * (1.0 + near * 1.8);
+    float wave = energyWave(p.z) * uTraffic;
+    vAlpha = depthFade(p) * breathe * (0.85 + 0.35 * uPresence)
+           * (1.0 + near * 1.8 + wave * 1.6);
+    vHot = max(vHot, wave * 0.8);   // the wave warms colour as well as level
   }
 `;
 const NODE_FS = `
@@ -327,18 +357,41 @@ export function createLattice(
   /* ── Build the lattice once ─────────────────────────────────────────── */
   type P = { x: number; y: number; z: number; seed: number; size: number };
   const pts: P[] = [];
+
+  // Hubs first. An evenly scattered field reads as confetti; a real network
+  // has dense knots joined by sparse runs, so most nodes are hung off a hub
+  // and only a minority are free-floating connective tissue.
+  const HUBS = Math.max(5, Math.round(cfg.nodes / 26));
+  const edgeBias = (v: number) => Math.sign(v) * Math.pow(Math.abs(v), 1.35);
+  const hubs = Array.from({ length: HUBS }, () => ({
+    x: edgeBias(Math.random() * 2 - 1) * SPREAD,
+    y: edgeBias(Math.random() * 2 - 1) * SPREAD * 0.72,
+    z: -Math.random() * DEPTH,
+  }));
+
   for (let i = 0; i < cfg.nodes; i++) {
-    // Biased toward the edges of the frame: the middle of the screen is where
-    // the UI lives, and the environment should never fight it for attention.
-    const edgeBias = (v: number) => Math.sign(v) * Math.pow(Math.abs(v), 1.35);
+    // A fifth wander free so the clusters never look like separate objects.
+    const loose = i % 5 === 0;
+    const h = hubs[i % HUBS];
+    // Cubed uniform gives a dense core with a long tail, rather than a shell.
+    const r = Math.pow(Math.random(), 3) * 34;
+    const th = Math.random() * Math.PI * 2;
+    const ph = Math.acos(2 * Math.random() - 1);
     pts.push({
-      x: edgeBias(Math.random() * 2 - 1) * SPREAD,
-      y: edgeBias(Math.random() * 2 - 1) * SPREAD * 0.72,
-      z: -Math.random() * DEPTH,
+      x: loose ? edgeBias(Math.random() * 2 - 1) * SPREAD
+               : h.x + r * Math.sin(ph) * Math.cos(th),
+      y: loose ? edgeBias(Math.random() * 2 - 1) * SPREAD * 0.72
+               : h.y + r * Math.sin(ph) * Math.sin(th) * 0.8,
+      z: loose ? -Math.random() * DEPTH
+               : h.z + r * Math.cos(ph) * 1.6,
       seed: Math.random(),
-      size: 0.55 + Math.random() * 0.75,
+      // Hub cores are bigger, so the eye can read the structure's hierarchy.
+      size: (loose ? 0.5 : 0.6 + (1 - r / 34) * 0.7) + Math.random() * 0.45,
     });
   }
+  // Clustering can push a node outside the slab; fold it back so the z-wrap
+  // stays exact and nothing pops.
+  pts.forEach(p => { p.z = -((-p.z) % DEPTH); });
 
   // Neighbour topology, computed once. Nodes only breathe a few units around
   // home, so a static graph stays truthful for the life of the page.

@@ -1243,6 +1243,71 @@
     color: var(--color-neon);
   }
 
+  /* ══ RETICLE CURSOR ════════════════════════════════════════════════════
+     A targeting reticle rather than an arrow: a broken ring, ticks at the
+     poles, heavy bars at 3 and 9 o'clock, and a lit centre dot.
+
+     WHY AN SVG DATA URI AND NOT A PNG
+     The reticle is the real cursor, drawn by the compositor, so it can never
+     lag behind the pointer the way a JS-positioned div does. Inlining it as
+     SVG means no binary asset, no extra request, and the lime comes straight
+     from the brand rather than being baked into a file nobody can edit.
+     Every rule carries a native keyword fallback, so a browser that refuses
+     SVG cursors still gets a sensible crosshair instead of nothing.
+
+     Only fine pointers get it. A touch device has no cursor to restyle, and
+     forcing one would do nothing but cost bytes.                            */
+  @media (pointer: fine) {
+    html, body {
+      cursor: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><g fill='none' stroke='%23c6ff00' stroke-linecap='round'><circle cx='16' cy='16' r='10.5' stroke-width='1.25' opacity='0.75' stroke-dasharray='4.2 3.4'/><path d='M16 2.5v4.5M16 25v4.5' stroke-width='1.6'/><path d='M1.5 16h6M24.5 16h6' stroke-width='2'/><path d='M16 11.5v2.2M16 18.3v2.2M11.5 16h2.2M18.3 16h2.2' stroke-width='1.1' opacity='0.85'/></g><circle cx='16' cy='16' r='1.15' fill='%23c6ff00'/><circle cx='16' cy='16' r='1.15' fill='%23ddff6b' opacity='0.35'/></svg>") 16 16, crosshair;
+    }
+    a, button, [role="button"], summary, label[for],
+    input[type="checkbox"], input[type="radio"], select,
+    .btn, .card-interactive, .tab, .chip {
+      cursor: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><g fill='none' stroke='%23ddff6b' stroke-linecap='round'><circle cx='16' cy='16' r='10.5' stroke-width='1.25' opacity='0.95' stroke-dasharray='4.2 3.4'/><path d='M16 2.5v4.5M16 25v4.5' stroke-width='1.6'/><path d='M1.5 16h6M24.5 16h6' stroke-width='2.6'/><path d='M16 11.5v2.2M16 18.3v2.2M11.5 16h2.2M18.3 16h2.2' stroke-width='1.1' opacity='0.85'/></g><circle cx='16' cy='16' r='1.6' fill='%23ddff6b'/><circle cx='16' cy='16' r='1.6' fill='%23ffffff' opacity='0.35'/></svg>") 16 16, pointer;
+    }
+    /* Text entry keeps a caret: a reticle over an input hides the one thing
+       that tells you where the next character lands. */
+    input:not([type="checkbox"]):not([type="radio"]), textarea {
+      cursor: text;
+    }
+    :disabled, [aria-disabled="true"] { cursor: not-allowed; }
+  }
+
+  /* The ring that follows. Deliberately behind the reticle in feel as well as
+     z-order: the reticle is exact and instant, the ring has weight and lags,
+     and the gap between them is what makes the pointer feel physical. */
+  .cursor-ring {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 38px;
+    height: 38px;
+    margin: -19px 0 0 -19px;
+    border-radius: 50%;
+    border: 1px solid var(--color-neon);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 140;
+    will-change: transform, opacity;
+    transition: opacity 220ms var(--ease-standard),
+                width 220ms var(--ease-out-quint),
+                height 220ms var(--ease-out-quint),
+                margin 220ms var(--ease-out-quint),
+                border-color 220ms var(--ease-standard);
+  }
+  .cursor-ring[data-active="1"] { opacity: 0.42; }
+  /* Over something interactive it opens up and brightens — the same language
+     the surfaces use when they light under the cursor. */
+  .cursor-ring[data-hot="1"] {
+    width: 60px;
+    height: 60px;
+    margin: -30px 0 0 -30px;
+    opacity: 0.75;
+    border-color: var(--color-neon-bright);
+    box-shadow: 0 0 18px var(--color-neon-glow), inset 0 0 12px rgba(198, 255, 0, 0.12);
+  }
+
   /* ══ TAP TARGET ════════════════════════════════════════════════════════
      Grows the hit area to 44px without changing anything visible. A 32px
      icon button is fine for a mouse and awkward for a thumb, and shrinking
@@ -1331,5 +1396,6 @@
   .stagger > * { animation: none !important; }
   .standings-row[data-moved]::after { animation: none !important; opacity: 1; }
   .access-ring { display: none; }
+  .cursor-ring { display: none; }
   .magnetic { transform: none !important; }
 }

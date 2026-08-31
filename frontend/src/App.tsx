@@ -52,6 +52,7 @@ import AmbientBackground from './components/AmbientBackground';
 import BreachConfirm from './components/BreachConfirm';
 import CommandHeader from './components/CommandHeader';
 import SurfaceLight from './components/environment/SurfaceLight';
+import CursorRing from './components/environment/CursorRing';
 import { setMood, type Mood } from './components/environment/mood';
 import AnimatedView from './components/environment/AnimatedView';
 
@@ -523,6 +524,7 @@ export default function App() {
     <div className="min-h-screen bg-cyber-bg text-cyber-text font-sans">
       <AmbientBackground />
       <SurfaceLight />
+      <CursorRing />
 
       <div className="page-shell min-h-screen flex flex-col">
         {/* Header */}

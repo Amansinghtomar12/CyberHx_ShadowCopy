@@ -10,6 +10,7 @@ import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 import AmbientBackground from './AmbientBackground';
 import SurfaceLight from './environment/SurfaceLight';
+import CursorRing from './environment/CursorRing';
 import { setMood } from './environment/mood';
 import MagneticElement from './environment/MagneticElement';
 import AccessSequence from './AccessSequence';
@@ -353,6 +354,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
     <div className="min-h-screen bg-cyber-bg overflow-x-hidden relative">
       <AmbientBackground intensity="normal" />
       <SurfaceLight />
+      <CursorRing />
 
       {/* Full-viewport viewfinder brackets — signal that this is a serious environment */}
       <div className="hidden lg:block">
