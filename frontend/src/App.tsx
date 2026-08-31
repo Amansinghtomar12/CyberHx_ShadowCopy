@@ -18,7 +18,6 @@ import {
   Zap,
   Check,
   Lock,
-  Clock,
   Lightbulb,
   SlidersHorizontal,
   ExternalLink,
@@ -51,6 +50,7 @@ import Settings from './Settings';
 import AdminDashboard from './components/admin/AdminDashboard';
 import AmbientBackground from './components/AmbientBackground';
 import BreachConfirm from './components/BreachConfirm';
+import CommandHeader from './components/CommandHeader';
 import SurfaceLight from './components/environment/SurfaceLight';
 import { setMood, type Mood } from './components/environment/mood';
 import AnimatedView from './components/environment/AnimatedView';
@@ -285,6 +285,23 @@ export default function App() {
   const { challenges: dbChallenges, loading: challengesLoading, refetch: refetchChallenges } = useChallenges();
 
   const reduce = useReducedMotion();
+
+  // Your score, derived rather than fetched. Mirrors the database exactly --
+  // GREATEST(total_points - hint_spend, 0) -- so the number in the header and
+  // the number on the scoreboard cannot drift apart. Costs no query.
+  const myScore = useMemo(() => {
+    const earned = dbChallenges
+      .filter(c => solvedIds.includes(c.id) || teamSolvedIds.includes(c.id))
+      .reduce((sum, c) => sum + (c.points ?? 0), 0);
+    const spent = Object.entries(usedHintIds).reduce((sum, [chId, hintIds]) => {
+      const ch = dbChallenges.find(c => c.id === chId);
+      if (!ch) return sum;
+      return sum + (ch.hints ?? [])
+        .filter(h => hintIds.includes(h.id))
+        .reduce((h, hint) => h + (hint.cost ?? 0), 0);
+    }, 0);
+    return Math.max(0, earned - spent);
+  }, [dbChallenges, solvedIds, teamSolvedIds, usedHintIds]);
 
   // Build challenges with real solve counts
   const challenges: Challenge[] = useMemo(
@@ -727,41 +744,17 @@ export default function App() {
 
               {/* Main Content Area */}
               <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 py-8 lg:py-10 w-full">
-                {/* Event banners */}
-                {eventStatus === 'waiting' && !profile?.is_admin && (
-                  <div className="mb-6 surface flex items-start gap-3 p-4 border-l-2" style={{ borderLeftColor: 'var(--color-diff-medium)' }}>
-                    <Clock className="w-4 h-4 shrink-0 mt-0.5 text-diff-medium" />
-                    <p className="text-small text-text-secondary">
-                      Event starts at{' '}
-                      <span className="font-mono text-cyber-text">
-                        {eventSettings?.start_time ? new Date(eventSettings.start_time).toLocaleString() : '—'}
-                      </span>
-                    </p>
-                  </div>
-                )}
-                {eventStatus === 'ended' && !profile?.is_admin && (
-                  <div className="mb-6 surface flex items-start gap-3 p-4 border-l-2" style={{ borderLeftColor: 'var(--color-diff-hard)' }}>
-                    <Flag className="w-4 h-4 shrink-0 mt-0.5 text-diff-hard" />
-                    <p className="text-small text-text-secondary">Event has ended. Submissions are closed.</p>
-                  </div>
-                )}
-                {eventStatus === 'live' && eventSettings?.name && (
-                  <div className="mb-6 surface flex flex-wrap items-center gap-3 p-4 border-l-2" style={{ borderLeftColor: 'var(--color-neon)' }}>
-                    <span className="badge badge-live">Live</span>
-                    <p className="text-small text-cyber-text font-semibold break-words">{eventSettings.name}</p>
-                    {eventSettings?.end_time && (
-                      <p className="text-small text-text-muted">
-                        Ends <span className="font-mono">{new Date(eventSettings.end_time).toLocaleString()}</span>
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                <div className="mb-8 lg:mb-10 text-left">
-                  <span className="badge badge-neon mb-4">Awaiting Decryption Input</span>
-                  <h2 className="text-h1 text-cyber-text mb-2">Challenge Terminal</h2>
-                  <p className="text-body text-text-muted max-w-xl">Modules remain encrypted until a valid access key is provided.</p>
-                </div>
+                <CommandHeader
+                  status={eventStatus}
+                  eventName={eventSettings?.name}
+                  startTime={eventSettings?.start_time}
+                  endTime={eventSettings?.end_time}
+                  score={myScore}
+                  solved={solvedIds.length}
+                  total={challenges.length}
+                  teamSolved={teamSolvedIds.length}
+                  hasTeam={!!profile?.team_id}
+                />
 
                 {/* Mobile / tablet difficulty filter */}
                 <div className="lg:hidden relative mb-6 z-20">
