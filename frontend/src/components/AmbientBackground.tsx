@@ -21,6 +21,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createLattice, type LatticeHandle } from './environment/lattice';
 import { getCapability } from './environment/performance';
+import { setLatticeCapacity } from './environment/signals';
 
 export interface AmbientBackgroundProps {
   /** 'subtle' (default) sits far behind the UI; 'normal' brings it forward. */
@@ -65,6 +66,9 @@ export default function AmbientBackground({
     }
     // WebGL present but unusable (blocklisted driver, lost context on init).
     if (!handle) { setMode('static'); return; }
+    // Tell the app how many nodes exist so it knows the capacity to map the
+    // board into. On the static tier this stays 0 and publishing is a no-op.
+    setLatticeCapacity(handle.nodeCount);
 
     const onPointer = (e: PointerEvent) => {
       handle?.setPointer(
@@ -91,6 +95,7 @@ export default function AmbientBackground({
       window.removeEventListener('resize', onResize);
       document.removeEventListener('visibilitychange', onVisibility);
       handle?.destroy();
+      setLatticeCapacity(0);
     };
   }, [mode, intensity]);
 

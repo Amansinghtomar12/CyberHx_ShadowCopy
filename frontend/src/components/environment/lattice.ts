@@ -31,6 +31,7 @@
  */
 
 import { subscribeMood, moodProfile } from './mood';
+import { subscribeSignals, subscribePulse } from './signals';
 
 export type Tier = 'high' | 'medium';
 
@@ -250,8 +251,15 @@ const NODE_VS = `
   attribute vec3  aPos;
   attribute float aSeed;
   attribute float aSize;
+  // Identity, uploaded from the live board. kind 1 = this node is a challenge.
+  attribute float aKind;
+  attribute float aHeat;    // 0..1, share of the field that has solved it
+  attribute float aSolved;  // 1 = you cracked it
+  uniform float uSurgeAt;   // seconds since a solve shockwave started
+  uniform vec3  uSurgeOrigin;
   varying float vAlpha;
   varying float vHot;
+  varying float vSolved;
   ${TRANSFORM}
   void main() {
     vec3 p = latticePos(aPos, aSeed, aPos.z);
@@ -270,15 +278,41 @@ const NODE_VS = `
     // even when the camera and cursor are both still.
     float breathe = 0.72 + 0.28 * sin(uTime * 0.85 + aSeed * 6.283);
     float wave = energyWave(p.z) * uTraffic;
+
+    // A challenge you have solved burns steadily instead of breathing: the
+    // difference between a light that is on and one that is idling.
+    float lit = aSolved;
+    breathe = mix(breathe, 0.94 + 0.06 * sin(uTime * 2.1 + aSeed * 6.283), lit);
+
+    // Shockwave from the node of a freshly solved challenge. An expanding
+    // shell rather than a flash, so the whole field registers the event.
+    float surge = 0.0;
+    if (uSurgeAt >= 0.0) {
+      float t = uSurgeAt;
+      float radius = t * 110.0;
+      float d = abs(distance(p, uSurgeOrigin) - radius);
+      surge = (1.0 - smoothstep(0.0, 26.0, d)) * (1.0 - smoothstep(0.0, 1.6, t));
+    }
+
+    // A challenge nobody has touched sits quieter than the ambient field, so
+    // the board's difficulty is legible in the environment itself.
+    float ident = mix(1.0, 0.40 + aHeat * 1.6 + lit * 2.6, aKind);
+
     vAlpha = depthFade(p) * breathe * (0.85 + 0.35 * uPresence)
-           * (1.0 + near * 1.8 + wave * 1.6);
-    vHot = max(vHot, wave * 0.8);   // the wave warms colour as well as level
+           * (1.0 + near * 1.8 + wave * 1.6 + surge * 3.0) * ident;
+    vHot = max(max(vHot, wave * 0.8), max(aHeat * aKind * 0.7, surge));
+    vSolved = lit;
+
+    // Solved nodes read larger. Progress becomes something you can see in the
+    // shape of the field, not only in a number on the header.
+    gl_PointSize *= 1.0 + lit * 1.5 + surge * 1.1;
   }
 `;
 const NODE_FS = `
   precision mediump float;
   varying float vAlpha;
   varying float vHot;
+  varying float vSolved;
   void main() {
     float d = length(gl_PointCoord - 0.5);
     // Two-part falloff: a tight core with a wide bloom around it. A single
@@ -288,6 +322,8 @@ const NODE_FS = `
     vec3 cool = vec3(0.55, 0.74, 0.42);
     vec3 hot  = vec3(0.86, 1.0, 0.42);
     vec3 col  = mix(cool, hot, vHot);
+    // Yours burn near-white at the core: unmistakable at a glance.
+    col = mix(col, vec3(1.0, 1.0, 0.82), vSolved * 0.9);
     gl_FragColor = vec4(col, (core + bloom) * vAlpha);
   }
 `;
@@ -330,6 +366,8 @@ const buffer = (gl: WebGLRenderingContext, data: Float32Array) => {
 };
 
 export interface LatticeHandle {
+  /** How many nodes exist — the capacity challenges can be mapped into. */
+  nodeCount: number;
   resize: () => void;
   setPointer: (x: number, y: number) => void;
   setRunning: (on: boolean) => void;
@@ -449,6 +487,19 @@ export function createLattice(
   const owned: WebGLBuffer[] = [];
   const track = (b: WebGLBuffer) => { owned.push(b); return b; };
 
+  // Identity buffers are DYNAMIC_DRAW: they are rewritten whenever the board
+  // changes, unlike the geometry which is uploaded once and never touched.
+  const dyn = (n: number) => {
+    const b = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, b);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(n), gl.DYNAMIC_DRAW);
+    owned.push(b);
+    return b;
+  };
+  const bKind = dyn(pts.length);
+  const bHeat = dyn(pts.length);
+  const bSolved = dyn(pts.length);
+
   const quad = track(buffer(gl, new Float32Array([-1, -1, 3, -1, -1, 3])));
   const bNodePos = track(buffer(gl, nodePos)), bNodeSeed = track(buffer(gl, nodeSeed)), bNodeSize = track(buffer(gl, nodeSize));
   const bEdgePos = track(buffer(gl, edgePos)), bEdgeSeed = track(buffer(gl, edgeSeed)), bEdgeAnchor = track(buffer(gl, edgeAnchor));
@@ -479,6 +530,30 @@ export function createLattice(
   });
   const uField = uniforms(progField), uEdge = uniforms(progEdge);
   const uPulse = uniforms(progPulse), uNode = uniforms(progNode);
+  const uSurgeAt = U(progNode, 'uSurgeAt');
+  const uSurgeOrigin = U(progNode, 'uSurgeOrigin');
+
+  // Live board state, pushed in by the app through the signals store.
+  const unsubSignals = subscribeSignals(f => {
+    const put = (b: WebGLBuffer, data: Float32Array) => {
+      gl.bindBuffer(gl.ARRAY_BUFFER, b);
+      // A sub-update rather than a realloc: same size every time.
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, pts.length));
+    };
+    put(bKind, f.kind);
+    put(bHeat, f.heat);
+    put(bSolved, f.solved);
+  });
+
+  // Shockwave bookkeeping. -1 means no wave in flight.
+  let surgeStart = -1;
+  let surgeOrigin: [number, number, number] = [0, 0, 0];
+  const unsubPulse = subscribePulse(nodeIndex => {
+    const n = pts[nodeIndex];
+    if (!n) return;
+    surgeStart = t;
+    surgeOrigin = [n.x, n.y, n.z];
+  });
 
   /* ── Frame loop ─────────────────────────────────────────────────────── */
   let raf = 0, running = true, aspect = 1;
@@ -578,17 +653,28 @@ export function createLattice(
     bind(progNode, 'aPos', bNodePos, 3);
     bind(progNode, 'aSeed', bNodeSeed, 1);
     bind(progNode, 'aSize', bNodeSize, 1);
+    bind(progNode, 'aKind', bKind, 1);
+    bind(progNode, 'aHeat', bHeat, 1);
+    bind(progNode, 'aSolved', bSolved, 1);
     set(uNode);
+    // The wave expires on its own; -1 tells the shader to skip the work.
+    const age = surgeStart >= 0 ? t - surgeStart : -1;
+    if (age > 1.8) surgeStart = -1;
+    gl.uniform1f(uSurgeAt, surgeStart >= 0 ? age : -1);
+    gl.uniform3f(uSurgeOrigin, surgeOrigin[0], surgeOrigin[1], surgeOrigin[2]);
     gl.drawArrays(gl.POINTS, 0, pts.length);
   };
   raf = requestAnimationFrame(frame);
 
   return {
+    nodeCount: pts.length,
     resize,
     setPointer: (x, y) => { tmx = x; tmy = y; },
     setRunning: (on) => { running = on; if (on) last = 0; },
     destroy: () => {
       unsubMood();
+      unsubSignals();
+      unsubPulse();
       cancelAnimationFrame(raf);
       // Free what we allocated before dropping the context, so a remount does
       // not accumulate GPU memory across a long session.

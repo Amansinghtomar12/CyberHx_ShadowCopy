@@ -54,6 +54,7 @@ import CommandHeader from './components/CommandHeader';
 import SurfaceLight from './components/environment/SurfaceLight';
 import CursorRing from './components/environment/CursorRing';
 import { setMood, type Mood } from './components/environment/mood';
+import { setSignals, pulseChallenge } from './components/environment/signals';
 import AnimatedView from './components/environment/AnimatedView';
 
 function dbToChallenge(c: DBChallenge, solveCount = 0): Challenge {
@@ -388,6 +389,21 @@ export default function App() {
   // Same geometry, same palette, different energy. Moving from the board to
   // the scoreboard should feel like walking into a busier room rather than
   // loading another site, so the lattice eases between these over ~1s.
+  // The environment *is* the event. Every challenge owns a node: dark while
+  // unsolved, warmer the more of the field has cracked it, burning white once
+  // you take it. Recomputed whenever the board or your solves move.
+  useEffect(() => {
+    if (!challenges.length) return;
+    // Heat is relative to the most-solved challenge, so the field stays
+    // legible whether ten people are playing or five thousand.
+    const peak = Math.max(1, ...challenges.map(c => solveCounts[c.id] ?? 0));
+    setSignals(challenges.map(c => ({
+      id: c.id,
+      solved: isChallengeSolved(c.id),
+      heat: (solveCounts[c.id] ?? 0) / peak,
+    })));
+  }, [challenges, solvedIds, teamSolvedIds, solveCounts]);
+
   useEffect(() => {
     const MOODS: Record<string, Mood> = {
       challenges: 'focus',
@@ -930,6 +946,9 @@ export default function App() {
                 [challengeId]: serverCount !== undefined ? serverCount : (prev[challengeId] || 0) + 1
               }))}
               onSolve={(challengeId) => {
+                // Shockwave from this challenge's own node — the field
+                // registers the breach, not just the modal.
+                pulseChallenge(challengeId);
                 setSolvedIds(prev => prev.includes(challengeId) ? prev : [...prev, challengeId]);
                 setTeamSolvedIds(prev => prev.includes(challengeId) ? prev : [...prev, challengeId]);
                 setSolvedByMap(prev => ({ ...prev, [challengeId]: profile?.username ?? 'you' }));
