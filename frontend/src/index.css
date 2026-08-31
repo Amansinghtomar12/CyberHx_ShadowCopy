@@ -1130,6 +1130,31 @@
     animation-delay: calc(min(var(--i, 0), 14) * 32ms);
   }
 
+  /* ══ STANDINGS — showing what changed ══════════════════════════════════
+     A leaderboard that reorders silently makes the reader diff two mental
+     screenshots. The row springs to its new position (Framer layout), and
+     this marks it for about a second so the eye is told which rows moved and
+     in which direction.
+
+     The edge is drawn on a pseudo-element rather than the row's own border:
+     table cells collapse borders, and animating one would relayout the table
+     every frame. */
+  .standings-row {
+    position: relative;
+  }
+  .standings-row[data-moved]::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    animation: standings-mark 1.4s var(--ease-out-quint) both;
+    pointer-events: none;
+  }
+  .standings-row[data-moved="up"]::after   { background: var(--color-status-solved); }
+  .standings-row[data-moved="down"]::after { background: var(--color-status-live); }
+
   /* ══ DATA — numbers that feel instrumented ═════════════════════════════ */
   .readout {
     font-family: var(--font-mono);
@@ -1155,6 +1180,11 @@
   from { opacity: 0; transform: translateY(10px); clip-path: inset(0 0 100% 0); }
   60%  { opacity: 1; }
   to   { opacity: 1; transform: translateY(0);    clip-path: inset(0 0 0% 0); }
+}
+@keyframes standings-mark {
+  0%   { opacity: 0; transform: scaleY(0.3); }
+  18%  { opacity: 1; transform: scaleY(1); }
+  100% { opacity: 0; transform: scaleY(1); }
 }
 @keyframes stagger-in {
   from { opacity: 0; transform: translateY(12px) scale(0.985); }
@@ -1196,5 +1226,6 @@
   .boot::before, .boot::after, .boot-core { animation: none !important; }
   .breach-ring, .breach-scan { display: none; }
   .stagger > * { animation: none !important; }
+  .standings-row[data-moved]::after { animation: none !important; opacity: 1; }
   .magnetic { transform: none !important; }
 }

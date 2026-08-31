@@ -4,6 +4,7 @@ import {
   Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 import { motion, useReducedMotion } from 'motion/react';
+import AnimatedNumber from './components/AnimatedNumber';
 import {
   Trophy, Crown, Medal, Activity, Radio, Flag,
   ArrowUp, ArrowDown, Minus, TrendingUp, Lock, EyeOff
@@ -235,10 +236,20 @@ function StandingsRows({ teams, reduced }: { teams: TeamScore[]; reduced: boolea
         return (
           <motion.tr
             key={team.id}
+            layout={reduced ? false : 'position'}
             initial={reduced ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.24, delay: reduced ? 0 : Math.min(i, 9) * 0.02 }}
-            className="group transition-colors duration-[var(--duration-fast)] hover:bg-surface-raised"
+            transition={{
+              duration: 0.24,
+              delay: reduced ? 0 : Math.min(i, 9) * 0.02,
+              // Springs the row into its new place. Weight rather than a fixed
+              // easing, so a jump of six places reads bigger than a jump of one.
+              layout: { type: 'spring', stiffness: 380, damping: 34, mass: 0.9 },
+            }}
+            // Marks a row that actually moved this refresh, so the eye is told
+            // *what changed* rather than being left to diff two screenshots.
+            data-moved={deltas[team.id] === undefined ? undefined : (deltas[team.id] > 0 ? 'up' : 'down')}
+            className="standings-row group transition-colors duration-[var(--duration-fast)] hover:bg-surface-raised"
           >
             <td className="px-5 py-4 align-middle">
               <div className="flex items-center gap-2">
@@ -280,9 +291,10 @@ function StandingsRows({ teams, reduced }: { teams: TeamScore[]; reduced: boolea
             </td>
 
             <td className="px-5 py-4 align-middle text-right">
-              <span className="font-mono text-small font-bold tabular-nums text-cyber-text">
-                {team.total_points.toLocaleString()}
-              </span>
+              <AnimatedNumber
+                value={team.total_points}
+                className="font-mono text-small font-bold tabular-nums text-cyber-text"
+              />
             </td>
           </motion.tr>
         );

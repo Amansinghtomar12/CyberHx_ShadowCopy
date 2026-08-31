@@ -17,36 +17,20 @@
  *   Everything animated collapses to a single fade. The words and the score
  *   still arrive, because they are information, not decoration.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
+import { useCountUp } from './AnimatedNumber';
 
 interface BreachConfirmProps {
   points: number;
   onDone: () => void;
 }
 
-/** Counts to a target on rAF. Eased so it decelerates into the final number. */
-function useCountUp(target: number, ms: number, enabled: boolean) {
-  const [n, setN] = useState(enabled ? 0 : target);
-  const raf = useRef(0);
-  useEffect(() => {
-    if (!enabled) { setN(target); return; }
-    const t0 = performance.now();
-    const tick = (now: number) => {
-      const p = Math.min(1, (now - t0) / ms);
-      // easeOutQuint: fast start, long settle — reads as a readout locking on.
-      setN(Math.round(target * (1 - Math.pow(1 - p, 5))));
-      if (p < 1) raf.current = requestAnimationFrame(tick);
-    };
-    raf.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf.current);
-  }, [target, ms, enabled]);
-  return n;
-}
-
 export default function BreachConfirm({ points, onDone }: BreachConfirmProps) {
   const reduce = useReducedMotion() ?? false;
-  const shown = useCountUp(points, 900, !reduce);
+  // Shared with the scoreboard's figures — one count-up, one easing curve.
+  // The explicit 0 origin is what makes this one animate on its only paint.
+  const shown = useCountUp(points, 900, 0);
 
   // Self-dismissing. The caller does not have to manage a timer, and the
   // solved panel underneath is already correct when this disappears.
