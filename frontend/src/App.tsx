@@ -53,6 +53,7 @@ import AmbientBackground from './components/AmbientBackground';
 import BreachConfirm from './components/BreachConfirm';
 import SurfaceLight from './components/environment/SurfaceLight';
 import { setMood, type Mood } from './components/environment/mood';
+import AnimatedView from './components/environment/AnimatedView';
 
 function dbToChallenge(c: DBChallenge, solveCount = 0): Challenge {
   return {
@@ -637,6 +638,8 @@ export default function App() {
         </nav>
 
         <div className="flex flex-1 max-w-screen-2xl mx-auto w-full relative">
+          <AnimatePresence mode="wait" initial={false}>
+          <AnimatedView viewKey={currentView}>
           {currentView === 'challenges' ? (
             <>
               {/* Left Sidebar Filter (Desktop) */}
@@ -909,6 +912,8 @@ export default function App() {
           ) : (
             <Settings />
           )}
+          </AnimatedView>
+          </AnimatePresence>
         </div>
 
         {/* Challenge Modal */}
