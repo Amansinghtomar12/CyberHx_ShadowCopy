@@ -1243,6 +1243,21 @@
     color: var(--color-neon);
   }
 
+  /* ══ TAP TARGET ════════════════════════════════════════════════════════
+     Grows the hit area to 44px without changing anything visible. A 32px
+     icon button is fine for a mouse and awkward for a thumb, and shrinking
+     the gap by enlarging the icon would crowd the input it sits inside.
+     The pseudo-element is invisible and carries the extra hit area. */
+  .tap-target::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+
   /* ══ DATA — numbers that feel instrumented ═════════════════════════════ */
   .readout {
     font-family: var(--font-mono);

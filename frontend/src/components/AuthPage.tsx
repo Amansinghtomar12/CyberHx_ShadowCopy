@@ -372,7 +372,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
               initial={reduceMotion ? false : { opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, ease }}
-              className="hidden lg:flex lg:flex-col lg:min-w-0 relative"
+              className="hidden lg:flex lg:flex-col min-w-0 relative"
             >
               <BackgroundRadar reduceMotion={reduceMotion} />
 
@@ -440,7 +440,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
               initial={reduceMotion ? false : { opacity: 0, y: 16, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.5, ease, delay: 0.1 }}
-              className="w-full lg:min-w-0"
+              className="w-full min-w-0"
             >
               {/* Compact logo — below lg only */}
               <div className="mb-6 text-center lg:hidden">
@@ -616,7 +616,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                             onClick={() => setShowPass(p => !p)}
                             aria-label={showPass ? 'Hide password' : 'Show password'}
                             aria-pressed={showPass}
-                            className="focus-ring absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded-inset text-text-muted transition-colors duration-[var(--duration-fast)] hover:bg-surface-raised hover:text-text-primary"
+                            className="focus-ring tap-target absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded-inset text-text-muted transition-colors duration-[var(--duration-fast)] hover:bg-surface-raised hover:text-text-primary"
                           >
                             {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                           </button>
