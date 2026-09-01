@@ -69,6 +69,7 @@ import { play, playValidating, initAudioLifecycle } from './audio/AudioManager';
 import SoundToggle from './components/SoundToggle';
 import OperationIntro from './components/OperationIntro';
 import MilestoneBanner from './components/MilestoneBanner';
+import { pendingInvite, clearInvite, type InvitePreview } from './lib/invite';
 import { detectMilestones, type Milestone } from './lib/milestones';
 
 function dbToChallenge(c: DBChallenge, solveCount = 0): Challenge {
@@ -278,7 +279,7 @@ function NotificationBell({ userId }: { userId: string }) {
 }
 
 export default function App() {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
 
   // ── Solve state ──────────────────────────────────────────
   const [solvedIds, setSolvedIds] = useState<string[]>([]);          // current user's solves
@@ -312,6 +313,45 @@ export default function App() {
    * every tool a CTF player already keeps open in the next tab.
    */
   const [selectedCat, setSelectedCat] = useState<string | 'all'>('all');
+  /**
+   * A team invite that was waiting when the player signed in. Offered once the
+   * profile is known -- a player already on a team gets told, not moved. The
+   * join itself is join_team, with every check and the row lock it already
+   * has; this is only the doorway.
+   */
+  const [invite, setInvite] = useState<(InvitePreview & { code: string; mine?: boolean }) | null>(null);
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteError, setInviteError] = useState('');
+  useEffect(() => {
+    if (!profile) return;
+    const code = pendingInvite();
+    if (!code) return;
+    let alive = true;
+    supabase.rpc('team_invite_preview', { p_code: code }).then(({ data, error }) => {
+      if (!alive) return;
+      if (error) { setInvite({ code, error: 'unavailable' }); return; }
+      const preview: InvitePreview = data ?? { error: 'Invalid invite' };
+      if (preview.error) { clearInvite(); setInvite({ code, ...preview }); return; }
+      setInvite({ code, ...preview, mine: !!profile.team_id });
+    });
+    return () => { alive = false; };
+    // Once per sign-in: the profile object is replaced only on auth events.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id]);
+
+  const dismissInvite = () => { clearInvite(); setInvite(null); setInviteError(''); };
+  const acceptInvite = async () => {
+    if (!invite) return;
+    setInviteBusy(true); setInviteError('');
+    const { data, error } = await supabase.rpc('join_team', { p_invite_code: invite.code });
+    setInviteBusy(false);
+    if (error || data?.error) { setInviteError(error?.message ?? data?.error ?? 'Could not join the team.'); return; }
+    clearInvite();
+    play('success');
+    await refreshProfile();
+    setInvite(null);
+    setCurrentView('teamProfile');
+  };
   const [query, setQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
   /**
@@ -1136,6 +1176,78 @@ export default function App() {
           </AnimatedView>
           </AnimatePresence>
         </div>
+
+        {/* Team invite, offered once the profile is known */}
+        <AnimatePresence>
+          {invite && (
+            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+              <motion.div
+                initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reduce ? undefined : { opacity: 0 }}
+                transition={{ duration: 0.18 }} onClick={dismissInvite} className="scrim"
+              />
+              <motion.div
+                initial={reduce ? false : { opacity: 0, scale: 0.94, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={reduce ? undefined : { opacity: 0, scale: 0.97, y: 8 }}
+                transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+                role="dialog" aria-modal="true" aria-label="Team invite"
+                className="surface-overlay relative w-full max-w-md overflow-hidden p-6 sm:p-7"
+              >
+                <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-px"
+                  style={{ background: 'linear-gradient(90deg, transparent, var(--color-neon), transparent)', opacity: 0.7 }} />
+                <p className="label-micro !text-cyber-neon">Team invite</p>
+                {invite.error ? (
+                  <>
+                    <h2 className="mt-2 text-h2 text-cyber-text">
+                      {invite.error === 'unavailable' ? 'Could not check this invite' : 'This invite is no longer valid'}
+                    </h2>
+                    <p className="mt-2 text-body text-text-muted">
+                      {invite.error === 'unavailable'
+                        ? 'The invite is still saved. Reload in a moment and it will be offered again.'
+                        : 'Ask your captain for a fresh link, or join by code from the Team page.'}
+                    </p>
+                    <div className="mt-6 flex justify-end">
+                      <button type="button" onClick={dismissInvite} className="btn btn-secondary btn-md">OK</button>
+                    </div>
+                  </>
+                ) : invite.mine ? (
+                  <>
+                    <h2 className="mt-2 text-h2 text-cyber-text">You&rsquo;re already on a team</h2>
+                    <p className="mt-2 text-body text-text-muted">
+                      <strong className="text-cyber-text">{invite.name}</strong> invited you, but a player can only be on one team.
+                      Leave your current team from the Team page first if you want to switch.
+                    </p>
+                    <div className="mt-6 flex justify-end gap-2">
+                      <button type="button" onClick={dismissInvite} className="btn btn-secondary btn-md">OK</button>
+                      <button type="button" onClick={() => { dismissInvite(); setCurrentView('teamProfile'); }} className="btn btn-outline btn-md">Team page</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="mt-2 text-h2 text-cyber-text">Join <span className="text-cyber-neon">{invite.name}</span>?</h2>
+                    <p className="mt-2 text-body text-text-muted">
+                      <span className="font-mono text-text-secondary">{invite.members}/{invite.size}</span> members
+                      {invite.full ? ' — the team is currently full.' : invite.locked ? ' — team changes are locked while the event is live.' : '. Your solves will count for the team from here on.'}
+                    </p>
+                    {inviteError && (
+                      <p role="alert" className="mt-3 text-small" style={{ color: 'var(--color-danger-fg)' }}>{inviteError}</p>
+                    )}
+                    <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                      <button type="button" onClick={dismissInvite} disabled={inviteBusy} className="btn btn-ghost btn-md">Not now</button>
+                      <button
+                        type="button"
+                        onClick={acceptInvite}
+                        disabled={inviteBusy || invite.full || invite.locked}
+                        className={`btn btn-primary btn-md ${inviteBusy ? 'is-loading' : ''}`}
+                      >
+                        Join team
+                      </button>
+                    </div>
+                  </>
+                )}
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
 
         {/* Challenge Modal */}
         <AnimatePresence>

@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import {
   Users, Plus, LogIn, Copy, Check, Trash2,
-  KeyRound, Crown, Trophy, Target, ShieldAlert, AlertCircle,
+  KeyRound, Crown, Trophy, Target, ShieldAlert, AlertCircle, Link2, Share2,
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { supabase } from './lib/supabase';
 import { useAuth } from './hooks/useAuth';
 import { ProgressBars, SolvesTable, ScoreChart } from './SharedComponents';
+import { inviteLink } from './lib/invite';
 
 // ─────────────────────────────────────────
 // CTFd LOGIC:
@@ -83,6 +84,7 @@ export default function TeamProfile() {
   const [actionError, setActionError] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -273,6 +275,22 @@ export default function TeamProfile() {
     }
   };
 
+  /** The link is the thing to share; the code stays for anyone typing by hand. */
+  const link = team?.invite_code ? inviteLink(team.invite_code) : '';
+  const copyInviteLink = () => {
+    if (!link) return;
+    navigator.clipboard.writeText(link);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
+  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+  const shareInviteLink = async () => {
+    if (!link || !team) return;
+    try {
+      await navigator.share({ title: `Join ${team.name} on CyberHX`, text: `Join my team ${team.name} for the CTF:`, url: link });
+    } catch { /* dismissed */ }
+  };
+
   // Category breakdown
   const categoryMap: Record<string, number> = {};
   solves.forEach(s => { categoryMap[s.category] = (categoryMap[s.category] || 0) + s.value; });
@@ -432,32 +450,56 @@ export default function TeamProfile() {
           </span>
 
           <div className="min-w-0 flex-1">
-            <span className="label-micro block mb-2">Invite code</span>
+            <span className="label-micro block mb-2">Invite link</span>
             <div className="surface-inset flex items-center gap-2 px-3 py-2.5 overflow-x-auto custom-scrollbar">
-              <code className="font-mono text-body font-bold text-cyber-neon tracking-code whitespace-nowrap text-glow">
-                {team.invite_code}
+              <Link2 aria-hidden="true" className="w-3.5 h-3.5 shrink-0 text-text-faint" />
+              <code className="font-mono text-small text-cyber-neon whitespace-nowrap">
+                {link.replace(/^https?:\/\//, '')}
               </code>
             </div>
             <p className="flex items-start gap-1.5 text-small text-text-muted mt-2">
               <ShieldAlert aria-hidden="true" className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-              <span>Anyone holding this code can join your team. Share it only with teammates.</span>
+              <span>
+                Anyone who opens this link joins your team — new players register and land on it automatically.
+                Share it only with teammates.
+              </span>
             </p>
           </div>
 
-          <div className="shrink-0 sm:self-center">
+          <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:self-center">
             <button
-              onClick={copyInviteCode}
-              className={`btn btn-md w-full sm:w-auto ${copied ? 'btn-success' : 'btn-secondary'}`}
-              aria-label={copied ? 'Invite code copied to clipboard' : 'Copy invite code to clipboard'}
+              onClick={copyInviteLink}
+              className={`btn btn-md w-full sm:w-auto ${linkCopied ? 'btn-success' : 'btn-primary'}`}
+              aria-label={linkCopied ? 'Invite link copied to clipboard' : 'Copy invite link to clipboard'}
             >
-              {copied
+              {linkCopied
                 ? <><Check aria-hidden="true" className="w-4 h-4" /> Copied</>
-                : <><Copy aria-hidden="true" className="w-4 h-4" /> Copy</>}
+                : <><Link2 aria-hidden="true" className="w-4 h-4" /> Copy link</>}
             </button>
+            {canShare && (
+              <button onClick={shareInviteLink} className="btn btn-secondary btn-md w-full sm:w-auto" aria-label="Share invite link">
+                <Share2 aria-hidden="true" className="w-4 h-4" /> Share
+              </button>
+            )}
             <span className="sr-only" role="status" aria-live="polite">
-              {copied ? 'Invite code copied' : ''}
+              {linkCopied ? 'Invite link copied' : copied ? 'Invite code copied' : ''}
             </span>
           </div>
+        </div>
+
+        {/* The code, for anyone typing it into the Team page by hand. */}
+        <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border-subtle pt-4">
+          <span className="label-micro">Or by code</span>
+          <code className="font-mono text-small font-bold text-text-secondary tracking-code">{team.invite_code}</code>
+          <button
+            onClick={copyInviteCode}
+            className="btn btn-ghost btn-sm"
+            aria-label={copied ? 'Invite code copied to clipboard' : 'Copy invite code to clipboard'}
+          >
+            {copied
+              ? <><Check aria-hidden="true" className="w-3.5 h-3.5" /> Copied</>
+              : <><Copy aria-hidden="true" className="w-3.5 h-3.5" /> Copy code</>}
+          </button>
         </div>
       </motion.section>
 
@@ -489,7 +531,7 @@ export default function TeamProfile() {
                         <Users className="h-5 w-5" />
                       </span>
                       <p className="text-h3 text-cyber-text">No members</p>
-                      <p className="mt-1.5 text-small text-text-muted">Share the invite code above to build your roster.</p>
+                      <p className="mt-1.5 text-small text-text-muted">Share the invite link above to build your roster.</p>
                     </td>
                   </tr>
                 ) : members.map((m, i) => (

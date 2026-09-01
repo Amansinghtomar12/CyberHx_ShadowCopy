@@ -1,6 +1,7 @@
 // src/hooks/useAuth.ts
 import { useState, useEffect, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
+import { returnUrl } from '../lib/invite';
 import { supabase, DBProfile } from '../lib/supabase';
 
 interface AuthState {
@@ -162,6 +163,9 @@ export function useAuth() {
       password,
       options: {
         data: { username },
+        // A pending team invite rides along on the confirmation link, so
+        // confirming on a different device still lands on the team.
+        emailRedirectTo: returnUrl(),
         ...(captchaToken ? { captchaToken } : {}),
       }
     });
@@ -186,7 +190,7 @@ export function useAuth() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: returnUrl(),
       },
     });
     if (error) return { error: error.message };
@@ -218,6 +222,12 @@ export function useAuth() {
     return { success: true };
   };
 
+  /** Re-read the profile row after something outside this hook changed it
+      (joining a team from an invite, for one). */
+  const refreshProfile = async () => {
+    if (state.user) await fetchProfile(state.user.id);
+  };
+
   return {
     ...state,
     register,
@@ -225,6 +235,7 @@ export function useAuth() {
     loginWithGoogle,
     logout,
     updateProfile,
+    refreshProfile,
     isAdmin: state.profile?.role === 'admin',
   };
 }

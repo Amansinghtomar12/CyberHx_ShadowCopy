@@ -4,6 +4,10 @@ import App from './App.tsx';
 import './index.css';
 import { useAuth } from './hooks/useAuth';
 import AuthPage from './components/AuthPage';
+import { captureInvite } from './lib/invite';
+
+// Before anything renders: lift ?invite=<code> off the URL and park it.
+captureInvite();
 
 function Root() {
   const { user, loading } = useAuth();

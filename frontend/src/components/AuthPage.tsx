@@ -4,7 +4,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import {
   Flag, Eye, EyeOff, ShieldCheck, ShieldAlert, AlertTriangle,
   Lock, Radio, Cpu, Zap, Globe2, Target,
-  Wifi, ArrowRight, ChevronRight, Sparkles,
+  Wifi, ArrowRight, ChevronRight, Sparkles, Users,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
@@ -14,6 +14,7 @@ import CursorRing from './environment/CursorRing';
 import { setMood } from './environment/mood';
 import MagneticElement from './environment/MagneticElement';
 import AccessSequence from './AccessSequence';
+import { pendingInvite, clearInvite, type InvitePreview } from '../lib/invite';
 
 // ── Turnstile Site Key — from environment variable ──
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || '';
@@ -145,13 +146,32 @@ function BuildCredit({ className = '' }: { className?: string }) {
 /* ══ Main component ═══════════════════════════════════════════════════════ */
 
 export default function AuthPage({ onSuccess }: AuthPageProps) {
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<'login' | 'register'>(() => (pendingInvite() ? 'register' : 'login'));
   const [form, setForm] = useState({ email: '', password: '', username: '' });
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [registrationOpen, setRegistrationOpen] = useState(true);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+
+  /**
+   * Arrived on a team invite link. The card says whose team before asking for
+   * anything, and the invite itself waits in storage until the player is in.
+   * An invalid code is cleared here so it cannot nag on every later visit.
+   */
+  const [invite, setInvite] = useState<InvitePreview | null>(null);
+  useEffect(() => {
+    const code = pendingInvite();
+    if (!code) return;
+    let alive = true;
+    supabase.rpc('team_invite_preview', { p_code: code }).then(({ data, error }) => {
+      if (!alive) return;
+      const preview: InvitePreview = error ? { error: 'unavailable' } : (data ?? { error: 'Invalid invite' });
+      if (preview.error === 'Invalid invite') clearInvite();
+      setInvite(preview);
+    });
+    return () => { alive = false; };
+  }, []);
   // Why this is a state machine and not just a token:
   //
   // The captcha is a hard gate -- submit stays disabled until a token exists.
@@ -542,6 +562,51 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                           : 'Register a handle to enter the competition.'}
                       </p>
                     </header>
+
+                    {invite && (
+                      <div
+                        role="status"
+                        className="mb-6 flex items-start gap-3 rounded-card border p-4"
+                        style={invite.error
+                          ? { borderColor: 'var(--color-border-strong)', backgroundColor: 'var(--color-surface-inset)' }
+                          : { borderColor: 'var(--color-border-neon)', backgroundColor: 'var(--color-neon-wash)' }}
+                      >
+                        <span
+                          aria-hidden="true"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-inset border border-border-neon bg-surface-inset"
+                        >
+                          <Users className="h-4 w-4 text-cyber-neon" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="label-micro !text-cyber-neon">Team invite</p>
+                          {invite.error ? (
+                            <>
+                              <p className="mt-0.5 text-body text-text-primary">
+                                {invite.error === 'unavailable' ? 'Could not check this invite right now.' : 'This invite link is no longer valid.'}
+                              </p>
+                              <p className="mt-0.5 text-small text-text-muted">
+                                {invite.error === 'unavailable' ? 'Carry on — it will be offered again once you are in.' : 'Ask your captain for a fresh link, or join by code from the Team page.'}
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="mt-0.5 text-body text-text-primary">
+                                You&rsquo;re invited to join <strong className="text-cyber-neon">{invite.name}</strong>
+                                <span className="ml-2 font-mono text-small text-text-muted">{invite.members}/{invite.size}</span>
+                                {invite.full && <span className="ml-2 badge badge-locked align-middle">Full</span>}
+                              </p>
+                              <p className="mt-0.5 text-small text-text-muted">
+                                {invite.full
+                                  ? 'The team is at its size limit. Register anyway — you will be placed the moment a seat opens, or you can join another team by code.'
+                                  : mode === 'login'
+                                    ? 'Sign in to accept. New here? Register and you land on the team automatically.'
+                                    : 'Register and you land on the team automatically — no code to type.'}
+                              </p>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Registration closed banner */}
                     {mode === 'register' && !registrationOpen && (
