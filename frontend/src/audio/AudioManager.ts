@@ -271,12 +271,32 @@ function recipe(name: SoundName, k: number) {
        read as "not that" and nothing more. There is no descending minor third,
        no buzzer, nothing that sounds like a judgement. `intensity` is how the
        ladder in ChallengeModal walks this down to almost nothing. */
+    /* ACCESS DENIED — a system refusing a key, not a game-show buzzer.
+       Four layers inside 330ms: a static crack as the key is thrown out,
+       weight under it, a sawtooth falling an octave and a half as the
+       attempt powers down, and a static tail as the signal dies. The
+       two-note buzzer every terminal has used since the first one sits on
+       top, but only on the first rungs of the ladder: attempt five is a
+       crack and a sigh, not a klaxon. The buzzer's G3 and D3 are in the
+       palette's key, so even the refusal belongs to the same instrument.
+       The three core layers are priority — the player pressed the button;
+       the answer must never be the voice that gets dropped. */
     case 'failure':
-      tone({ type: 'square', freq: 184, gain: 0.085 * k, attack: 0.003, decay: 0.065,
-             filter: { type: 'lowpass', freq: 760, q: 0.8 }, category: 'event' });
+      air({ gain: 0.28 * k, decay: 0.035,
+            filter: { type: 'bandpass', freq: 2200, q: 1.4 }, category: 'event', priority: true });
+      tone({ type: 'sine', freq: 62, to: 38, gain: 0.38 * k, attack: 0.003, decay: 0.22,
+             category: 'event', priority: true });
+      tone({ type: 'sawtooth', freq: 340, to: 95, at: 0.008, gain: 0.16 * k, attack: 0.004, decay: 0.20,
+             filter: { type: 'lowpass', freq: 1400, to: 420, q: 1.1 }, category: 'event', priority: true });
+      air({ at: 0.06, gain: 0.06 * k, decay: 0.26,
+            filter: { type: 'bandpass', freq: 1800, to: 400, q: 0.9 }, category: 'event' });
       if (k > 0.45) {
-        tone({ type: 'square', freq: 152, at: 0.085, gain: 0.070 * k, attack: 0.003, decay: 0.070,
-               filter: { type: 'lowpass', freq: 700, q: 0.8 }, category: 'event' });
+        tone({ type: 'square', freq: 196, at: 0.12, gain: 0.15 * k, attack: 0.003, decay: 0.08,
+               filter: { type: 'lowpass', freq: 900, q: 0.8 }, category: 'event' });
+      }
+      if (k > 0.65) {
+        tone({ type: 'square', freq: 147, at: 0.23, gain: 0.14 * k, attack: 0.003, decay: 0.09,
+               filter: { type: 'lowpass', freq: 820, q: 0.8 }, category: 'event' });
       }
       return;
 

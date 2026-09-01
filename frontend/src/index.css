@@ -1708,6 +1708,32 @@
     opacity: 0;
     animation: deny-mark var(--deny-dur, 380ms) var(--ease-standard) both;
   }
+  /* The stamp: what the terminal says when it says no. Rungs 1–3 only —
+     App gates it on --deny-fade, so by attempt four the form is tinting its
+     border and the message underneath is doing the talking. Mono, a
+     chromatic split, one skew flicker on the way out. Transform and opacity
+     only, like everything else here; text-shadow is static. */
+  .deny-stamp {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 2;
+    pointer-events: none;
+    padding: 0.35rem 0.85rem;
+    border: 1px solid var(--color-diff-hard);
+    background: color-mix(in srgb, var(--color-surface-inset) 86%, transparent);
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--color-danger-fg);
+    text-shadow: 2px 0 var(--color-diff-hard), -2px 0 var(--color-diff-insane);
+    opacity: 0;
+    transform: translate(-50%, -50%);
+    animation: deny-stamp calc(var(--deny-dur, 380ms) + 220ms) var(--ease-standard) both;
+  }
 }
 
 /* ============================================================================
@@ -1778,6 +1804,18 @@
   12%  { opacity: var(--deny-fade, 0.9); }
   100% { opacity: 0; }
 }
+/* In hard, hold, tear once, then leave. The 40–50% band is the glitch: a
+   signal that will not hold. */
+@keyframes deny-stamp {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(1.18); }
+  9%   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  38%  { opacity: 1; transform: translate(-50%, -50%); }
+  42%  { opacity: 0.3; transform: translate(-50%, -50%) translateX(3px) skewX(-7deg); }
+  46%  { opacity: 1;   transform: translate(-50%, -50%) translateX(-2px) skewX(3deg); }
+  50%  { opacity: 1;   transform: translate(-50%, -50%); }
+  74%  { opacity: 1;   transform: translate(-50%, -50%); }
+  100% { opacity: 0;   transform: translate(-50%, -50%) translateY(-5px); }
+}
 
 /* ============================================================================
    REDUCED MOTION  —  kill every non-essential animation
@@ -1815,6 +1853,7 @@
   .submit-trace::before { animation: none !important; transform: none; }
   .deny { animation: none !important; }
   .deny-mark { animation: none !important; opacity: var(--deny-fade, 0.9); }
+  .deny-stamp { animation: none !important; opacity: 0; }
   .stagger > * { animation: none !important; }
   .standings-row[data-moved]::after { animation: none !important; opacity: 1; }
   .access-ring { display: none; }

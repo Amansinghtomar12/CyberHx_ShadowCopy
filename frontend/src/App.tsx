@@ -1741,6 +1741,9 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
                         reading it is a worse bug than no cinematic at all. */}
                     <span aria-hidden="true" className="submit-trace" />
                     {denySeq > 0 && <span key={denySeq} aria-hidden="true" className="deny-mark" />}
+                    {denySeq > 0 && denyRung.fade > 0.5 && (
+                      <span key={`stamp-${denySeq}`} aria-hidden="true" className="deny-stamp">Access Denied</span>
+                    )}
                     <label htmlFor={flagInputId} className="field-label">Submit Access Key</label>
                     <div className="submit-controls flex flex-col gap-2 sm:flex-row">
                       <input
