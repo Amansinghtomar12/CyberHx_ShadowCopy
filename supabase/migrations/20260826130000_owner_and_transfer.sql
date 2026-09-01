@@ -49,13 +49,16 @@ COMMENT ON COLUMN public.profiles.is_owner IS
   'Moves only via admin_transfer_ownership, or the SQL editor as break-glass.';
 
 -- ── Bootstrap this deployment's owner ─────────────────────────────────
--- One-time, for this install. A different deployment sets its own owner
--- with the same two statements, or by transferring from whoever holds it.
+-- One-time, per install, and deliberately NOT done here: this repository
+-- is public, and a migration that names the owner's account tells every
+-- reader exactly which login to go after. Set the owner once from the SQL
+-- editor, where the address never leaves the dashboard:
+--
+--   update public.profiles set is_owner = true, role = 'admin'
+--   where lower(email) = lower('<owner e-mail>');
+--
+-- Later moves go through admin_transfer_ownership.
 UPDATE public.profiles SET is_owner = false WHERE is_owner;
-
-UPDATE public.profiles
-SET is_owner = true, role = 'admin'
-WHERE lower(email) = 'amantomar50948@gmail.com';
 
 DO $$
 DECLARE v_owners int;

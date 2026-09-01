@@ -1,7 +1,7 @@
 -- Stop blocking plus-aliased addresses at signup.
 --
 -- THE FAILURE
---   Registering ponofu+1@denip1.net after ponofu@denip1.net returned
+--   Registering someone+1@example.com after someone@example.com returned
 --   "Database error saving new user". Reproduced against PostgreSQL 16:
 --
 --     ERROR:  An account already exists for this email address

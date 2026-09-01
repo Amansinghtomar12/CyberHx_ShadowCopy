@@ -9,7 +9,7 @@
 --
 -- The derived name also had no collision or length handling, so sign-up failed
 -- outright when it violated the profiles constraints:
---   * two addresses sharing a local part (a@gmail.com, a@outlook.com) collided
+--   * two addresses sharing a local part (a@example.com, a@example.org) collided
 --     on the UNIQUE username and raised inside the trigger
 --   * a local part shorter than 3 or longer than 30 characters violated the
 --     length CHECK
