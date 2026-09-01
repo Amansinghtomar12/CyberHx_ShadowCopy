@@ -32,6 +32,8 @@ import {
   Fingerprint,
   Search,
   Boxes,
+  Droplet,
+  Clock,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
@@ -303,6 +305,16 @@ export default function App() {
   const [selectedOrigin, setSelectedOrigin] = useState<{ x: number; y: number } | null>(null);
   const [selectedDiff, setSelectedDiff] = useState<string | 'all'>('all');
   /**
+   * The board's two other axes. Difficulty is a mode you settle into for a
+   * while, so it lives in the rail; category and search are things you flick
+   * between mid-thought, so they sit above the cards where the eye already is.
+   * `/` focuses the search from anywhere on the board, the way it does on
+   * every tool a CTF player already keeps open in the next tab.
+   */
+  const [selectedCat, setSelectedCat] = useState<string | 'all'>('all');
+  const [query, setQuery] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
+  /**
    * Milestones wait their turn. Only one is ever on screen, and each is queued
    * behind the completion showcase that earned it — two celebrations competing
    * for the same second is not twice the celebration.
@@ -533,14 +545,50 @@ export default function App() {
     });
   }, []);
 
+  /** Categories actually present, in the palette's own order, with counts. */
+  const categories = useMemo(() => {
+    const counts: Record<string, number> = {};
+    challenges.forEach(c => { counts[c.category] = (counts[c.category] || 0) + 1; });
+    const order = Object.keys(CATEGORY_ICON);
+    const rank = (id: string) => { const i = order.indexOf(id); return i === -1 ? 99 : i; };
+    return Object.keys(counts).sort((a, b) => rank(a) - rank(b)).map(id => ({ id, count: counts[id] }));
+  }, [challenges]);
+
+  const filteredChallenges = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return challenges.filter(c =>
+      (selectedCat === 'all' || c.category === selectedCat) &&
+      (!q
+        || c.title.toLowerCase().includes(q)
+        || c.category.toLowerCase().includes(q)
+        || ((c as any).tags ?? []).some((t: string) => String(t).toLowerCase().includes(q)))
+    );
+  }, [challenges, selectedCat, query]);
+  const isFiltering = selectedCat !== 'all' || query.trim() !== '';
+  const clearFilters = () => { setSelectedCat('all'); setQuery(''); };
+
   const challengesByDiff = useMemo(() => {
     const grouped: Record<string, Challenge[]> = {};
-    challenges.forEach(c => {
+    filteredChallenges.forEach(c => {
       if (!grouped[c.difficulty]) grouped[c.difficulty] = [];
       grouped[c.difficulty].push(c);
     });
     return grouped;
-  }, [challenges]);
+  }, [filteredChallenges]);
+
+  // `/` puts the cursor in the search box unless one is already typing.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      if (currentView !== 'challenges' || selectedChallenge) return;
+      e.preventDefault();
+      searchRef.current?.focus();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [currentView, selectedChallenge]);
 
   const displayedDiffs = useMemo(() => {
     if (selectedDiff === 'all') return DIFFICULTIES;
@@ -760,7 +808,7 @@ export default function App() {
                           {selectedDiff === 'all' && <span aria-hidden="true" className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-cyber-neon" />}
                           <span aria-hidden="true" className={`w-1.5 h-1.5 rounded-pill ${selectedDiff === 'all' ? 'bg-cyber-neon' : 'bg-border-strong group-hover:bg-text-muted'}`} />
                           <span className="text-small font-medium">All Operations</span>
-                          <span className="ml-auto font-mono text-small text-text-muted">{challenges.length}</span>
+                          <span className="ml-auto font-mono text-small text-text-muted">{filteredChallenges.length}</span>
                         </button>
                       </li>
                       {DIFFICULTIES.map(diff => (
@@ -842,6 +890,73 @@ export default function App() {
                   hasTeam={!!profile?.team_id}
                 />
 
+                {/* Search and category, above the cards. Difficulty stays in
+                    the rail: it is a mode; these are a flick of the eye. */}
+                {challenges.length > 0 && canSeeChallenges && !needsTeam && (
+                  <div className="board-tools mb-6 flex flex-col gap-3 lg:flex-row lg:items-center">
+                    <div className="relative min-w-0 shrink-0 lg:w-72 xl:w-80">
+                      <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-faint" />
+                      <label htmlFor="board-search" className="sr-only">Search operations</label>
+                      <input
+                        id="board-search"
+                        ref={searchRef}
+                        type="text"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Escape') { setQuery(''); (e.target as HTMLInputElement).blur(); } }}
+                        placeholder="Search operations"
+                        autoComplete="off"
+                        spellCheck={false}
+                        className="input h-[2.375rem] pl-9 pr-10"
+                      />
+                      {query ? (
+                        <button
+                          type="button"
+                          onClick={() => { setQuery(''); searchRef.current?.focus(); }}
+                          aria-label="Clear search"
+                          className="btn btn-ghost btn-sm btn-icon absolute right-1 top-1/2 -translate-y-1/2"
+                        >
+                          <X className="h-3.5 w-3.5" aria-hidden="true" />
+                        </button>
+                      ) : (
+                        <kbd aria-hidden="true" className="board-kbd">/</kbd>
+                      )}
+                    </div>
+                    <div
+                      role="group"
+                      aria-label="Filter by category"
+                      className="board-chips flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCat('all')}
+                        aria-pressed={selectedCat === 'all'}
+                        className={`chip shrink-0 ${selectedCat === 'all' ? 'is-active' : ''}`}
+                      >
+                        All <span className="font-mono opacity-70">{challenges.length}</span>
+                      </button>
+                      {categories.map(cat => {
+                        const Icon = CATEGORY_ICON[cat.id] ?? Boxes;
+                        const active = selectedCat === cat.id;
+                        return (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => setSelectedCat(active ? 'all' : cat.id)}
+                            aria-pressed={active}
+                            className={`chip shrink-0 ${active ? 'is-active' : ''}`}
+                            style={active ? undefined : { color: catVar(cat.id) }}
+                          >
+                            <Icon className="h-3 w-3" aria-hidden="true" />
+                            {cat.id}
+                            <span className="font-mono opacity-70">{cat.count}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Mobile / tablet difficulty filter */}
                 <div className="lg:hidden relative mb-6 z-20">
                   <button
@@ -871,7 +986,7 @@ export default function App() {
                               className={`flex w-full items-center justify-between rounded-control px-3 py-2.5 text-left text-label uppercase transition-colors ${selectedDiff === 'all' ? 'bg-surface-raised text-cyber-neon' : 'text-text-secondary hover:bg-surface-card hover:text-cyber-text'}`}
                             >
                               All Operations
-                              <span className="font-mono text-small text-text-muted">{challenges.length}</span>
+                              <span className="font-mono text-small text-text-muted">{filteredChallenges.length}</span>
                             </button>
                           </li>
                           {DIFFICULTIES.map(diff => (
@@ -945,6 +1060,21 @@ export default function App() {
                     <h3 className="text-h3 text-cyber-text mb-2">No challenges yet</h3>
                     <p className="text-body text-text-muted max-w-sm">Add some from the Admin panel and they will appear here.</p>
                   </div>
+                ) : filteredChallenges.length === 0 ? (
+                  <div className="surface flex flex-col items-center text-center px-6 py-16" role="status">
+                    <span
+                      aria-hidden="true"
+                      className="mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-border-strong bg-surface-inset text-text-muted"
+                    >
+                      <Search className="h-5 w-5" />
+                    </span>
+                    <h3 className="text-h3 text-cyber-text mb-2">Nothing matches</h3>
+                    <p className="text-body text-text-muted max-w-sm mb-6">
+                      No operation fits {query.trim() ? <>“<span className="font-mono text-text-secondary">{query.trim()}</span>”</> : 'that category'}
+                      {selectedCat !== 'all' && query.trim() ? <> in <span className="font-mono text-text-secondary">{selectedCat}</span></> : null}.
+                    </p>
+                    <button type="button" onClick={clearFilters} className="btn btn-secondary btn-md">Clear filters</button>
+                  </div>
                 ) : (
                   displayedDiffs.map((diff) => (
                     challengesByDiff[diff.id] && challengesByDiff[diff.id].length > 0 && (
@@ -977,7 +1107,7 @@ export default function App() {
                               points={getPoints(challenge)}
                               isSolved={isChallengeSolved(challenge.id)}
                               solvedBy={solvedByMap[challenge.id]}
-                              isFirstBlood={!!firstBloodMap[challenge.id] && challenge.solvedCount >= 1}
+                              firstBlood={firstBloodMap[challenge.id]}
                               onClick={(origin) => { setSelectedOrigin(origin); setSelectedChallenge(challenge); }}
                             />
                           ))}
@@ -989,7 +1119,7 @@ export default function App() {
               </main>
             </>
           ) : currentView === 'scoreboard' ? (
-            <Scoreboard />
+            <Scoreboard myTeamId={profile?.team_id ?? null} />
           ) : currentView === 'teams' ? (
             <TeamsList />
           ) : currentView === 'users' ? (
@@ -1020,6 +1150,8 @@ export default function App() {
               onClose={() => setSelectedChallenge(null)}
               isSolved={isChallengeSolved(selectedChallenge.id)}
               canSubmit={canSubmit}
+              eventStatus={eventStatus}
+              startTime={eventSettings?.start_time ?? null}
               attempts={attempts[selectedChallenge.id] || 0}
               maxAttempts={dbChallenges.find(c => c.id === selectedChallenge.id)?.max_attempts ?? 15}
               onAttempt={(challengeId, serverCount) => setAttempts(prev => ({
@@ -1111,12 +1243,13 @@ interface ChallengeCardProps {
   points: number;
   isSolved: boolean;
   solvedBy?: string;
-  isFirstBlood?: boolean;
+  /** Who drew first blood, if anyone has. Empty means the bounty is open. */
+  firstBlood?: string;
   /** Receives where the card was when it was picked up, for the modal to grow from. */
   onClick: (origin: { x: number; y: number } | null) => void;
 }
 
-const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, points, isSolved, solvedBy, isFirstBlood, onClick }) => {
+const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, points, isSolved, solvedBy, firstBlood, onClick }) => {
   const reduce = useReducedMotion();
   const tiltRef = useRef<HTMLDivElement>(null);
   const CategoryIcon = CATEGORY_ICON[challenge.category] ?? Boxes;
@@ -1238,8 +1371,11 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
                 <Check className="h-2.5 w-2.5" /> Compromised
               </span>
             )}
-            {isFirstBlood && !isSolved && (
-              <span className="badge badge-live">First Blood</span>
+            {/* An unsolved operation is not a warning; it is a bounty. */}
+            {challenge.solvedCount === 0 && !isSolved && (
+              <span className="badge badge-blood">
+                <Droplet className="h-2.5 w-2.5" aria-hidden="true" /> First blood open
+              </span>
             )}
           </div>
 
@@ -1249,12 +1385,18 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
               <span className="font-mono">{challenge.solvedCount}</span>
               solve{challenge.solvedCount !== 1 ? 's' : ''}
             </span>
-            {isSolved && solvedBy && (
+            {isSolved && solvedBy ? (
               <span className="inline-flex min-w-0 items-center gap-1.5 text-status-solved">
                 <Check className="h-3 w-3 shrink-0" aria-hidden="true" />
                 <span className="truncate font-mono">{solvedBy}</span>
               </span>
-            )}
+            ) : firstBlood ? (
+              /* Credit, not alarm: the taker's name in blood-red mono, once. */
+              <span className="inline-flex min-w-0 items-center gap-1.5 text-blood" title={`First blood: ${firstBlood}`}>
+                <Droplet className="h-3 w-3 shrink-0" aria-hidden="true" />
+                <span className="truncate font-mono">{firstBlood}</span>
+              </span>
+            ) : null}
           </div>
         </button>
       </div>
@@ -1290,6 +1432,54 @@ const VALIDATE_MIN_MS = 620;
 /** Stage 2: the held breath, inside the brief's 150-400ms window. */
 const HOLD_MS = 260;
 
+/**
+ * What the submit slot says when it cannot take a flag. Three reasons, three
+ * different things a player should do next -- which is why this is not one
+ * line of "closed". Before the start it is a clock: the brief is readable,
+ * the attack can be planned, and the moment the clock lands the form appears
+ * without a reload because App's status poll flips canSubmit.
+ */
+function ClosedPanel({ status, startTime }: { status: 'waiting' | 'live' | 'ended' | 'inactive'; startTime?: string | null }) {
+  const [left, setLeft] = useState<number | null>(null);
+  useEffect(() => {
+    if (status !== 'waiting' || !startTime) { setLeft(null); return; }
+    const target = new Date(startTime).getTime();
+    if (Number.isNaN(target)) { setLeft(null); return; }
+    const tick = () => setLeft(Math.max(0, target - Date.now()));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [status, startTime]);
+
+  if (status === 'waiting') {
+    const s = left === null ? null : Math.floor(left / 1000);
+    const clock = s === null ? null
+      : `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    return (
+      <div className="flex items-center gap-4 rounded-card border border-border-base bg-surface-inset p-5">
+        <Clock className="h-5 w-5 shrink-0 text-diff-medium" aria-hidden="true" />
+        <div className="min-w-0">
+          <p className="text-label uppercase text-diff-medium">
+            Submissions open{clock ? <> in <span className="readout tabular-nums text-cyber-text">{clock}</span></> : ' soon'}
+          </p>
+          <p className="mt-1 text-small text-text-muted">
+            {startTime ? <>Opens <span className="font-mono text-text-secondary">{new Date(startTime).toLocaleString()}</span>. </> : null}
+            Read the brief now — the form appears the moment the clock hits zero.
+          </p>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-3 rounded-card border border-border-base bg-surface-inset p-5">
+      <TriangleAlert className="h-5 w-5 shrink-0 text-text-muted" aria-hidden="true" />
+      <p className="text-label uppercase text-text-muted">
+        {status === 'ended' ? 'Event Ended — Submissions Closed' : 'No Event Running — Submissions Closed'}
+      </p>
+    </div>
+  );
+}
+
 interface ChallengeModalProps {
   challenge: Challenge;
   /** Viewport-centre offset of the card this was opened from, if any. */
@@ -1301,6 +1491,9 @@ interface ChallengeModalProps {
   onClose: () => void;
   isSolved: boolean;
   canSubmit: boolean;
+  /** Why submissions are closed, when they are. Drives the panel's copy. */
+  eventStatus: 'waiting' | 'live' | 'ended' | 'inactive';
+  startTime?: string | null;
   attempts: number;
   maxAttempts: number;
   onAttempt: (challengeId: string, serverCount?: number) => void;
@@ -1325,6 +1518,8 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
   onClose,
   isSolved,
   canSubmit,
+  eventStatus,
+  startTime,
   attempts,
   maxAttempts,
   onAttempt,
@@ -1417,7 +1612,19 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
   }, [activeTab, challenge.id]);
 
   const isLocked = attempts >= maxAttempts && !isSolved;
-  const eventEnded = !canSubmit && !isSolved && !isLocked;
+  const submitClosed = !canSubmit && !isSolved && !isLocked;
+
+  // Escape closes the operation, as every dialog should. Not mid-submission:
+  // the cinematic owns the next second and a half and must finish cleanly.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || submitting) return;
+      e.preventDefault();
+      onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose, submitting]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1608,11 +1815,15 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
                   <Users className="w-2.5 h-2.5" /> <span className="font-mono">{challenge.solvedCount}</span> solves
                 </span>
                 <span className="badge">By {challenge.author}</span>
-                {firstBlood && (
+                {firstBlood ? (
                   <span className="badge badge-live">
                     <Zap className="w-2.5 h-2.5" /> First Blood: {firstBlood}
                   </span>
-                )}
+                ) : challenge.solvedCount === 0 && !isSolved ? (
+                  <span className="badge badge-blood">
+                    <Droplet className="w-2.5 h-2.5" aria-hidden="true" /> First blood open
+                  </span>
+                ) : null}
               </div>
 
               <hr className="divider my-6" />
@@ -1692,7 +1903,7 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
                                 <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                                 <span className="truncate">{isUnlocked ? 'Loading hint...' : 'Encrypted Intel Segment'}</span>
                               </span>
-                              <span className="badge badge-neon shrink-0 font-mono">-{hint.cost} pts</span>
+                              <span className="badge badge-medium shrink-0 font-mono">-{hint.cost} pts</span>
                             </button>
                           )}
                         </div>
@@ -1718,11 +1929,8 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
                     <Lock className="h-5 w-5 shrink-0 text-diff-hard" aria-hidden="true" />
                     <p className="text-label uppercase text-diff-hard">Terminal Locked: Maximum Brute-Force Attempts Reached</p>
                   </div>
-                ) : eventEnded ? (
-                  <div className="flex items-center gap-3 rounded-card border border-border-base bg-surface-inset p-5">
-                    <TriangleAlert className="h-5 w-5 shrink-0 text-text-muted" aria-hidden="true" />
-                    <p className="text-label uppercase text-text-muted">Event Ended — Submissions Closed</p>
-                  </div>
+                ) : submitClosed ? (
+                  <ClosedPanel status={eventStatus} startTime={startTime} />
                 ) : (
                   <form
                     ref={formRef}

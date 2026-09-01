@@ -231,7 +231,7 @@ function PodiumCard({
  * Standings rows. Owns nothing but presentation: it remembers the previous
  * ordering of the same `teams` array so it can draw a movement arrow.
  */
-function StandingsRows({ teams, reduced }: { teams: TeamScore[]; reduced: boolean }) {
+function StandingsRows({ teams, reduced, meId }: { teams: TeamScore[]; reduced: boolean; meId: string | null }) {
   const prevRanks = useRef<Record<string, number>>({});
   const [deltas, setDeltas] = useState<Record<string, number>>({});
 
@@ -271,6 +271,7 @@ function StandingsRows({ teams, reduced }: { teams: TeamScore[]; reduced: boolea
             // Marks a row that actually moved this refresh, so the eye is told
             // *what changed* rather than being left to diff two screenshots.
             data-moved={deltas[team.id] === undefined ? undefined : (deltas[team.id] > 0 ? 'up' : 'down')}
+            data-me={team.id === meId ? '' : undefined}
             className="standings-row group transition-colors duration-[var(--duration-fast)] hover:bg-surface-raised"
           >
             <td className="px-5 py-4 align-middle">
@@ -287,6 +288,7 @@ function StandingsRows({ teams, reduced }: { teams: TeamScore[]; reduced: boolea
                   title={team.name}
                 >
                   {team.name}
+                  {team.id === meId && <span className="badge badge-neon ml-2 align-middle">You</span>}
                 </span>
                 <div className="h-0.5 w-full max-w-[12rem] rounded-pill bg-surface-inset overflow-hidden" aria-hidden="true">
                   <motion.div
@@ -344,8 +346,40 @@ function EmptyState({
 
 /* ─────────────────────────────── page ─────────────────────────────── */
 
-export default function Scoreboard() {
+interface ScoreboardProps {
+  /** The viewer's team, so the board can answer "where am I?" first. */
+  myTeamId?: string | null;
+}
+
+/** One number in the "you" strip. */
+function Stat({ label, tone, children }: { label: string; tone?: string; children: React.ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <div className="label-micro">{label}</div>
+      <div className="readout mt-1 text-h3 leading-none tabular-nums truncate" style={{ color: tone ?? 'var(--color-text-primary)' }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export default function Scoreboard({ myTeamId = null }: ScoreboardProps) {
   const [teams, setTeams] = useState<TeamScore[]>([]);
+  /**
+   * The viewer's own row and place. The standings only carry the top ten, so
+   * for most of a 5,000-player field this is the only line on the page that
+   * is about *them*. Free when the team is in the ten already fetched; two
+   * small reads (one indexed row, one count) on the graph's two-minute cadence
+   * when it is not -- ~29 cheap queries a second at full scale, not 233.
+   */
+  const [mine, setMine] = useState<{ team: TeamScore; rank: number } | null>(null);
+  const lastMineAt = useRef(0);
+  // The polling loop closes over the first render; the prop must not.
+  const myTeamRef = useRef<string | null>(myTeamId);
+  useEffect(() => {
+    myTeamRef.current = myTeamId;
+    if (myTeamId) kick.current?.();   // profile arrived after the board did
+  }, [myTeamId]);
   const [graphData, setGraphData] = useState<GraphPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [frozen, setFrozen] = useState(false);
@@ -462,8 +496,8 @@ export default function Scoreboard() {
 
     // Hidden: the views return no rows for us anyway, so do not ask.
     if (isHidden) {
-      setTeams([]); setGraphData([]); fetchedFor.current = null;
-      lastGraphAt.current = 0;
+      setTeams([]); setGraphData([]); setMine(null); fetchedFor.current = null;
+      lastGraphAt.current = 0; lastMineAt.current = 0;
       setLoading(false);
       return;
     }
@@ -479,7 +513,20 @@ export default function Scoreboard() {
     fetchedFor.current = isFrozen ? at : null;
     setLastRefresh(new Date());
     setLoading(false);
-    if (!top) return;
+    if (!top) { setMine(null); return; }
+
+    // Where the viewer stands. In the ten we already hold: free, every cycle.
+    // Outside them: rationed like the graph.
+    const me = myTeamRef.current;
+    const i = me ? top.findIndex(t => t.id === me) : -1;
+    if (i >= 0) {
+      setMine({ team: top[i], rank: i + 1 });
+    } else if (me && (opts.force || Date.now() - lastMineAt.current >= GRAPH_MS)) {
+      await fetchMine(me);
+      lastMineAt.current = Date.now();
+    } else if (!me) {
+      setMine(null);
+    }
 
     // The graph, only when it has actually gone stale. 2.71ms, so this is the
     // one worth rationing.
@@ -501,6 +548,24 @@ export default function Scoreboard() {
     if (!teamData?.length) return null;
     setTeams(teamData as TeamScore[]);
     return teamData as TeamScore[];
+  };
+
+  /** The viewer's row plus its place: one indexed read, one count. The
+      count mirrors the standings' own order -- points, then earliest last
+      solve -- so the number here is the one the table would show. */
+  const fetchMine = async (teamId: string) => {
+    const { data: rows } = await supabase
+      .from('team_scores').select('*').eq('id', teamId).limit(1);
+    const team = rows?.[0] as TeamScore | undefined;
+    if (!team) { setMine(null); return; }
+
+    const pts = Number(team.total_points ?? 0);
+    const ahead = team.last_solve
+      ? `total_points.gt.${pts},and(total_points.eq.${pts},last_solve.lt.${team.last_solve})`
+      : `total_points.gt.${pts},and(total_points.eq.${pts},last_solve.not.is.null)`;
+    const { count } = await supabase
+      .from('team_scores').select('id', { count: 'exact', head: true }).or(ahead);
+    setMine({ team, rank: (count ?? 0) + 1 });
   };
 
   const fetchGraph = async (top10Teams: TeamScore[]) => {
@@ -754,7 +819,7 @@ export default function Scoreboard() {
                   />
                   <Legend
                     verticalAlign="bottom"
-                    height={40}
+                    height={64}
                     iconType="circle"
                     iconSize={7}
                     wrapperStyle={{ paddingTop: 16 }}
@@ -790,6 +855,36 @@ export default function Scoreboard() {
           </div>
         </div>
       </section>
+
+      {/* ── you ──────────────────────────────────────────────────── */}
+      {mine && !loading && (() => {
+        const r = mine.rank; const pts = Number(mine.team.total_points ?? 0);
+        const above = r > 1 && r <= teams.length ? teams[r - 2] : null;
+        const tenth = teams[9] ?? teams[teams.length - 1];
+        let gap: { label: string; value: string; tone?: string } | null = null;
+        if (r === 1 && teams[1]) gap = { label: 'Lead', value: `+${Math.max(0, pts - Number(teams[1].total_points)).toLocaleString()}`, tone: 'var(--color-neon)' };
+        else if (above) gap = { label: `Behind #${r - 1}`, value: `${(Number(above.total_points) - pts).toLocaleString()} pts` };
+        else if (r > teams.length && tenth) gap = { label: `To #${teams.length}`, value: `${Math.max(0, Number(tenth.total_points) - pts + 1).toLocaleString()} pts` };
+        return (
+          <section aria-label="Your team's position" className="mb-4">
+            <div className="surface flex flex-wrap items-center gap-x-6 gap-y-4 px-4 sm:px-6 py-4" style={{ boxShadow: 'inset 2px 0 0 var(--color-neon), var(--shadow-e2)' }}>
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="badge badge-neon shrink-0">You</span>
+                <span className="truncate text-body font-semibold text-cyber-text" title={mine.team.name}>{mine.team.name}</span>
+                {r > teams.length && (
+                  <span className="hidden sm:inline label-micro">outside the top {teams.length}</span>
+                )}
+              </div>
+              <div className="ml-auto flex flex-wrap items-end gap-x-6 gap-y-2">
+                <Stat label="Place" tone={r <= 3 ? 'var(--color-neon)' : undefined}>#{r}</Stat>
+                <Stat label="Score">{pts.toLocaleString()}</Stat>
+                <Stat label="Solves">{mine.team.solved_count}</Stat>
+                {gap && <Stat label={gap.label} tone={gap.tone}>{gap.value}</Stat>}
+              </div>
+            </div>
+          </section>
+        );
+      })()}
 
       {/* ── standings ────────────────────────────────────────────── */}
       <section aria-label="Team standings">
@@ -839,7 +934,7 @@ export default function Scoreboard() {
                     </td>
                   </tr>
                 ) : (
-                  <StandingsRows teams={teams} reduced={reduced} />
+                  <StandingsRows teams={teams} reduced={reduced} meId={myTeamId} />
                 )}
               </tbody>
             </table>
