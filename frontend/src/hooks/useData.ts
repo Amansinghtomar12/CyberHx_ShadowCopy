@@ -2,8 +2,6 @@
 // Optimised for 4500+ concurrent users on Supabase Pro.
 //
 // Key changes vs the 60s-poll version:
-//   - Scoreboard polls every 15 minutes (was 60s). 4500 users × 1 req/60s =
-//     75 req/s; × 1 req/900s = 5 req/s. That is the single biggest win.
 //   - Challenges poll every 5 minutes (admin rarely edits mid-CTF).
 //   - Visibility API: polling pauses entirely when the tab is hidden and
 //     resumes with a fresh fetch when the user comes back.
@@ -12,6 +10,14 @@
 //     the initial load.
 //   - Exponential backoff on errors: after a failure the interval doubles
 //     (capped at 5 minutes), then resets on the next success.
+//
+// WHERE THE SCOREBOARD ACTUALLY LIVES
+//   Not here. The live board is Scoreboard.tsx, which runs its own loop and
+//   does NOT use useScoreboard() below. It polls the standings every 15
+//   seconds and the progression graph every 2 minutes, because the graph is
+//   71% of a full refresh and a twelve-hour trend line does not need
+//   second-level freshness. useScoreboard() is currently unused; if anything
+//   adopts it, give it that same split rather than one interval for both.
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, DBChallenge, UserScore, TeamScore } from '../lib/supabase';
