@@ -1,16 +1,19 @@
 // supabase/functions/submit-flag/index.ts
-// HARDENED v3: rate limiting, atomic attempts, strict CORS
+// HARDENED v4: per-IP budget at the edge, everything else in one DB transaction
 import { serve } from 'https://deno.land/std@0.208.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const ALLOWED_ORIGINS = (Deno.env.get('ALLOWED_ORIGINS') ?? '').split(',').map(s => s.trim()).filter(Boolean);
-const RATE_LIMIT_SECONDS = 10; // min seconds between submissions per user per challenge
 
-// The global "N per minute" cap used to live in this Map, but every isolate
-// had its own copy so the real ceiling scaled with instance count -- useless
-// at 5k. It is now enforced by a BEFORE trigger on submissions, so every
-// isolate agrees on the same count. The per-challenge cooldown is still a
-// pre-INSERT read further down so we can tell the client how long to wait.
+// What lives where:
+//   here      CORS, the per-IP budget (before JWT verification, so a flood
+//             costs one indexed SELECT and no RS256 verify), JWT verification,
+//             input validation.
+//   database  ban, team, event window, challenge, solved-check, the 10s
+//             per-challenge cooldown, the attempt cap, hash compare and the
+//             INSERT -- all inside submit_flag_tx in one transaction, with the
+//             30/min cap and max-attempts triggers as the backstop. One round
+//             trip instead of eight. See migration 20260901020000.
 
 function getCorsHeaders(origin: string | null) {
   // Strict CORS: only allow configured origins
@@ -95,38 +98,7 @@ serve(async (req) => {
       });
     }
 
-    // 2. Check banned. Loaded before the rate limits because admins are exempt
-    // from them, and the role is only known once the profile is read.
-    const { data: profile } = await supabaseAdmin
-      .from('profiles').select('is_banned, team_id, role').eq('id', user.id).single();
-
-    if (!profile || profile.is_banned) {
-      return new Response(JSON.stringify({ error: 'Account banned' }), {
-        status: 403, headers: { ...cors, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Every solve belongs to a team. A submission with no team_id scores for
-    // the individual and for nobody else: team_score_agg only counts rows where
-    // team_id IS NOT NULL, and the scoreboard reads team_scores. So a teamless
-    // player watches their own total climb while the competition never sees a
-    // point of it -- and the likeliest way in is not an API call, it is leaving
-    // a team mid-event, which allow_team_changes permits by default.
-    //
-    // Refuse it here rather than letting the row land. The UI already asks for
-    // a team before showing challenges; this is the half that a direct call, a
-    // stale tab or a mid-event team change would otherwise walk straight past.
-    if (!profile.team_id) {
-      return new Response(JSON.stringify({
-        correct: false,
-        error: 'Create or join a team before submitting. Playing solo is fine — make a team of one.'
-      }), { status: 403, headers: { ...cors, 'Content-Type': 'application/json' } });
-    }
-
-    // Admins test their own challenges, so throttling them serves no purpose.
-    const isAdmin = profile.role === 'admin';
-
-    // 4. Parse + validate input
+    // 2. Validate input before spending a database call on it.
     const { challengeId, flag } = await req.json();
 
     if (!challengeId || typeof challengeId !== 'string' || challengeId.length > 50) {
@@ -151,158 +123,34 @@ serve(async (req) => {
       });
     }
 
-    // 5. Check active event
-    const { data: event } = await supabaseAdmin
-      .from('event_settings').select('id, is_active, start_time, end_time').eq('id', 1).single();
-
-    if (!event?.is_active) {
-      return new Response(JSON.stringify({ correct: false, error: 'Event not active' }), {
-        headers: { ...cors, 'Content-Type': 'application/json' }
-      });
-    }
-
-    const now = new Date();
-    if (event.start_time && new Date(event.start_time) > now) {
-      return new Response(JSON.stringify({ correct: false, error: 'Event has not started' }), {
-        headers: { ...cors, 'Content-Type': 'application/json' }
-      });
-    }
-    if (event.end_time && new Date(event.end_time) < now) {
-      return new Response(JSON.stringify({ correct: false, eventEnded: true }), {
-        headers: { ...cors, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // 6. Get challenge
-    const { data: challenge, error: challengeError } = await supabaseAdmin
-      .from('challenges').select('id, points, is_visible, max_attempts')
-      .eq('id', challengeId).single();
-
-    if (challengeError || !challenge || !challenge.is_visible) {
+    // The RPC takes a uuid. Anything else used to fall out of PostgREST as a
+    // cast error that the old code mapped to 404; keep that answer.
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(challengeId)) {
       return new Response(JSON.stringify({ error: 'Challenge not found' }), {
         status: 404, headers: { ...cors, 'Content-Type': 'application/json' }
       });
     }
 
-    // 7. Already solved?
-    const { data: solvedCheck } = await supabaseAdmin
-      .from('submissions').select('id')
-      .eq('user_id', user.id).eq('challenge_id', challengeId).eq('is_correct', true).limit(1);
-
-    if (solvedCheck && solvedCheck.length > 0) {
-      return new Response(JSON.stringify({ correct: true, alreadySolved: true }), {
-        headers: { ...cors, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // 8. Check attempt limit
-    const maxAttempts: number = challenge.max_attempts > 0 ? challenge.max_attempts : 9999;
-
-    const { count: usedAttempts } = await supabaseAdmin
-      .from('submissions').select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id).eq('challenge_id', challengeId);
-
-    if ((usedAttempts ?? 0) >= maxAttempts) {
-      return new Response(JSON.stringify({
-        correct: false, locked: true, maxAttempts, attemptsLeft: 0
-      }), { headers: { ...cors, 'Content-Type': 'application/json' } });
-    }
-
-    // 9. ★ Per-challenge rate limit: 10 second cooldown
-    const { data: recentSub } = await supabaseAdmin
-      .from('submissions').select('submitted_at')
-      .eq('user_id', user.id).eq('challenge_id', challengeId)
-      .order('submitted_at', { ascending: false }).limit(1).maybeSingle();
-
-    if (recentSub && !isAdmin) {
-      const secondsSinceLast = (Date.now() - new Date(recentSub.submitted_at).getTime()) / 1000;
-      if (secondsSinceLast < RATE_LIMIT_SECONDS) {
-        return new Response(JSON.stringify({
-          correct: false,
-          error: `Too fast. Wait ${Math.ceil(RATE_LIMIT_SECONDS - secondsSinceLast)}s.`
-        }), { status: 429, headers: { ...cors, 'Content-Type': 'application/json' } });
-      }
-    }
-
-    // 10. Get flag hash from secrets (service_role only)
-    const { data: secret } = await supabaseAdmin
-      .from('challenge_secrets').select('flag_hash, flag_type, flag_regex')
-      .eq('challenge_id', challengeId).single();
-
-    if (!secret) {
-      console.error('No secret for challenge:', challengeId);
-      return new Response(JSON.stringify({ error: 'Challenge misconfigured' }), {
-        status: 500, headers: { ...cors, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // 11. Compare flag
-    const trimmedFlag = flag.trim();
-    let isCorrect = false;
-
-    if (secret.flag_type === 'static') {
-      const encoder = new TextEncoder();
-      const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(trimmedFlag));
-      const submittedHash = Array.from(new Uint8Array(hashBuffer))
-        .map(b => b.toString(16).padStart(2, '0')).join('');
-      isCorrect = submittedHash === secret.flag_hash;
-    } else if (secret.flag_type === 'regex' && secret.flag_regex) {
-      try { isCorrect = new RegExp(secret.flag_regex).test(trimmedFlag); }
-      catch { isCorrect = false; }
-    }
-
-    const attemptsLeft = maxAttempts - (usedAttempts ?? 0) - 1;
-
-    // 12. Hash submitted flag for storage
-    const submittedFlagHash = await (async () => {
-      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(trimmedFlag));
-      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-    })();
-
-    // 13. Log submission (trigger_enforce_max_attempts runs here atomically)
-    const { error: insertError } = await supabaseAdmin.from('submissions').insert({
-      user_id: user.id,
-      challenge_id: challengeId,
-      team_id: profile.team_id,
-      submitted_flag_hash: submittedFlagHash,
-      // Raw attempt, for cheat investigation. Column SELECT is revoked from
-      // authenticated, so only admin_list_submissions surfaces it.
-      submitted_flag: trimmedFlag,
-      is_correct: isCorrect,
-      ip_address: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
+    // 3. Everything else -- ban, team, event window, challenge, solved-check,
+    // attempt cap, cooldown, hash compare, insert -- is one transaction in
+    // submit_flag_tx. It returns { status, body } in the exact shapes this
+    // function used to build itself, so the client sees no difference; see
+    // migration 20260901020000 for the contract and the two races it closes.
+    const { data, error: rpcError } = await supabaseAdmin.rpc('submit_flag_tx', {
+      p_user_id: user.id,
+      p_challenge_id: challengeId,
+      p_flag: flag,
+      p_ip: clientIp || null,
     });
 
-    // If a DB trigger blocked the insert. Two shapes to handle:
-    //   Max attempts exceeded  -> the per-challenge attempt cap (410)
-    //   Rate limit exceeded    -> the shared 30/min cap (429)
-    if (insertError) {
-      if (insertError.message?.includes('Max attempts exceeded')) {
-        return new Response(JSON.stringify({
-          correct: false, locked: true, maxAttempts, attemptsLeft: 0
-        }), { headers: { ...cors, 'Content-Type': 'application/json' } });
-      }
-      if (insertError.message?.includes('Rate limit exceeded')) {
-        return new Response(JSON.stringify({
-          correct: false, error: 'Too many submissions. Wait a minute and try again.'
-        }), { status: 429, headers: { ...cors, 'Content-Type': 'application/json' } });
-      }
-      // uniq_submission_correct_per_user_challenge: a concurrent request for
-      // the same challenge already recorded the solve. That is the duplicate
-      // losing the race, not an error worth surfacing.
-      if (insertError.code === '23505') {
-        return new Response(JSON.stringify({ correct: true, alreadySolved: true }), {
-          headers: { ...cors, 'Content-Type': 'application/json' }
-        });
-      }
-      throw insertError;
+    if (rpcError || !data || typeof data.status !== 'number') {
+      console.error('submit_flag_tx failed:', rpcError ?? data);
+      throw rpcError ?? new Error('submit_flag_tx returned no status');
     }
 
-    return new Response(JSON.stringify({
-      correct: isCorrect,
-      points: isCorrect ? challenge.points : 0,
-      attemptsLeft: isCorrect ? maxAttempts : attemptsLeft,
-      maxAttempts,
-    }), { headers: { ...cors, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify(data.body), {
+      status: data.status, headers: { ...cors, 'Content-Type': 'application/json' }
+    });
 
   } catch (err) {
     console.error('submit-flag error:', err);
