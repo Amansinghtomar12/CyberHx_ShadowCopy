@@ -16,7 +16,7 @@ export interface Challenge {
   category: Category;
   points: number;
   description: string;
-  difficulty: 'Easy' | 'Medium' | 'Hard';
+  difficulty: 'Easy' | 'Medium' | 'Hard' | 'Insane';
   solvedCount: number;
   author: string;
   flag: string;

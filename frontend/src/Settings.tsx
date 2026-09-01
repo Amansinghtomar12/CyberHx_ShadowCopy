@@ -14,8 +14,10 @@ import {
   Circle,
   Save,
   IdCard,
+  Volume2,
 } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
+import SoundToggle from './components/SoundToggle';
 import { supabase } from './lib/supabase';
 
 /* ── presentational helpers (no logic, same file) ─────────────────────────── */
@@ -309,6 +311,20 @@ export default function Settings() {
                   {saving ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Sound lives here with a label for players who are configuring, and
+              in the header as a bare icon for players who are reacting. Both
+              write the same preference, so they cannot disagree. */}
+          {tab === 'profile' && (
+            <div className="surface p-5 sm:p-gutter space-y-5">
+              <PanelHeader
+                icon={<Volume2 className="h-4 w-4" />}
+                title="Experience"
+                description="How the platform sounds while you work."
+              />
+              <SoundToggle variant="row" />
             </div>
           )}
 

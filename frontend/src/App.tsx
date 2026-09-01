@@ -56,6 +56,18 @@ import CursorRing from './components/environment/CursorRing';
 import { setMood, type Mood } from './components/environment/mood';
 import { setSignals, pulseChallenge } from './components/environment/signals';
 import AnimatedView from './components/environment/AnimatedView';
+import { setDifficultyFocus, setProgress } from './components/environment/mood';
+import {
+  DIFFICULTY_ORDER,
+  DIFFICULTY_PROFILES,
+  profileFor,
+} from './components/environment/difficulty';
+import { getCapability } from './components/environment/performance';
+import { play, playValidating, initAudioLifecycle } from './audio/AudioManager';
+import SoundToggle from './components/SoundToggle';
+import OperationIntro from './components/OperationIntro';
+import MilestoneBanner from './components/MilestoneBanner';
+import { detectMilestones, type Milestone } from './lib/milestones';
 
 function dbToChallenge(c: DBChallenge, solveCount = 0): Challenge {
   return {
@@ -75,11 +87,15 @@ function dbToChallenge(c: DBChallenge, solveCount = 0): Challenge {
   };
 }
 
-const DIFFICULTIES: { id: string; label: string }[] = [
-  { id: 'Easy', label: 'Easy' },
-  { id: 'Medium', label: 'Medium' },
-  { id: 'Hard', label: 'Hard' },
-];
+/**
+ * The board's tier order and its personalities are one table now. Insane was
+ * always legal in the database (the CHECK constraint has permitted it since the
+ * initial schema); only the frontend had never offered it. Adding it here is
+ * purely additive — an event with no Insane operations renders exactly as
+ * before, because the board only draws a group that has members.
+ */
+const DIFFICULTIES: { id: string; label: string }[] =
+  DIFFICULTY_ORDER.map(id => ({ id, label: DIFFICULTY_PROFILES[id].label }));
 
 // ─────────────────────────────────────────
 // PRESENTATION HELPERS (visual only)
@@ -102,9 +118,10 @@ const CATEGORY_ICON: Record<string, IconCmp> = {
 const catVar = (category: string) => `var(--color-cat-${category}, var(--color-cat-misc))`;
 
 const DIFF_BADGE: Record<string, string> = {
-  Easy: 'badge-easy',
-  Medium: 'badge-medium',
-  Hard: 'badge-hard',
+  Easy: DIFFICULTY_PROFILES.Easy.badge,
+  Medium: DIFFICULTY_PROFILES.Medium.badge,
+  Hard: DIFFICULTY_PROFILES.Hard.badge,
+  Insane: DIFFICULTY_PROFILES.Insane.badge,
 };
 
 /** Tailwind-only styling for react-markdown output (no typography plugin here). */
@@ -275,7 +292,22 @@ export default function App() {
 
   // ── UI ───────────────────────────────────────────────────
   const [selectedChallenge, setSelectedChallenge] = useState<Challenge | null>(null);
+  /**
+   * Where on screen the operation was picked up from, as an offset from the
+   * viewport centre. The modal grows out of that point instead of appearing in
+   * the middle from nowhere, so the transition reads as *this* card opening
+   * rather than a dialog arriving. Null whenever the modal was opened from
+   * anywhere that is not a card, and the modal falls back to a plain centre
+   * scale — the connected motion is a bonus, never a requirement.
+   */
+  const [selectedOrigin, setSelectedOrigin] = useState<{ x: number; y: number } | null>(null);
   const [selectedDiff, setSelectedDiff] = useState<string | 'all'>('all');
+  /**
+   * Milestones wait their turn. Only one is ever on screen, and each is queued
+   * behind the completion showcase that earned it — two celebrations competing
+   * for the same second is not twice the celebration.
+   */
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [currentView, setCurrentView] = useState<'challenges' | 'scoreboard' | 'teams' | 'users' | 'teamProfile' | 'userProfile' | 'settings' | 'admin'>('challenges');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
@@ -415,6 +447,41 @@ export default function App() {
     setMood(MOODS[currentView] ?? 'calm');
   }, [currentView]);
 
+  // One AudioContext for the session, suspended in a hidden tab and released
+  // on unmount. A player with sound off never constructs one at all.
+  useEffect(() => initAudioLifecycle(), []);
+
+  /**
+   * Progression changes the world. As the share of the board you have taken
+   * rises, the environment gets measurably brighter and busier — for no
+   * per-frame cost, because the lattice was already easing toward these three
+   * numbers every frame. The value is quantised in mood.ts, so the 120-second
+   * solve poll cannot emit a new profile on every tick.
+   */
+  useEffect(() => {
+    if (!challenges.length) return;
+    const done = challenges.filter(c => solvedIds.includes(c.id) || teamSolvedIds.includes(c.id)).length;
+    setProgress(done / challenges.length);
+  }, [challenges, solvedIds, teamSolvedIds]);
+
+  /**
+   * The environment leans toward whatever tier has the player's attention: the
+   * operation they have open, or the tier they have filtered to. Easy lets the
+   * field settle back; Insane makes it lean in. Cleared when neither applies.
+   */
+  useEffect(() => {
+    setDifficultyFocus(selectedChallenge?.difficulty ?? (selectedDiff === 'all' ? null : selectedDiff));
+  }, [selectedChallenge, selectedDiff]);
+
+  // Milestone banners are queued on a delay so they land after the showcase.
+  // Held in a ref so a navigation away cannot leave a timer firing into a
+  // component that is gone.
+  const milestoneTimers = useRef<number[]>([]);
+  useEffect(() => () => {
+    milestoneTimers.current.forEach(clearTimeout);
+    milestoneTimers.current = [];
+  }, []);
+
   // ── Load unlocked hints + their texts ───────────────────
   useEffect(() => {
     if (!user) return;
@@ -526,7 +593,7 @@ export default function App() {
     eventStatus === 'live' ? 'Live' :
     eventStatus === 'waiting' ? 'Starting Soon' :
     eventStatus === 'ended' ? 'Ended' : 'Inactive';
-  const activeDiffLabel = selectedDiff === 'all' ? 'All Sequences' : selectedDiff;
+  const activeDiffLabel = selectedDiff === 'all' ? 'All Operations' : selectedDiff;
   const totalSolvedCount = challenges.filter(c => isChallengeSolved(c.id)).length;
 
   const navItems: { id: typeof currentView; label: string; icon: IconCmp }[] = [
@@ -537,7 +604,7 @@ export default function App() {
   ];
 
   return (
-    <div className="min-h-screen bg-cyber-bg text-cyber-text font-sans">
+    <div className="min-h-screen bg-cyber-bg text-cyber-text font-sans" data-tier={getCapability().tier}>
       <AmbientBackground />
       <SurfaceLight />
       <CursorRing />
@@ -594,6 +661,7 @@ export default function App() {
 
             <div className="flex items-center gap-1 shrink-0">
               <NotificationBell userId={user?.id ?? ''} />
+              <SoundToggle />
               <span className="divider-vertical hidden lg:block mx-1 h-6 self-center" />
               <div className="hidden lg:flex items-center gap-1">
                 <button onClick={() => setCurrentView('teamProfile')} aria-label="My team"
@@ -681,7 +749,7 @@ export default function App() {
               <aside className="hidden lg:block w-64 xl:w-72 border-r border-border-base px-5 xl:px-6 py-8 shrink-0 text-left">
                 <div className="sticky top-24 space-y-8">
                   <div>
-                    <h3 className="label-micro mb-3">Difficulty Modules</h3>
+                    <h3 className="label-micro mb-3">Operations</h3>
                     <ul className="space-y-1">
                       <li>
                         <button
@@ -691,7 +759,7 @@ export default function App() {
                         >
                           {selectedDiff === 'all' && <span aria-hidden="true" className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-cyber-neon" />}
                           <span aria-hidden="true" className={`w-1.5 h-1.5 rounded-pill ${selectedDiff === 'all' ? 'bg-cyber-neon' : 'bg-border-strong group-hover:bg-text-muted'}`} />
-                          <span className="text-small font-medium">All Sequences</span>
+                          <span className="text-small font-medium">All Operations</span>
                           <span className="ml-auto font-mono text-small text-text-muted">{challenges.length}</span>
                         </button>
                       </li>
@@ -708,7 +776,7 @@ export default function App() {
                               className="w-1.5 h-1.5 rounded-pill"
                               style={{ backgroundColor: `var(--color-diff-${diff.id.toLowerCase()})` }}
                             />
-                            <span className="text-small font-medium">{diff.label} Modules</span>
+                            <span className="text-small font-medium">{diff.label} Operations</span>
                             <span className="ml-auto font-mono text-small text-text-muted">{challengesByDiff[diff.id]?.length ?? 0}</span>
                           </button>
                         </li>
@@ -802,7 +870,7 @@ export default function App() {
                               onClick={() => { setSelectedDiff('all'); setMobileFilterOpen(false); }}
                               className={`flex w-full items-center justify-between rounded-control px-3 py-2.5 text-left text-label uppercase transition-colors ${selectedDiff === 'all' ? 'bg-surface-raised text-cyber-neon' : 'text-text-secondary hover:bg-surface-card hover:text-cyber-text'}`}
                             >
-                              All Sequences
+                              All Operations
                               <span className="font-mono text-small text-text-muted">{challenges.length}</span>
                             </button>
                           </li>
@@ -880,15 +948,27 @@ export default function App() {
                 ) : (
                   displayedDiffs.map((diff) => (
                     challengesByDiff[diff.id] && challengesByDiff[diff.id].length > 0 && (
-                      <section key={diff.id} className="mb-8 sm:mb-section">
+                      <section key={diff.id} data-diff={diff.id} className="mb-8 sm:mb-section">
                         <div className="flex items-center gap-4 mb-5">
                           <h3 className="text-h2 text-cyber-text">{diff.label}</h3>
                           <span className={`badge ${DIFF_BADGE[diff.id] ?? ''} font-mono`}>
                             {challengesByDiff[diff.id].length}
                           </span>
-                          <span aria-hidden="true" className="divider flex-1" />
+                          {/* The rule takes the tier's hue, so scanning the
+                              board vertically reads as four zones rather than
+                              one long list. */}
+                          <span aria-hidden="true" className="diff-rule flex-1" />
                         </div>
-                        <div className="stagger grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
+                        {/* Entrance rhythm is the tier's, not the board's: Easy
+                            arrives as a procession, Insane as a burst. */}
+                        <div
+                          data-diff={diff.id}
+                          className="stagger grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5"
+                          style={{
+                            ['--stagger-step' as string]: `${profileFor(diff.id).stagger}ms`,
+                            ['--stagger-dur' as string]: `${profileFor(diff.id).enterMs}ms`,
+                          }}
+                        >
                           {challengesByDiff[diff.id].map((challenge, i) => (
                             <ChallengeCard
                               key={challenge.id}
@@ -898,7 +978,7 @@ export default function App() {
                               isSolved={isChallengeSolved(challenge.id)}
                               solvedBy={solvedByMap[challenge.id]}
                               isFirstBlood={!!firstBloodMap[challenge.id] && challenge.solvedCount >= 1}
-                              onClick={() => setSelectedChallenge(challenge)}
+                              onClick={(origin) => { setSelectedOrigin(origin); setSelectedChallenge(challenge); }}
                             />
                           ))}
                         </div>
@@ -932,6 +1012,7 @@ export default function App() {
           {selectedChallenge && (
             <ChallengeModal
               challenge={selectedChallenge}
+              origin={selectedOrigin}
               points={getPoints(selectedChallenge)}
               usedHints={usedHintIds[selectedChallenge.id] || []}
               hintTexts={hintTexts}
@@ -945,7 +1026,7 @@ export default function App() {
                 ...prev,
                 [challengeId]: serverCount !== undefined ? serverCount : (prev[challengeId] || 0) + 1
               }))}
-              onSolve={(challengeId) => {
+              onSolve={(challengeId, fresh) => {
                 // Shockwave from this challenge's own node — the field
                 // registers the breach, not just the modal.
                 pulseChallenge(challengeId);
@@ -953,9 +1034,52 @@ export default function App() {
                 setTeamSolvedIds(prev => prev.includes(challengeId) ? prev : [...prev, challengeId]);
                 setSolvedByMap(prev => ({ ...prev, [challengeId]: profile?.username ?? 'you' }));
                 setSolveCounts(prev => ({ ...prev, [challengeId]: (prev[challengeId] || 0) + 1 }));
+
+                /**
+                 * Milestones are derived here and NOWHERE else. This callback
+                 * runs only for a submission made in this session, and `fresh`
+                 * is false when the server tells us a concurrent request had
+                 * already banked the solve. That is the entire guard against
+                 * the two ways an achievement system ships broken: firing on
+                 * page load for something you earned yesterday, and firing
+                 * again every time the 120-second solve poll comes back.
+                 */
+                if (!fresh) return;
+                const chal = challenges.find(c => c.id === challengeId);
+                if (!chal) return;
+                const after = challenges
+                  .filter(c => c.id === challengeId || isChallengeSolved(c.id))
+                  .map(c => c.id);
+                const earned = detectMilestones({
+                  solved: chal,
+                  all: challenges,
+                  solvedIds: after,
+                  // Nobody had taken it before you: no recorded first blood and
+                  // no solves on the board when you landed it.
+                  firstBlood: !firstBloodMap[challengeId] && chal.solvedCount === 0,
+                });
+                if (!earned.length) return;
+                // Queued behind the showcase that earned it.
+                const delay = chal.difficulty === 'Insane' ? 2500 : 1900;
+                const id = window.setTimeout(() => {
+                  setMilestones(q => [...q, ...earned]);
+                  play('milestone');
+                }, delay);
+                milestoneTimers.current.push(id);
               }}
               userId={user?.id ?? ''}
               firstBlood={firstBloodMap[selectedChallenge.id]}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* One at a time, above everything, touching nothing. */}
+        <AnimatePresence>
+          {milestones[0] && (
+            <MilestoneBanner
+              key={milestones[0].id}
+              milestone={milestones[0]}
+              onDone={() => setMilestones(q => q.slice(1))}
             />
           )}
         </AnimatePresence>
@@ -988,7 +1112,8 @@ interface ChallengeCardProps {
   isSolved: boolean;
   solvedBy?: string;
   isFirstBlood?: boolean;
-  onClick: () => void;
+  /** Receives where the card was when it was picked up, for the modal to grow from. */
+  onClick: (origin: { x: number; y: number } | null) => void;
 }
 
 const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, points, isSolved, solvedBy, isFirstBlood, onClick }) => {
@@ -996,6 +1121,13 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
   const tiltRef = useRef<HTMLDivElement>(null);
   const CategoryIcon = CATEGORY_ICON[challenge.category] ?? Boxes;
   const hue = catVar(challenge.category);
+  /**
+   * The tier's motion personality. Easy lags the pointer and settles; Insane
+   * answers it almost immediately and leans twice as far. The numbers live in
+   * difficulty.ts rather than the stylesheet precisely because this handler
+   * runs on every pointer move and must not call getComputedStyle.
+   */
+  const diff = profileFor(challenge.difficulty);
 
   // Pointer-driven perspective tilt — transform only, disabled under reduced motion.
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -1004,8 +1136,8 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
     const r = el.getBoundingClientRect();
     const px = (e.clientX - r.left) / r.width;
     const py = (e.clientY - r.top) / r.height;
-    el.style.setProperty('--tilt-x', `${(0.5 - py) * 4}deg`);
-    el.style.setProperty('--tilt-y', `${(px - 0.5) * 5}deg`);
+    el.style.setProperty('--tilt-x', `${(0.5 - py) * diff.tiltX}deg`);
+    el.style.setProperty('--tilt-y', `${(px - 0.5) * diff.tiltY}deg`);
     el.style.setProperty('--spec-x', `${e.clientX - r.left}px`);
     el.style.setProperty('--spec-y', `${e.clientY - r.top}px`);
   };
@@ -1027,14 +1159,23 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
         style={{
           transform: 'rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg))',
           transformStyle: 'preserve-3d',
-          transition: 'transform var(--duration-base) var(--ease-out-quint)',
+          transition: `transform ${diff.tiltMs}ms var(--ease-out-quint)`,
         }}
       >
         <button
           type="button"
-          onClick={onClick}
+          onClick={(e) => {
+            play('tick');
+            const r = e.currentTarget.getBoundingClientRect();
+            onClick({
+              x: r.left + r.width / 2 - window.innerWidth / 2,
+              y: r.top + r.height / 2 - window.innerHeight / 2,
+            });
+          }}
           /* Runs its own tilt + specular above; keeps SurfaceLight off it. */
           data-selflit=""
+          /* The tier's frame, idle behaviour and hue all key off this. */
+          data-diff={challenge.difficulty}
           className={`card-interactive group relative flex h-full w-full flex-col overflow-hidden p-5 text-left ${
             isSolved ? 'border-border-neon' : ''
           }`}
@@ -1094,7 +1235,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
             <span className={`badge ${DIFF_BADGE[challenge.difficulty] ?? ''}`}>{challenge.difficulty}</span>
             {isSolved && (
               <span className="badge badge-solved">
-                <Check className="h-2.5 w-2.5" /> Solved
+                <Check className="h-2.5 w-2.5" /> Compromised
               </span>
             )}
             {isFirstBlood && !isSolved && (
@@ -1121,8 +1262,38 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
   );
 }
 
+/**
+ * The wrong-flag ladder.
+ *
+ * A player who has just been told they are wrong already knows they are wrong.
+ * The app telling them harder does not help them think, so the feedback walks
+ * itself down: attempt one is a real shake, attempt five is a tint on the
+ * border and a sound at a fifth of the level. It never disappears entirely,
+ * because a submission that produces no response at all reads as a bug.
+ *
+ * The rung is chosen from the server's own attempt count, so it survives a
+ * reload and cannot be reset by closing the panel and opening it again — the
+ * frustration being managed here is cumulative, and so is the ladder.
+ */
+interface DenyRung { shake: number; ms: number; fade: number; vol: number }
+
+const DENY_LADDER: DenyRung[] = [
+  { shake: 6,   ms: 380, fade: 0.90, vol: 1.00 },
+  { shake: 4,   ms: 320, fade: 0.75, vol: 0.72 },
+  { shake: 2.5, ms: 260, fade: 0.58, vol: 0.50 },
+  { shake: 0,   ms: 300, fade: 0.42, vol: 0.32 },
+  { shake: 0,   ms: 240, fade: 0.28, vol: 0.18 },
+];
+
+/** Stage 1 never reads as a flicker, even on a 40ms response. */
+const VALIDATE_MIN_MS = 620;
+/** Stage 2: the held breath, inside the brief's 150-400ms window. */
+const HOLD_MS = 260;
+
 interface ChallengeModalProps {
   challenge: Challenge;
+  /** Viewport-centre offset of the card this was opened from, if any. */
+  origin?: { x: number; y: number } | null;
   points: number;
   usedHints: string[];
   hintTexts: Record<string, string>;
@@ -1133,7 +1304,8 @@ interface ChallengeModalProps {
   attempts: number;
   maxAttempts: number;
   onAttempt: (challengeId: string, serverCount?: number) => void;
-  onSolve: (challengeId: string) => void;
+  /** `fresh` is false when a concurrent request had already banked the solve. */
+  onSolve: (challengeId: string, fresh: boolean) => void;
   userId: string;
   firstBlood?: string;
 }
@@ -1145,6 +1317,7 @@ interface Solver {
 
 const ChallengeModal: React.FC<ChallengeModalProps> = ({
   challenge,
+  origin,
   points,
   usedHints,
   hintTexts,
@@ -1169,6 +1342,59 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
   const [solvers, setSolvers] = useState<Solver[]>([]);
   const [solversLoading, setSolversLoading] = useState(false);
   const [realSolveCount, setRealSolveCount] = useState(challenge.solvedCount);
+
+  /**
+   * The three stages of a submission.
+   *
+   *   validating  the server is deciding, and the form is visibly working
+   *   hold        the silence: everything actionable dims and stops
+   *   idle        neither
+   *
+   * The stage machine only ever *extends* the success path. A wrong answer
+   * resolves the instant the server says so, with no ceremony added on top of
+   * a round trip the player is already waiting through. Ceremony on success is
+   * a reward; ceremony on failure is a punishment.
+   */
+  const [stage, setStage] = useState<'idle' | 'validating' | 'hold'>('idle');
+  /** Bumped on every rejection so the deny animation restarts. */
+  const [denySeq, setDenySeq] = useState(0);
+  const [denyRung, setDenyRung] = useState(DENY_LADDER[0]);
+  const isInsane = challenge.difficulty === 'Insane';
+
+  const formRef = useRef<HTMLFormElement>(null);
+  const timers = useRef<number[]>([]);
+  const stopValidateTone = useRef<(() => void) | null>(null);
+  const later = (fn: () => void, ms: number) => {
+    timers.current.push(window.setTimeout(fn, ms));
+  };
+
+  // Opening an operation is an event; closing it is the same gesture inverted.
+  // Every pending timer and the validation tone die with the panel, which is
+  // what makes closing mid-cinematic safe.
+  useEffect(() => {
+    play('open');
+    return () => {
+      play('close');
+      timers.current.forEach(clearTimeout);
+      timers.current = [];
+      stopValidateTone.current?.();
+      stopValidateTone.current = null;
+    };
+  }, []);
+
+  // Restart the shake by hand: React will not replay a CSS animation for a
+  // class that never left the element, and re-keying the form would remount
+  // the input and throw away what the player typed.
+  useEffect(() => {
+    if (!denySeq) return;
+    const el = formRef.current;
+    if (!el) return;
+    el.classList.remove('deny');
+    void el.offsetWidth;
+    el.classList.add('deny');
+    const t = window.setTimeout(() => el.classList.remove('deny'), denyRung.ms + 80);
+    return () => { clearTimeout(t); el.classList.remove('deny'); };
+  }, [denySeq, denyRung.ms]);
 
   useEffect(() => {
     if (activeTab !== 'solves') return;
@@ -1195,12 +1421,29 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Hammering Enter is already handled: `submitting` stays true for the whole
+    // cinematic, so a second press cannot start a second request or a second
+    // celebration.
     if (isLocked || isSolved || submitting || !flagInput.trim()) return;
 
+    const startedAt = performance.now();
     setSubmitting(true);
     setError('');
+    setStage('validating');
+    stopValidateTone.current = playValidating();
 
-    const result = await submitFlag(challenge.id, flagInput.trim(), userId);
+    let result: Awaited<ReturnType<typeof submitFlag>>;
+    try {
+      result = await submitFlag(challenge.id, flagInput.trim(), userId);
+    } catch {
+      // A thrown request must not strand the player inside stage 1 forever.
+      stopValidateTone.current?.();
+      stopValidateTone.current = null;
+      setStage('idle');
+      setSubmitting(false);
+      setError('Connection failed. Try again.');
+      return;
+    }
 
     if (!result.alreadySolved) {
       // Sync attempts from server response (maxAttempts - attemptsLeft = used)
@@ -1212,19 +1455,60 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
       }
     }
 
-    if (result.correct) {
-      onSolve(challenge.id);
-      setSuccessMsg(result.message ?? 'Module Decrypted Successfully 🎉');
-      // alreadySolved comes back when a concurrent request won the race; that
-      // is not a fresh breach and should not be celebrated twice.
-      if (!result.alreadySolved) setJustBreached(true);
-    } else if (result.locked) {
-      setError('Terminal Locked: Maximum attempts reached.');
-    } else {
-      setError(result.message ?? 'Access Denied: Invalid Key Sequence');
+    const endValidation = () => {
+      stopValidateTone.current?.();
+      stopValidateTone.current = null;
+    };
+
+    // ── The only path that gets ceremony ──────────────────
+    // alreadySolved comes back when a concurrent request won the race; that is
+    // not a fresh breach and is resolved immediately, with no stages at all.
+    if (result.correct && !result.alreadySolved) {
+      // Stage 1 is held to a floor so a 40ms answer still reads as the system
+      // checking rather than as a flicker; a 3s answer has already overrun it
+      // and moves on with nothing added.
+      const remaining = Math.max(0, VALIDATE_MIN_MS - (performance.now() - startedAt));
+      later(() => {
+        endValidation();
+        setStage('hold');                       // stage 2: the silence
+        later(() => {
+          setStage('idle');
+          setSubmitting(false);
+          onSolve(challenge.id, true);
+          setSuccessMsg(result.message ?? 'Operation compromised');
+          setJustBreached(true);                // stage 3: the showcase
+          play(isInsane ? 'legendary' : 'success');
+        }, HOLD_MS);
+      }, remaining);
+      return;
     }
 
+    endValidation();
+    setStage('idle');
     setSubmitting(false);
+
+    if (result.correct) {
+      onSolve(challenge.id, false);
+      setSuccessMsg(result.message ?? 'Operation compromised');
+      return;
+    }
+
+    if (result.locked) {
+      setError('Terminal Locked: Maximum attempts reached.');
+      play('failure', { intensity: 0.35 });
+      return;
+    }
+
+    setError(result.message ?? 'Access Denied: Invalid Key Sequence');
+    // Pick the rung from the server's count where it gave us one, so the ladder
+    // survives a reload and cannot be reset by reopening the panel.
+    const used = (result.maxAttempts !== undefined && result.attemptsLeft !== undefined)
+      ? result.maxAttempts - result.attemptsLeft
+      : attempts + 1;
+    const rung = DENY_LADDER[Math.min(Math.max(used, 1), DENY_LADDER.length) - 1];
+    setDenyRung(rung);
+    setDenySeq(n => n + 1);
+    play('failure', { intensity: rung.vol });
   };
 
   // ── Presentation-only derivations ────────────────────────
@@ -1245,19 +1529,33 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
         onClick={onClose}
         className="scrim"
       />
+      {/* The operation opens *from where it was*. The card's centre is fed in
+          as an offset from the viewport centre and the panel grows out of a
+          fraction of it — enough to read as connected motion, short of a full
+          FLIP that would have to measure and reparent the card. Opened from
+          anywhere without a card (or after a scroll that moved it), `origin` is
+          null and this degrades to the plain centre scale it always was. */}
       <motion.div
-        initial={reduce ? false : { scale: 0.985, opacity: 0, y: 10 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={reduce ? undefined : { scale: 0.985, opacity: 0, y: 10 }}
-        transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+        initial={reduce ? false : {
+          scale: 0.9,
+          opacity: 0,
+          x: origin ? origin.x * 0.28 : 0,
+          y: origin ? origin.y * 0.28 : 10,
+        }}
+        animate={{ scale: 1, opacity: 1, x: 0, y: 0 }}
+        exit={reduce ? undefined : { scale: 0.97, opacity: 0, y: 8 }}
+        transition={{ duration: reduce ? 0.2 : 0.42, ease: [0.22, 1, 0.36, 1] }}
         role="dialog"
         aria-modal="true"
         aria-label={challenge.title}
         className="surface-overlay relative w-full max-w-2xl overflow-hidden"
       >
+        {/* Insane operations announce themselves. 900ms, pointer-transparent,
+            over an already-readable panel — atmosphere, never a gate. */}
+        {isInsane && <OperationIntro operationId={challenge.id} />}
         <AnimatePresence>
           {justBreached && (
-            <BreachConfirm points={points} onDone={() => setJustBreached(false)} />
+            <BreachConfirm points={points} legendary={isInsane} onDone={() => setJustBreached(false)} />
           )}
         </AnimatePresence>
         <div className="flex items-center justify-between gap-3 px-3 sm:px-5 py-3 border-b border-border-base bg-surface-rail">
@@ -1304,7 +1602,7 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
               {/* Meta strip */}
               <div className="mt-5 flex flex-wrap items-center gap-2">
                 <span className={`badge ${DIFF_BADGE[challenge.difficulty] ?? ''}`}>{challenge.difficulty}</span>
-                {isSolved && <span className="badge badge-solved"><Check className="w-2.5 h-2.5" /> Solved</span>}
+                {isSolved && <span className="badge badge-solved"><Check className="w-2.5 h-2.5" /> Compromised</span>}
                 {isLocked && <span className="badge badge-locked"><Lock className="w-2.5 h-2.5" /> Locked</span>}
                 <span className="badge">
                   <Users className="w-2.5 h-2.5" /> <span className="font-mono">{challenge.solvedCount}</span> solves
@@ -1412,7 +1710,7 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
                       <Check className="h-4 w-4 text-neon-ink" />
                     </span>
                     <p className="text-label uppercase text-cyber-neon break-words">
-                      {successMsg || 'Module Decrypted Successfully ✓'}
+                      {successMsg || 'Operation compromised ✓'}
                     </p>
                   </div>
                 ) : isLocked ? (
@@ -1426,9 +1724,25 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
                     <p className="text-label uppercase text-text-muted">Event Ended — Submissions Closed</p>
                   </div>
                 ) : (
-                  <form onSubmit={handleSubmit} className="surface p-4 sm:p-5">
+                  <form
+                    ref={formRef}
+                    onSubmit={handleSubmit}
+                    data-stage={stage}
+                    className="surface submit-form p-4 sm:p-5"
+                    style={{
+                      ['--deny-shake' as string]: `${denyRung.shake}px`,
+                      ['--deny-dur' as string]: `${denyRung.ms}ms`,
+                      ['--deny-fade' as string]: denyRung.fade,
+                    }}
+                  >
+                    {/* Stage 1 runs along the form's own top edge and stage 2
+                        holds it still. Nothing is inserted into the layout
+                        mid-submission: a panel that grows a row while you are
+                        reading it is a worse bug than no cinematic at all. */}
+                    <span aria-hidden="true" className="submit-trace" />
+                    {denySeq > 0 && <span key={denySeq} aria-hidden="true" className="deny-mark" />}
                     <label htmlFor={flagInputId} className="field-label">Submit Access Key</label>
-                    <div className="flex flex-col gap-2 sm:flex-row">
+                    <div className="submit-controls flex flex-col gap-2 sm:flex-row">
                       <input
                         id={flagInputId}
                         type="text"
@@ -1444,7 +1758,7 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
                         disabled={isLocked || submitting}
                         className={`btn btn-primary btn-lg shrink-0 ${submitting ? 'is-loading' : ''}`}
                       >
-                        {submitting ? '...' : 'Submit'}
+                        {submitting ? '...' : 'Execute'}
                       </button>
                     </div>
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">

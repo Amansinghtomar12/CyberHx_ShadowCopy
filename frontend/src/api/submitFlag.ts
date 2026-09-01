@@ -41,7 +41,7 @@ export async function submitFlag(challengeId: string, flag: string, userId: stri
   return {
     correct: data.correct,
     message: data.correct
-      ? 'Module Decrypted Successfully 🎉'
+      ? 'Operation compromised'
       : 'Access Denied: Invalid Key Sequence',
     points: data.points,
     attemptsLeft: data.attemptsLeft,

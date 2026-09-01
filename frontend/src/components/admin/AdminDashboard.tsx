@@ -22,6 +22,7 @@ const DIFF_BADGE: Record<string, string> = {
   Easy: 'badge-easy',
   Medium: 'badge-medium',
   Hard: 'badge-hard',
+  Insane: 'badge-insane',
 };
 
 /** Scroll-safe frame for a dense data table — the frame scrolls, the page never does. */
@@ -357,7 +358,7 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
               <label className="field-label" htmlFor="chal-difficulty">Difficulty</label>
               <select id="chal-difficulty" value={form.difficulty} onChange={e => setForm(p => ({ ...p, difficulty: e.target.value as any }))}
                 className="select">
-                {['Easy','Medium','Hard'].map(d => <option key={d}>{d}</option>)}
+                {['Easy','Medium','Hard','Insane'].map(d => <option key={d}>{d}</option>)}
               </select>
             </div>
           </div>

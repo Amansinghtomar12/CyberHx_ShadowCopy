@@ -420,7 +420,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                 {/* Stat tile row */}
                 <div className="mt-8 grid grid-cols-4 gap-3 max-w-2xl">
                   <StatTile value="8"    label="Categories"  tone="neon" />
-                  <StatTile value="3"    label="Difficulties" />
+                  <StatTile value="4"    label="Difficulties" />
                   <StatTile value="LIVE" label="Event"       tone="live" />
                   <StatTile value="24/7" label="Uptime"      tone="live" />
                 </div>

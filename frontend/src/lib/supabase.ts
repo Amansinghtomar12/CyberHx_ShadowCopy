@@ -43,7 +43,7 @@ export interface DBChallenge {
   id: string;
   title: string;
   category: 'web' | 'crypto' | 'steg' | 'rev' | 'pwn' | 'forensic' | 'osint' | 'misc';
-  difficulty: 'Easy' | 'Medium' | 'Hard';
+  difficulty: 'Easy' | 'Medium' | 'Hard' | 'Insane';
   points: number;
   description: string;
   max_attempts?: number;

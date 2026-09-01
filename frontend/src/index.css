@@ -62,6 +62,13 @@
   --color-diff-medium-wash: rgba(224, 179, 74, 0.12);
   --color-diff-hard: #e0705f;
   --color-diff-hard-wash: rgba(224, 112, 95, 0.12);
+  /* Insane sits off the warm ramp on purpose. Green→amber→red is a heat
+     scale and a fourth step along it would just read as "very hard red";
+     violet says the tier is a different kind of thing. It also cannot be
+     confused with the platform's neon at a glance, which matters because an
+     Insane card and a solved card can sit side by side. */
+  --color-diff-insane: #b98cf7;
+  --color-diff-insane-wash: rgba(185, 140, 247, 0.12);
 
   /* ── Semantic: status ──────────────────────────────────────────────────── */
   --color-status-solved: #a6e04a;
@@ -614,6 +621,7 @@
   .badge-easy    { color: var(--color-diff-easy);     border-color: rgba(126, 203, 143, 0.35); background-color: var(--color-diff-easy-wash); }
   .badge-medium  { color: var(--color-diff-medium);   border-color: rgba(224, 179, 74, 0.35);  background-color: var(--color-diff-medium-wash); }
   .badge-hard    { color: var(--color-diff-hard);     border-color: rgba(224, 112, 95, 0.35);  background-color: var(--color-diff-hard-wash); }
+  .badge-insane  { color: var(--color-diff-insane);   border-color: rgba(185, 140, 247, 0.42); background-color: var(--color-diff-insane-wash); }
   .badge-solved  { color: var(--color-status-solved); border-color: rgba(166, 224, 74, 0.35);  background-color: var(--color-status-solved-wash); }
   .badge-locked  { color: var(--color-status-locked); border-color: rgba(107, 118, 129, 0.35); background-color: var(--color-status-locked-wash); }
   .badge-live    { color: var(--color-status-live);   border-color: rgba(255, 106, 94, 0.35);  background-color: var(--color-status-live-wash); }
@@ -1056,13 +1064,83 @@
       rgba(6, 11, 16, 0.72), rgba(4, 8, 12, 0.93));
     cursor: pointer;
   }
-  .breach-ring {
+  /* The stage holds the perspective. Everything inside is compositor work:
+     rotation and opacity, no layout, no paint of anything expensive. */
+  .breach-stage {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    perspective: 900px;
+    pointer-events: none;
+  }
+  .breach-core {
+    position: relative;
+    width: 0;
+    height: 0;
+    transform-style: preserve-3d;
+    will-change: transform;
+  }
+  /* Centring is done with negative margins, set inline alongside the size,
+     so the element's transform stays purely rotational and motion can own it
+     outright without fighting a translate written here. */
+  .breach-shell {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid var(--color-neon);
+    box-shadow: 0 0 18px var(--color-neon-glow);
+    transform-style: preserve-3d;
+    will-change: transform, opacity;
+  }
+  /* Struts through the centre. Without them the shells read as flat rings the
+     moment one turns edge-on. */
+  .breach-strut {
+    position: absolute;
+    left: -5rem;
+    top: -0.5px;
+    width: 10rem;
+    height: 1px;
+    /* Hollow in the middle. The score sits in the centre of this object and a
+       line through a digit costs more legibility than the strut buys depth. */
+    background: linear-gradient(90deg,
+      transparent 0%, var(--color-neon) 16%, transparent 34%,
+      transparent 66%, var(--color-neon) 84%, transparent 100%);
+    will-change: transform, opacity;
+  }
+  .breach-wave {
     position: absolute;
     width: 14rem;
     height: 14rem;
     border-radius: 50%;
     border: 1px solid var(--color-neon);
     will-change: transform, opacity;
+  }
+  .breach-root.is-legendary .breach-shell,
+  .breach-root.is-legendary .breach-wave {
+    border-color: var(--color-diff-insane);
+    box-shadow: 0 0 22px rgba(185, 140, 247, 0.45);
+  }
+  .breach-root.is-legendary .breach-strut {
+    background: linear-gradient(90deg,
+      transparent 0%, var(--color-diff-insane) 16%, transparent 34%,
+      transparent 66%, var(--color-diff-insane) 84%, transparent 100%);
+  }
+  .breach-root.is-legendary {
+    background: radial-gradient(70% 60% at 50% 50%,
+      rgba(14, 8, 22, 0.74), rgba(4, 6, 12, 0.94));
+  }
+  .breach-rank {
+    font-family: var(--font-mono);
+    font-size: var(--text-label);
+    font-weight: 700;
+    letter-spacing: 0.42em;
+    text-transform: uppercase;
+    color: var(--color-diff-insane);
+    text-shadow: 0 0 20px rgba(185, 140, 247, 0.5);
+  }
+  .breach-root.is-legendary .breach-label {
+    color: var(--color-diff-insane);
+    text-shadow: 0 0 22px rgba(185, 140, 247, 0.45);
   }
   .breach-scan {
     position: absolute;
@@ -1075,8 +1153,22 @@
     box-shadow: 0 0 26px 3px var(--color-neon-glow);
     will-change: transform, opacity;
   }
+  .breach-plate::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 22rem;
+    height: 11rem;
+    margin: -5.5rem 0 0 -11rem;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(4, 8, 12, 0.92), rgba(4, 8, 12, 0));
+    pointer-events: none;
+  }
+  .breach-plate > * { position: relative; }
   .breach-plate {
     position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1126,9 +1218,14 @@
      The delay is applied to a transform+opacity animation only, so a long
      list costs the compositor nothing extra. */
   .stagger > * {
-    animation: stagger-in 420ms var(--ease-out-quint) both;
-    animation-delay: calc(min(var(--i, 0), 14) * 32ms);
+    animation: stagger-in var(--stagger-dur, 420ms) var(--ease-out-quint) both;
+    animation-delay: calc(min(var(--i, 0), 14) * var(--stagger-step, 32ms));
   }
+  /* The harder tiers arrive as a burst rather than a procession: a shorter
+     step, a shorter duration, and a tighter starting scale. The board reads
+     as escalating before a single word has been processed. */
+  .stagger[data-diff="Hard"] > *,
+  .stagger[data-diff="Insane"] > * { animation-name: stagger-in-hard; }
 
   /* ══ STANDINGS — showing what changed ══════════════════════════════════
      A leaderboard that reorders silently makes the reader diff two mental
@@ -1329,6 +1426,288 @@
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
   }
+
+  /* ══ DIFFICULTY PERSONALITIES ══════════════════════════════════════════
+     Four tiers that MOVE differently, not four tiers that are coloured
+     differently.
+
+     The one rule every number here obeys: danger is not illegibility. All of
+     the escalation lives on a single decorative pseudo-element that contains
+     no text and is pointer-transparent, so nothing any tier does can shift a
+     glyph under a reader's eye. The card itself still tilts as a rigid body
+     exactly as it did before — only the magnitude and the settle time change,
+     and those come from difficulty.ts because the pointer handler needs them
+     per event without a getComputedStyle call.
+
+     Idle animation is gated behind [data-tier="high"]. A phone gets the full
+     palette, the full frame and the full hover response; what it does not get
+     is twenty cards animating a frame it is not looking at. */
+  [data-diff]           { --diff-hue: var(--color-diff-medium); }
+  [data-diff="Easy"]    { --diff-hue: var(--color-diff-easy); }
+  [data-diff="Medium"]  { --diff-hue: var(--color-diff-medium); }
+  [data-diff="Hard"]    { --diff-hue: var(--color-diff-hard); }
+  [data-diff="Insane"]  { --diff-hue: var(--color-diff-insane); }
+
+  .card-interactive[data-diff]::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    border: 1px solid transparent;
+    opacity: 0;
+    transition: opacity var(--duration-base) var(--ease-standard);
+    will-change: opacity;
+  }
+
+  /* EASY — still. Nothing idles. The frame answers the pointer and settles,
+     and that is the whole personality: something already understood. */
+  .card-interactive[data-diff="Easy"]:hover::after {
+    opacity: 0.55;
+    border-color: color-mix(in srgb, var(--diff-hue) 42%, transparent);
+  }
+
+  /* MEDIUM — awake. A slow 9s breath, barely above the noise floor, so the
+     card is never quite inert but never asks for attention either. */
+  .card-interactive[data-diff="Medium"]::after {
+    border-color: color-mix(in srgb, var(--diff-hue) 26%, transparent);
+  }
+  .card-interactive[data-diff="Medium"]:hover::after { opacity: 0.7; }
+  [data-tier="high"] .card-interactive[data-diff="Medium"]::after {
+    animation: diff-breathe 9s var(--ease-standard) infinite;
+  }
+
+  /* HARD — under load. The frame carries a visible charge that cycles every
+     2.6s, and a second inner edge doubles it so the card reads as armoured. */
+  .card-interactive[data-diff="Hard"]::after {
+    border-color: color-mix(in srgb, var(--diff-hue) 34%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--diff-hue) 10%, transparent);
+    opacity: 0.4;
+  }
+  .card-interactive[data-diff="Hard"]:hover::after {
+    opacity: 0.95;
+    border-color: color-mix(in srgb, var(--diff-hue) 62%, transparent);
+  }
+  [data-tier="high"] .card-interactive[data-diff="Hard"]::after {
+    animation: diff-charge 2.6s var(--ease-standard) infinite;
+  }
+
+  /* INSANE — alive. A faster breath, a violet bloom outside the frame, and a
+     90ms shear every 9s. The shear is applied to this pseudo-element only:
+     the frame glitches, the title does not. */
+  .card-interactive[data-diff="Insane"] {
+    border-color: color-mix(in srgb, var(--color-diff-insane) 30%, var(--color-border-base));
+  }
+  .card-interactive[data-diff="Insane"]::after {
+    border-color: color-mix(in srgb, var(--diff-hue) 46%, transparent);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--diff-hue) 14%, transparent),
+      0 0 18px rgba(185, 140, 247, 0.16);
+    opacity: 0.55;
+  }
+  .card-interactive[data-diff="Insane"]:hover::after {
+    opacity: 1;
+    border-color: color-mix(in srgb, var(--diff-hue) 78%, transparent);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--diff-hue) 22%, transparent),
+      0 0 30px rgba(185, 140, 247, 0.32);
+  }
+  [data-tier="high"] .card-interactive[data-diff="Insane"]::after {
+    animation: diff-charge 1.9s var(--ease-standard) infinite,
+               diff-shear 9s var(--ease-standard) infinite;
+  }
+  .card-interactive[data-diff="Insane"]:hover {
+    border-color: color-mix(in srgb, var(--color-diff-insane) 65%, transparent);
+  }
+
+  /* The difficulty group header gets the same hue as its cards, so scanning
+     the board vertically reads as four distinct zones rather than one list. */
+  .diff-rule {
+    height: 1px;
+    background: linear-gradient(90deg,
+      color-mix(in srgb, var(--diff-hue) 45%, transparent),
+      transparent);
+  }
+
+  /* ══ OPERATION INTRO — Insane only ═════════════════════════════════════
+     900ms, pointer-transparent, over an already-readable panel. It is
+     atmosphere, never a gate: the description is rendered and the flag field
+     is focusable from the first frame. */
+  .op-intro {
+    position: absolute;
+    inset: 0;
+    z-index: 15;
+    overflow: hidden;
+    pointer-events: none;
+    display: grid;
+    place-items: center;
+    border-radius: inherit;
+  }
+  .op-intro-sweep {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg,
+      transparent 38%,
+      rgba(185, 140, 247, 0.18) 50%,
+      transparent 62%);
+    will-change: transform;
+  }
+  .op-intro-label {
+    position: relative;
+    font-family: var(--font-mono);
+    font-size: var(--text-label);
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--color-diff-insane);
+    text-shadow: 0 0 24px rgba(185, 140, 247, 0.6);
+    white-space: nowrap;
+  }
+  .op-intro-rule {
+    position: absolute;
+    left: 12%;
+    right: 12%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--color-diff-insane), transparent);
+    will-change: transform, opacity;
+  }
+
+  /* ══ MILESTONE ═════════════════════════════════════════════════════════
+     Above everything, touching nothing. It never takes pointer events, so it
+     cannot eat the click that dismisses the solve underneath it. */
+  .milestone-root {
+    position: fixed;
+    top: 4.75rem;
+    left: 0;
+    right: 0;
+    z-index: 200;
+    display: flex;
+    justify-content: center;
+    padding: 0 1rem;
+    pointer-events: none;
+    will-change: transform, opacity;
+  }
+  .milestone-plate {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    max-width: min(30rem, 100%);
+    padding: 0.75rem 1.125rem;
+    border: 1px solid;
+    border-radius: var(--radius-card);
+    background-color: var(--color-surface-overlay);
+    box-shadow: var(--shadow-e5);
+    overflow: hidden;
+    backdrop-filter: blur(14px);
+  }
+  .milestone-glyph {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex-shrink: 0;
+    border: 1px solid;
+    border-radius: var(--radius-inset);
+  }
+  .milestone-title {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: var(--text-label);
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+  .milestone-detail {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: var(--text-small);
+    color: var(--color-text-secondary);
+  }
+  .milestone-sweep {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 45%;
+    opacity: 0.4;
+    pointer-events: none;
+    will-change: transform, opacity;
+  }
+
+  /* ══ SUBMISSION — the three stages ═════════════════════════════════════
+     Stage 1 runs while the server decides. Stage 2 is the held breath. Both
+     are drawn on the form's own frame so nothing new is inserted into the
+     layout mid-submission — a panel that grows a row while you are reading it
+     is a worse bug than no cinematic at all. */
+  .submit-form {
+    position: relative;
+    transition: border-color var(--duration-base) var(--ease-standard),
+                box-shadow var(--duration-base) var(--ease-standard);
+  }
+  .submit-form[data-stage="validating"] {
+    border-color: var(--color-border-neon);
+    box-shadow: 0 0 0 1px var(--color-neon-wash), var(--shadow-e2);
+  }
+  .submit-form[data-stage="hold"] {
+    border-color: color-mix(in srgb, var(--color-neon) 55%, transparent);
+    box-shadow: 0 0 26px var(--color-neon-wash), var(--shadow-e2);
+  }
+  /* The validation trace: a hairline running the top edge of the form for as
+     long as the server is thinking, then held still through the silence. */
+  .submit-trace {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -1px;
+    height: 1px;
+    overflow: hidden;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--duration-fast) var(--ease-standard);
+  }
+  .submit-form[data-stage="validating"] .submit-trace,
+  .submit-form[data-stage="hold"] .submit-trace { opacity: 1; }
+  .submit-trace::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, var(--color-neon), transparent);
+    transform: translateX(-100%);
+  }
+  .submit-form[data-stage="validating"] .submit-trace::before {
+    animation: submit-trace 900ms linear infinite;
+  }
+  /* The silence. Everything the player could act on dims and stops — for
+     150-400ms the panel is holding its breath, and that is legible without a
+     single new element. */
+  .submit-form[data-stage="hold"] .submit-controls {
+    opacity: 0.35;
+    transform: scale(0.994);
+  }
+  .submit-controls {
+    transition: opacity 180ms var(--ease-standard), transform 180ms var(--ease-out-quint);
+  }
+
+  /* ══ WRONG FLAG — a ladder that walks itself down ══════════════════════
+     Attempt 1 is a real shake. By attempt 5 it is a tint on the border and
+     nothing else. The failure has to stay informative and stop being a
+     punishment, because the player already knows they were wrong — the app
+     telling them harder does not help them think.
+
+     --deny-shake and --deny-fade are written inline from the attempt count,
+     so the ladder is one CSS rule rather than five classes. */
+  .deny {
+    animation: deny-shake var(--deny-dur, 380ms) var(--ease-standard) both;
+  }
+  .deny-mark {
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    pointer-events: none;
+    border: 1px solid var(--color-diff-hard);
+    opacity: 0;
+    animation: deny-mark var(--deny-dur, 380ms) var(--ease-standard) both;
+  }
 }
 
 /* ============================================================================
@@ -1362,6 +1741,43 @@
   0%, 100% { transform: scale(1);   opacity: 1; }
   50%      { transform: scale(0.5); opacity: 0.4; }
 }
+@keyframes stagger-in-hard {
+  from { opacity: 0; transform: translateY(18px) scale(0.94); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes diff-breathe {
+  0%, 100% { opacity: 0.16; }
+  50%      { opacity: 0.42; }
+}
+@keyframes diff-charge {
+  0%, 100% { opacity: 0.34; }
+  50%      { opacity: 0.78; }
+}
+/* A 90ms shear once every 9s, on the decorative frame only. Nothing that
+   carries a glyph is inside this element. */
+@keyframes diff-shear {
+  0%, 96.9%, 100% { transform: none; }
+  97.4% { transform: translate3d(2px, -1px, 0) skewX(-1.4deg); }
+  98.0% { transform: translate3d(-2px, 1px, 0) skewX(1.1deg); }
+  98.6% { transform: translate3d(1px, 0, 0) skewX(-0.5deg); }
+}
+@keyframes submit-trace {
+  to { transform: translateX(100%); }
+}
+@keyframes deny-shake {
+  0%   { transform: translateX(0); }
+  16%  { transform: translateX(calc(var(--deny-shake, 6px) * -1)); }
+  34%  { transform: translateX(var(--deny-shake, 6px)); }
+  52%  { transform: translateX(calc(var(--deny-shake, 6px) * -0.6)); }
+  70%  { transform: translateX(calc(var(--deny-shake, 6px) * 0.4)); }
+  86%  { transform: translateX(calc(var(--deny-shake, 6px) * -0.15)); }
+  100% { transform: translateX(0); }
+}
+@keyframes deny-mark {
+  0%   { opacity: 0; }
+  12%  { opacity: var(--deny-fade, 0.9); }
+  100% { opacity: 0; }
+}
 
 /* ============================================================================
    REDUCED MOTION  —  kill every non-essential animation
@@ -1392,7 +1808,13 @@
   .holo::before { display: none; }
   .scan-in { animation: none !important; }
   .boot::before, .boot::after, .boot-core { animation: none !important; }
-  .breach-ring, .breach-scan { display: none; }
+  .breach-stage, .breach-scan { display: none; }
+  .op-intro { display: none; }
+  .milestone-sweep { display: none; }
+  .card-interactive[data-diff]::after { animation: none !important; }
+  .submit-trace::before { animation: none !important; transform: none; }
+  .deny { animation: none !important; }
+  .deny-mark { animation: none !important; opacity: var(--deny-fade, 0.9); }
   .stagger > * { animation: none !important; }
   .standings-row[data-moved]::after { animation: none !important; opacity: 1; }
   .access-ring { display: none; }
