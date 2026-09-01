@@ -2,12 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, DBChallenge } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
+import OwnerFlagVault from './OwnerFlagVault';
 import {
-  Plus, Eye, EyeOff, Trash2, Edit3, Shield, Users, Flag, Activity, RotateCcw,
+  Plus, Eye, EyeOff, Trash2, Edit3, Shield, Users, Flag, Activity, RotateCcw, KeyRound,
   X, AlertTriangle, Megaphone, Zap, Lightbulb, Link2, Save, Inbox, Lock,
   Settings2, ListChecks, Hash, Send, CalendarClock, Radio,
 } from 'lucide-react';
-import { motion, useReducedMotion } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { resetEventScores } from '../../api/submitFlag';
 import DateTimeField from '../DateTimeField';
 // HARDENED: Challenge CRUD via admin_upsert_challenge RPC
@@ -630,6 +631,11 @@ export default function AdminDashboard() {
 
 // Inner component — only renders after auth confirmed
 function AdminDashboardInner() {
+  // Drawn for the owner only. Cosmetic: owner_reveal_flag() re-checks
+  // ownership in the database and an admin who gets past this UI is refused
+  // there and logged.
+  const { profile: me } = useAuth();
+  const [vaultFor, setVaultFor] = useState<{ id: string; title: string } | null>(null);
   const [challenges, setChallenges] = useState<DBChallenge[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editChallenge, setEditChallenge] = useState<DBChallenge | null>(null);
@@ -808,6 +814,14 @@ function AdminDashboardInner() {
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center justify-end gap-1.5">
+                        {me?.is_owner && (
+                          <button onClick={() => setVaultFor({ id: c.id, title: c.title })}
+                            aria-label={`Reveal the flag for ${c.title}`}
+                            title="Owner only — reveal this operation's flag"
+                            className="btn btn-ghost btn-sm btn-icon text-cyber-neon">
+                            <KeyRound className="w-4 h-4" />
+                          </button>
+                        )}
                         <button onClick={() => setEditChallenge(c)} aria-label={`Edit ${c.title}`} title="Edit challenge"
                           className="btn btn-ghost btn-sm btn-icon">
                           <Edit3 className="w-4 h-4" />
@@ -858,6 +872,13 @@ function AdminDashboardInner() {
                   </button>
                   <div className="flex items-center gap-1.5">
                     <span className="label-micro mr-1">{(c as any).max_attempts ?? 15} tries</span>
+                    {me?.is_owner && (
+                      <button onClick={() => setVaultFor({ id: c.id, title: c.title })}
+                        aria-label={`Reveal the flag for ${c.title}`}
+                        className="btn btn-ghost btn-sm btn-icon text-cyber-neon">
+                        <KeyRound className="w-4 h-4" />
+                      </button>
+                    )}
                     <button onClick={() => setEditChallenge(c)} aria-label={`Edit ${c.title}`}
                       className="btn btn-ghost btn-sm btn-icon">
                       <Edit3 className="w-4 h-4" />
@@ -889,6 +910,17 @@ function AdminDashboardInner() {
       {/* Event Tab */}
       {activeTab === 'notifications' && <NotificationsTab />}
       {activeTab === 'event' && <EventTab />}
+
+      <AnimatePresence>
+        {vaultFor && (
+          <OwnerFlagVault
+            key={vaultFor.id}
+            challengeId={vaultFor.id}
+            challengeTitle={vaultFor.title}
+            onClose={() => setVaultFor(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

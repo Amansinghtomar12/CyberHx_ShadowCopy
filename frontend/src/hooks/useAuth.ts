@@ -80,7 +80,7 @@ export function useAuth() {
     for (let attempt = 0; attempt < 3; attempt++) {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, username, avatar_url, country, bio, role, is_banned, is_hidden, team_id, affiliation, website, created_at')
+        .select('id, username, avatar_url, country, bio, role, is_owner, is_banned, is_hidden, team_id, affiliation, website, created_at')
         .eq('id', userId)
         .single();
 
@@ -89,6 +89,9 @@ export function useAuth() {
           ...data,
           is_admin: data.role === 'admin',
           is_moderator: data.role === 'moderator',
+          // Cosmetic only: it decides whether the vault control is drawn.
+          // Every read of a flag is authorised again in the database.
+          is_owner: (data as { is_owner?: boolean }).is_owner === true,
         } as DBProfile;
         setState(prev => ({ ...prev, profile, profileError: null, profileLoading: false }));
         return;

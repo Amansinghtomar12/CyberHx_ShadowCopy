@@ -24,6 +24,9 @@ export interface DBProfile {
   bio: string | null;
   role: 'player' | 'moderator' | 'admin';
   is_admin: boolean; // computed from role for backward compat
+  /** Exactly one profile carries this. Gates the flag vault in the UI;
+      the server re-checks it in is_owner() and never trusts this field. */
+  is_owner: boolean;
   is_banned: boolean;
   is_hidden: boolean;
   is_moderator: boolean; // computed from role for backward compat
