@@ -6,7 +6,7 @@ import OwnerFlagVault from './OwnerFlagVault';
 import {
   Plus, Eye, EyeOff, Trash2, Edit3, Shield, Users, Flag, Activity, RotateCcw, KeyRound,
   X, AlertTriangle, Megaphone, Zap, Lightbulb, Link2, Save, Inbox, Lock,
-  Settings2, ListChecks, Hash, Send, CalendarClock, Radio,
+  Settings2, ListChecks, Hash, Send, CalendarClock, Radio, Paperclip, Upload, FileDown,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { resetEventScores } from '../../api/submitFlag';
@@ -211,6 +211,77 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  /**
+   * Attachments. Existing ones are rows in challenge_files; new ones queue
+   * here and upload on Save, after the challenge exists, into
+   * challenge-files/<challenge_id>/<64 random bits>/<name>. The random
+   * segment is what keeps an unreleased challenge's files unguessable on a
+   * public bucket. Removal deletes the object first, then the row, so a
+   * failed delete can never leave a dangling button on the player's panel.
+   */
+  const FILE_BUCKET = 'challenge-files';
+  const FILE_MAX_BYTES = 50 * 1024 * 1024;
+  const [attachments, setAttachments] = useState<{ id: string; name: string; url: string }[]>([]);
+  const [pending, setPending] = useState<File[]>([]);
+  const [fileError, setFileError] = useState('');
+  const fileInputId = `chal-files-${initial?.id ?? 'new'}`;
+
+  useEffect(() => {
+    if (!initial?.id) return;
+    supabase.from('challenge_files').select('id, name, url').eq('challenge_id', initial.id).order('created_at')
+      .then(({ data }) => setAttachments((data ?? []) as { id: string; name: string; url: string }[]));
+  }, [initial?.id]);
+
+  const queueFiles = (list: FileList | null) => {
+    if (!list) return;
+    const next: File[] = []; const rejected: string[] = [];
+    Array.from(list).forEach(f => {
+      if (f.size > FILE_MAX_BYTES) rejected.push(`${f.name} (${(f.size / 1048576).toFixed(1)} MB)`);
+      else if (!pending.some(p => p.name === f.name && p.size === f.size)) next.push(f);
+    });
+    setPending(prev => [...prev, ...next]);
+    setFileError(rejected.length ? `Over the 50 MB limit: ${rejected.join(', ')}. Host large images elsewhere and add a resource link.` : '');
+  };
+  const removePending = (i: number) => setPending(prev => prev.filter((_, idx) => idx !== i));
+
+  const storagePathOf = (url: string) => {
+    const marker = `/object/public/${FILE_BUCKET}/`;
+    const at = url.indexOf(marker);
+    return at === -1 ? null : decodeURIComponent(url.slice(at + marker.length).split('?')[0]);
+  };
+  const removeExisting = async (file: { id: string; name: string; url: string }) => {
+    if (!confirm(`Remove attachment "${file.name}"? Players will no longer see it.`)) return;
+    const path = storagePathOf(file.url);
+    if (path) {
+      const { error: rmErr } = await supabase.storage.from(FILE_BUCKET).remove([path]);
+      if (rmErr) { setFileError(`Could not delete ${file.name}: ${rmErr.message}`); return; }
+    }
+    const { error: rowErr } = await supabase.from('challenge_files').delete().eq('id', file.id);
+    if (rowErr) { setFileError(`Deleted the file but not its entry: ${rowErr.message}`); return; }
+    setAttachments(prev => prev.filter(a => a.id !== file.id));
+  };
+
+  const safeName = (name: string) => name.replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 120) || 'file';
+  const randomSegment = () => Array.from(crypto.getRandomValues(new Uint8Array(8)), b => b.toString(16).padStart(2, '0')).join('');
+  const uploadPending = async (challengeId: string): Promise<string | null> => {
+    for (const file of pending) {
+      const path = `${challengeId}/${randomSegment()}/${safeName(file.name)}`;
+      const { error: upErr } = await supabase.storage.from(FILE_BUCKET)
+        .upload(path, file, { upsert: false, contentType: file.type || 'application/octet-stream', cacheControl: '31536000' });
+      if (upErr) return `${file.name}: ${upErr.message}`;
+      // ?download makes browsers save the file instead of rendering a .txt
+      // or .png inline, which is what a player expects from an attachment.
+      const url = supabase.storage.from(FILE_BUCKET).getPublicUrl(path, { download: file.name }).data.publicUrl;
+      const { error: rowErr } = await supabase.from('challenge_files').insert({ challenge_id: challengeId, name: file.name, url });
+      if (rowErr) {
+        await supabase.storage.from(FILE_BUCKET).remove([path]);
+        return `${file.name}: ${rowErr.message}`;
+      }
+    }
+    setPending([]);
+    return null;
+  };
+
   // Load existing hints if editing
   useEffect(() => {
     if (!initial?.id) return;
@@ -296,6 +367,17 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
           alert('Challenge saved, but hints failed: ' + hintError.message);
           return;
         }
+      }
+    }
+
+    // Attachments last: the row needs a challenge id, and a failed upload
+    // must not undo a saved challenge.
+    if (challengeId && pending.length > 0) {
+      const failed = await uploadPending(challengeId);
+      if (failed) {
+        setSaving(false);
+        alert('Challenge saved, but an attachment failed: ' + failed);
+        return;
       }
     }
 
@@ -481,11 +563,67 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
           )}
         </FormSection>
 
+        {/* ATTACHMENTS SECTION */}
+        <FormSection
+          icon={<Paperclip className="w-4 h-4" />}
+          title="Attachments"
+          description="Files players download from the challenge page — pcaps, binaries, images, archives. Up to 50 MB each."
+          action={
+            <>
+              <input
+                id={fileInputId}
+                type="file"
+                multiple
+                className="sr-only"
+                onChange={e => { queueFiles(e.target.files); e.target.value = ''; }}
+              />
+              <label htmlFor={fileInputId} className="btn btn-outline btn-sm cursor-pointer">
+                <Upload className="w-3.5 h-3.5" /> Add files
+              </label>
+            </>
+          }
+        >
+          {attachments.length === 0 && pending.length === 0 ? (
+            <div className="rounded-card border border-dashed border-border-base bg-surface-inset">
+              <EmptyState icon={<Paperclip className="w-5 h-5" />} title="No attachments" hint="Files upload when you save. Anything over 50 MB belongs on an external host — add it as a resource link below." />
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {attachments.map(file => (
+                <li key={file.id} className="surface-inset flex items-center gap-3 px-3 py-2.5">
+                  <FileDown aria-hidden className="w-4 h-4 shrink-0 text-cyber-neon" />
+                  <a href={file.url} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate font-mono text-small text-cyber-text hover:text-cyber-neon">{file.name}</a>
+                  <span className="badge badge-solved">Uploaded</span>
+                  <button type="button" onClick={() => removeExisting(file)} aria-label={`Remove ${file.name}`} title="Remove attachment"
+                    className="btn btn-ghost btn-sm btn-icon text-diff-hard hover:text-danger-fg">
+                    <X className="w-4 h-4" />
+                  </button>
+                </li>
+              ))}
+              {pending.map((file, i) => (
+                <li key={`${file.name}-${file.size}`} className="surface-inset flex items-center gap-3 px-3 py-2.5">
+                  <Upload aria-hidden className="w-4 h-4 shrink-0 text-text-muted" />
+                  <span className="min-w-0 flex-1 truncate font-mono text-small text-cyber-text">{file.name}</span>
+                  <span className="font-mono text-small text-text-muted tabular-nums">{file.size >= 1048576 ? `${(file.size / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(file.size / 1024))} KB`}</span>
+                  <span className="badge">Uploads on save</span>
+                  <button type="button" onClick={() => removePending(i)} aria-label={`Remove ${file.name}`} title="Remove"
+                    className="btn btn-ghost btn-sm btn-icon text-diff-hard hover:text-danger-fg">
+                    <X className="w-4 h-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {fileError && (
+            <p role="alert" className="mt-3 text-small" style={{ color: 'var(--color-danger-fg)' }}>{fileError}</p>
+          )}
+        </FormSection>
+
         {/* RESOURCE LINKS SECTION */}
         <FormSection
           icon={<Link2 className="w-4 h-4" />}
           title="Resource Links"
-          description="Attachments and mirrors shown on the challenge page."
+          description="External hosts and mirrors — for anything too large to attach, or a target players connect to."
           action={
             <button onClick={addLink} type="button" className="btn btn-outline btn-sm">
               <Plus className="w-3.5 h-3.5" /> Add Link
