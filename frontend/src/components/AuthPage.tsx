@@ -860,7 +860,8 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
               </div>
 
               <p className="mt-5 text-center label-micro leading-relaxed">
-                By continuing you agree to fair-play rules
+                By continuing you agree to the{' '}
+                <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="text-text-secondary underline decoration-border-strong underline-offset-4 hover:text-cyber-neon">fair-play rules</a>
                 <br className="sm:hidden" />
                 <span className="hidden sm:inline"> · </span>
                 No solutions may be shared

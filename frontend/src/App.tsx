@@ -1337,9 +1337,10 @@ export default function App() {
               <p className="label-micro">Cyberhx CTF Framework v2.0</p>
             </div>
             <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
-              <a href="#" className="label-micro hover:text-cyber-neon transition-colors rounded-inset">Privacy</a>
-              <a href="#" className="label-micro hover:text-cyber-neon transition-colors rounded-inset">Terms</a>
-              <a href="#" className="label-micro hover:text-cyber-neon transition-colors rounded-inset">Support</a>
+              {/* New tab: a footer link must never take a player off a live board. */}
+              <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="label-micro hover:text-cyber-neon transition-colors rounded-inset">Privacy</a>
+              <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="label-micro hover:text-cyber-neon transition-colors rounded-inset">Terms</a>
+              <a href="/support.html" target="_blank" rel="noopener noreferrer" className="label-micro hover:text-cyber-neon transition-colors rounded-inset">Support</a>
             </div>
           </div>
         </footer>
