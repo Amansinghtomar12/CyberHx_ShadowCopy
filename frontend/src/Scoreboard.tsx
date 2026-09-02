@@ -7,7 +7,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import AnimatedNumber from './components/AnimatedNumber';
 import {
   Trophy, Crown, Medal, Activity, Radio, Flag,
-  ArrowUp, ArrowDown, Minus, TrendingUp, Lock, EyeOff, RefreshCw
+  ArrowUp, ArrowDown, Minus, TrendingUp, Lock, EyeOff, RefreshCw, ChevronDown, Users
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 
@@ -374,6 +374,59 @@ export default function Scoreboard({ myTeamId = null }: ScoreboardProps) {
    */
   const [mine, setMine] = useState<{ team: TeamScore; rank: number } | null>(null);
   const lastMineAt = useRef(0);
+
+  /**
+   * The team, opened up: who on it took what, and when. Fetched only when
+   * the panel is opened and again when the team's solve count moves, never
+   * on the polling loop -- three small reads for the one person looking.
+   * A challenge the team solved twice (two members, same flag) is credited
+   * to the earlier solver, which is how the team's score counted it.
+   */
+  interface Breakdown {
+    members: { id: string; username: string; solves: number; points: number }[];
+    solves: { title: string; category: string; points: number; by: string; at: string }[];
+  }
+  const [breakdownOpen, setBreakdownOpen] = useState(false);
+  const [breakdown, setBreakdown] = useState<Breakdown | null>(null);
+  const [breakdownBusy, setBreakdownBusy] = useState(false);
+  const teamId = mine?.team.id ?? null;
+  const teamSolves = mine?.team.solved_count ?? 0;
+  useEffect(() => {
+    if (!breakdownOpen || !teamId) return;
+    let alive = true;
+    setBreakdownBusy(true);
+    Promise.all([
+      supabase.rpc('get_team_solves', { p_team_id: teamId }),
+      supabase.from('safe_profiles').select('id, username').eq('team_id', teamId).order('username'),
+      supabase.from('public_challenges').select('id, title, category, points'),
+    ]).then(([solvesRes, rosterRes, chalRes]) => {
+      if (!alive) return;
+      const chal = new Map<string, { title: string; category: string; points: number }>();
+      (chalRes.data ?? []).forEach((c: any) => chal.set(c.id, c));
+      // earliest solve per challenge is the one the team scored
+      const first = new Map<string, { by: string; at: string }>();
+      ((solvesRes.data ?? []) as any[])
+        .slice()
+        .sort((a, b) => new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime())
+        .forEach(sv => { if (!first.has(sv.challenge_id)) first.set(sv.challenge_id, { by: sv.username ?? 'teammate', at: sv.submitted_at }); });
+      const byUser: Record<string, { solves: number; points: number }> = {};
+      const solves: Breakdown['solves'] = [];
+      first.forEach((v, cid) => {
+        const c = chal.get(cid);
+        const pts = c?.points ?? 0;
+        byUser[v.by] = byUser[v.by] ?? { solves: 0, points: 0 };
+        byUser[v.by].solves += 1; byUser[v.by].points += pts;
+        solves.push({ title: c?.title ?? 'Retired operation', category: c?.category ?? 'misc', points: pts, by: v.by, at: v.at });
+      });
+      solves.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+      const members = ((rosterRes.data ?? []) as { id: string; username: string }[])
+        .map(m => ({ ...m, solves: byUser[m.username]?.solves ?? 0, points: byUser[m.username]?.points ?? 0 }))
+        .sort((a, b) => b.points - a.points || b.solves - a.solves || a.username.localeCompare(b.username));
+      setBreakdown({ members, solves });
+      setBreakdownBusy(false);
+    });
+    return () => { alive = false; };
+  }, [breakdownOpen, teamId, teamSolves]);
   // The polling loop closes over the first render; the prop must not.
   const myTeamRef = useRef<string | null>(myTeamId);
   useEffect(() => {
@@ -880,8 +933,70 @@ export default function Scoreboard({ myTeamId = null }: ScoreboardProps) {
                 <Stat label="Score">{pts.toLocaleString()}</Stat>
                 <Stat label="Solves">{mine.team.solved_count}</Stat>
                 {gap && <Stat label={gap.label} tone={gap.tone}>{gap.value}</Stat>}
+                <button
+                  type="button"
+                  onClick={() => setBreakdownOpen(o => !o)}
+                  aria-expanded={breakdownOpen}
+                  aria-controls="team-breakdown"
+                  className="btn btn-secondary btn-sm self-center"
+                >
+                  <Users className="h-3.5 w-3.5" aria-hidden="true" />
+                  Team breakdown
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-[var(--duration-base)] ${breakdownOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+                </button>
               </div>
             </div>
+
+            {breakdownOpen && (
+              <div id="team-breakdown" className="surface mt-2 grid gap-0 overflow-hidden lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+                {/* Members */}
+                <div className="border-b border-border-subtle lg:border-b-0 lg:border-r">
+                  <div className="flex items-center justify-between border-b border-border-base bg-surface-rail px-4 py-2.5">
+                    <span className="label-micro">Members</span>
+                    <span className="font-mono text-small text-text-muted">{breakdown?.members.length ?? '…'}</span>
+                  </div>
+                  {breakdownBusy && !breakdown ? (
+                    <div className="p-4 space-y-2">{[0, 1, 2].map(i => <div key={i} className="skeleton skeleton-text w-full h-4" />)}</div>
+                  ) : (
+                    <ul className="divide-y divide-border-subtle">
+                      {(breakdown?.members ?? []).map(m => (
+                        <li key={m.id} className="flex items-center gap-3 px-4 py-2.5 text-small">
+                          <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-pill" style={{ backgroundColor: m.solves > 0 ? 'var(--color-status-solved)' : 'var(--color-border-strong)' }} />
+                          <span className="min-w-0 flex-1 truncate font-mono text-cyber-text">{m.username}</span>
+                          <span className="font-mono tabular-nums text-text-muted">{m.solves} {m.solves === 1 ? 'solve' : 'solves'}</span>
+                          <span className="w-16 text-right font-mono font-bold tabular-nums text-cyber-text">{m.points.toLocaleString()}</span>
+                        </li>
+                      ))}
+                      {breakdown && breakdown.members.length === 0 && <li className="px-4 py-3 text-small text-text-muted">No members found.</li>}
+                    </ul>
+                  )}
+                </div>
+                {/* Who took what */}
+                <div>
+                  <div className="flex items-center justify-between border-b border-border-base bg-surface-rail px-4 py-2.5">
+                    <span className="label-micro">Who took what</span>
+                    <span className="font-mono text-small text-text-muted">{breakdown?.solves.length ?? '…'}</span>
+                  </div>
+                  {breakdownBusy && !breakdown ? (
+                    <div className="p-4 space-y-2">{[0, 1, 2].map(i => <div key={i} className="skeleton skeleton-text w-full h-4" />)}</div>
+                  ) : (breakdown?.solves.length ?? 0) === 0 ? (
+                    <p className="px-4 py-6 text-small text-text-muted">No solves yet. The first flag your team lands shows up here with who took it.</p>
+                  ) : (
+                    <ul className="max-h-[22rem] divide-y divide-border-subtle overflow-y-auto custom-scrollbar">
+                      {breakdown!.solves.map((sv, i) => (
+                        <li key={i} className="flex items-center gap-3 px-4 py-2.5 text-small">
+                          <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-pill" style={{ backgroundColor: `var(--color-cat-${sv.category}, var(--color-cat-misc))` }} />
+                          <span className="min-w-0 flex-1 truncate text-cyber-text">{sv.title}</span>
+                          <span className="hidden sm:inline font-mono text-text-secondary">{sv.by}</span>
+                          <span className="font-mono tabular-nums text-cyber-neon">+{sv.points}</span>
+                          <span className="hidden md:inline font-mono text-text-muted">{formatClock(sv.at)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            )}
           </section>
         );
       })()}

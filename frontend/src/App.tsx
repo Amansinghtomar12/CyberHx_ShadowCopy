@@ -285,6 +285,7 @@ export default function App() {
   const [solvedIds, setSolvedIds] = useState<string[]>([]);          // current user's solves
   const [teamSolvedIds, setTeamSolvedIds] = useState<string[]>([]);  // any team member's solves
   const [solvedByMap, setSolvedByMap] = useState<Record<string, string>>({}); // challengeId → "username"
+  const [teamRoster, setTeamRoster] = useState<{ id: string; username: string }[]>([]); // everyone on my team
   const [firstBloodMap, setFirstBloodMap] = useState<Record<string, string>>({}); // challengeId → "username"
   const [solveCounts, setSolveCounts] = useState<Record<string, number>>({});    // challengeId → count
 
@@ -423,8 +424,11 @@ export default function App() {
       .single();
 
     if (profileData?.team_id) {
-      const { data: teamSubs } = await supabase
-        .rpc('get_team_solves', { p_team_id: profileData.team_id });
+      const [{ data: teamSubs }, { data: roster }] = await Promise.all([
+        supabase.rpc('get_team_solves', { p_team_id: profileData.team_id }),
+        supabase.from('safe_profiles').select('id, username').eq('team_id', profileData.team_id).order('username'),
+      ]);
+      setTeamRoster((roster ?? []) as { id: string; username: string }[]);
 
       const solvedChallIds: string[] = [];
       const solvedBy: Record<string, string> = {};
@@ -438,6 +442,8 @@ export default function App() {
 
       setTeamSolvedIds(solvedChallIds);
       setSolvedByMap(solvedBy);
+    } else {
+      setTeamRoster([]);
     }
 
     // 3 & 4. Solve counts + First blood — via secure RPC (no submitted_flag exposed)
@@ -890,6 +896,31 @@ export default function App() {
                     </div>
                   )}
 
+                  {/* Your team: who has taken what. Counts come from the same
+                      team-solve data the cards use, so they agree. */}
+                  {profile?.team_id && teamRoster.length > 0 && (
+                    <div className="surface p-4">
+                      <div className="flex items-baseline justify-between mb-3">
+                        <h3 className="label-micro">Your team</h3>
+                        <span className="font-mono text-small text-text-muted">{teamRoster.length}</span>
+                      </div>
+                      <ul className="space-y-1.5">
+                        {teamRoster.map(m => {
+                          const n = Object.values(solvedByMap).filter(u => u === m.username).length;
+                          const me = m.id === user?.id;
+                          return (
+                            <li key={m.id} className="flex items-center gap-2 text-small">
+                              <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-pill" style={{ backgroundColor: n > 0 ? 'var(--color-status-solved)' : 'var(--color-border-strong)' }} />
+                              <span className={`min-w-0 truncate font-mono ${me ? 'text-cyber-neon' : 'text-text-secondary'}`}>{m.username}</span>
+                              {me && <span className="label-micro !text-cyber-neon">you</span>}
+                              <span className="ml-auto font-mono tabular-nums text-text-muted">{n}</span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
+
                   {/* Event status in sidebar */}
                   {eventSettings && (
                     <div className="pt-6 border-t border-border-subtle">
@@ -1315,6 +1346,9 @@ export default function App() {
               }}
               userId={user?.id ?? ''}
               firstBlood={firstBloodMap[selectedChallenge.id]}
+              teammates={teamRoster.map(m => m.username)}
+              solvedBy={solvedByMap[selectedChallenge.id]}
+              me={profile?.username ?? undefined}
             />
           )}
         </AnimatePresence>
@@ -1616,6 +1650,12 @@ interface ChallengeModalProps {
   onSolve: (challengeId: string, fresh: boolean) => void;
   userId: string;
   firstBlood?: string;
+  /** Usernames on the viewer's team, so a teammate stands out among solvers. */
+  teammates?: string[];
+  /** Which teammate took this operation, when it is solved. */
+  solvedBy?: string;
+  /** The viewer's own handle. */
+  me?: string;
 }
 
 interface Solver {
@@ -1640,6 +1680,9 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
   onAttempt,
   onSolve,  userId,
   firstBlood,
+  teammates = [],
+  solvedBy,
+  me,
 }) => {
   const [activeTab, setActiveTab] = useState<'challenge' | 'solves'>('challenge');
   const [flagInput, setFlagInput] = useState('');
@@ -2042,6 +2085,11 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
                     </span>
                     <p className="text-label uppercase text-cyber-neon break-words">
                       {successMsg || 'Operation compromised ✓'}
+                      {!successMsg && solvedBy && (
+                        <span className="ml-2 font-mono normal-case tracking-normal text-text-secondary">
+                          by {solvedBy === me ? 'you' : solvedBy}
+                        </span>
+                      )}
                     </p>
                   </div>
                 ) : isLocked ? (
@@ -2150,6 +2198,9 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
                         {i === 0 && <Zap className="h-3 w-3 shrink-0 text-status-live" aria-hidden="true" />}
                         <span className={`truncate font-bold ${i === 0 ? 'text-status-live' : 'text-cyber-neon'}`}>{s.username}</span>
                         {i === 0 && <span className="badge badge-live hidden sm:inline-flex">First Blood</span>}
+                        {s.username === me
+                          ? <span className="badge badge-neon">You</span>
+                          : teammates.includes(s.username) && <span className="badge badge-solved">Teammate</span>}
                       </div>
                       <span className="shrink-0 font-mono text-small text-text-muted">{s.solved_at}</span>
                     </div>
