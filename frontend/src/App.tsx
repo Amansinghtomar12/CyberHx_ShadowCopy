@@ -924,9 +924,11 @@ export default function App() {
                   startTime={eventSettings?.start_time}
                   endTime={eventSettings?.end_time}
                   score={myScore}
-                  solved={solvedIds.length}
+                  /* In team mode the board is the team's: a teammate's solve
+                     is your solve. The fourth tile carries your own share. */
+                  solved={totalSolvedCount}
                   total={challenges.length}
-                  teamSolved={teamSolvedIds.length}
+                  mine={solvedIds.length}
                   hasTeam={!!profile?.team_id}
                 />
 

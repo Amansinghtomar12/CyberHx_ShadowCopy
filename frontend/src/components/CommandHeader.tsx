@@ -42,7 +42,8 @@ interface CommandHeaderProps {
   score: number;
   solved: number;
   total: number;
-  teamSolved: number;
+  /** Solves this player submitted personally, out of `solved`. */
+  mine: number;
   hasTeam: boolean;
 }
 
@@ -98,7 +99,7 @@ function Readout({
 
 export default function CommandHeader({
   status, eventName, startTime, endTime,
-  score, solved, total, teamSolved, hasTeam,
+  score, solved, total, mine, hasTeam,
 }: CommandHeaderProps) {
   const countdown = useCountdown(status === 'live' ? endTime : null);
   const pct = total > 0 ? Math.round((solved / total) * 100) : 0;
@@ -180,9 +181,9 @@ export default function CommandHeader({
           {pct}<span className="text-text-muted text-h3">%</span>
         </Readout>
 
-        <Readout icon={hasTeam ? Users : Radio} label={hasTeam ? 'Team solves' : 'Team'}>
+        <Readout icon={hasTeam ? Users : Radio} label={hasTeam ? 'Your solves' : 'Team'}>
           {hasTeam
-            ? <AnimatedNumber value={teamSolved} format={false} />
+            ? <><AnimatedNumber value={mine} format={false} /><span className="text-text-muted text-h3"> / {solved}</span></>
             : <span className="text-h3 text-diff-medium">None</span>}
         </Readout>
       </div>
