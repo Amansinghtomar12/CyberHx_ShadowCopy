@@ -3,10 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { supabase, DBChallenge } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import OwnerFlagVault from './OwnerFlagVault';
+import { exportScoreboardCsv } from '../../lib/scoreboardExport';
 import {
   Plus, Eye, EyeOff, Trash2, Edit3, Shield, Users, Flag, Activity, RotateCcw, KeyRound,
   X, AlertTriangle, Megaphone, Zap, Lightbulb, Link2, Save, Inbox, Lock,
-  Settings2, ListChecks, Hash, Send, CalendarClock, Radio, Paperclip, Upload, FileDown,
+  Settings2, ListChecks, Hash, Send, CalendarClock, Radio, Paperclip, Upload, FileDown, Download,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { resetEventScores } from '../../api/submitFlag';
@@ -1591,6 +1592,21 @@ function EventTab() {
   const [clearNotifs, setClearNotifs] = useState(true);
   const [confirmText, setConfirmText] = useState('');
   const [msg, setMsg] = useState('');
+  const [exporting, setExporting] = useState(false);
+  const { profile: viewer } = useAuth();
+
+  /** The final standings as a file, top 200 teams with rosters. */
+  const exportNow = async () => {
+    setExporting(true);
+    try {
+      const r = await exportScoreboardCsv(event?.name);
+      setMsg(`✅ Downloaded ${r.filename} — ${r.rows} teams.`);
+    } catch (e: any) {
+      setMsg('❌ Export failed: ' + (e?.message ?? String(e)));
+    }
+    setExporting(false);
+    setTimeout(() => setMsg(''), 8000);
+  };
 
   const loadEvent = () =>
     supabase.from('event_settings').select('*').order('id', { ascending: false }).limit(1).single()
@@ -1631,6 +1647,17 @@ function EventTab() {
     if (confirmText.trim() !== 'START NEW EVENT') return;
 
     setStarting(true);
+    // The results leave the building before anything is cleared. If the
+    // file cannot be produced, nothing is cleared.
+    let exported: { filename: string; rows: number };
+    try {
+      exported = await exportScoreboardCsv(event.name);
+    } catch (e: any) {
+      setStarting(false);
+      setMsg('❌ Scoreboard export failed, so the reset was NOT run: ' + (e?.message ?? String(e)));
+      setTimeout(() => setMsg(''), 10000);
+      return;
+    }
     const { data, error } = await supabase.rpc('admin_start_new_event', {
       p_name: newName.trim(),
       p_clear_challenges: clearChallenges,
@@ -1648,9 +1675,9 @@ function EventTab() {
     setNewName('');
     await loadEvent();
     setMsg(
-      `✅ New event ready — cleared ${data.submissions_cleared} submissions, ` +
-      `${data.challenges_cleared} challenges, ${data.teams_cleared} teams. ` +
-      `${data.users_kept} user accounts kept.`
+      `✅ Saved ${exported.filename} (${exported.rows} teams), then cleared ` +
+      `${data.submissions_cleared} submissions, ${data.challenges_cleared} challenges, ` +
+      `${data.teams_cleared} teams. ${data.users_kept} user accounts kept.`
     );
     setTimeout(() => setMsg(''), 12000);
   };
@@ -1947,8 +1974,19 @@ function EventTab() {
                 <RotateCcw className="w-4 h-4" />
                 {starting ? 'Clearing…' : 'Start New Event'}
               </button>
+              {viewer?.is_owner && (
+                <button
+                  type="button"
+                  onClick={exportNow}
+                  disabled={exporting || starting}
+                  className={`btn btn-secondary btn-md ${exporting ? 'is-loading' : ''}`}
+                >
+                  <Download className="w-4 h-4" />
+                  {exporting ? 'Exporting…' : 'Export scoreboard (CSV)'}
+                </button>
+              )}
               <span className="text-small text-text-muted">
-                Export the final scoreboard first — this cannot be undone.
+                The top 200 teams with rosters download automatically before anything is cleared. This cannot be undone.
               </span>
             </div>
           </div>
