@@ -823,6 +823,19 @@ function AdminDashboardInner() {
       alert('Delete failed: ' + (error?.message ?? data.error));
       return;
     }
+    // The rows cascade with the challenge; the objects do not. Sweep
+    // <id>/<random>/<file> so a deleted challenge leaves nothing behind.
+    // Best effort: an orphaned object costs storage, not correctness.
+    try {
+      const bucket = supabase.storage.from('challenge-files');
+      const { data: folders } = await bucket.list(id, { limit: 1000 });
+      const paths: string[] = [];
+      for (const f of folders ?? []) {
+        const { data: objs } = await bucket.list(`${id}/${f.name}`, { limit: 1000 });
+        (objs ?? []).forEach(o => { if (o.id) paths.push(`${id}/${f.name}/${o.name}`); });
+      }
+      if (paths.length) await bucket.remove(paths);
+    } catch { /* leave it; the challenge is gone either way */ }
     loadChallenges();
   };
 
