@@ -203,11 +203,15 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
       });
   }, [initial?.id]);
   const [hints, setHints] = useState<{ id?: string; text: string; cost: number }[]>([]);
-  const [links, setLinks] = useState<{ label: string; url: string }[]>(
-    (initial as any)?.connection_info
-      ? JSON.parse((initial as any).connection_info)
-      : []
-  );
+  const [links, setLinks] = useState<{ label: string; url: string }[]>(() => {
+    // Written by this form as JSON, but a value set any other way must not
+    // take the whole editor down with it.
+    try {
+      const raw = (initial as any)?.connection_info;
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch { return []; }
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
