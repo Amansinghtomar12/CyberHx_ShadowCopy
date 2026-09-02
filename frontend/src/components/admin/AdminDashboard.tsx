@@ -271,8 +271,10 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
     for (const file of pending) {
       const path = `${challengeId}/${randomSegment()}/${safeName(file.name)}`;
       const { error: upErr } = await supabase.storage.from(FILE_BUCKET)
-        .upload(path, file, { upsert: false, contentType: file.type || 'application/octet-stream', cacheControl: '31536000' });
+        .upload(path, file, { upsert: false, contentType: file.type || 'application/octet-stream', cacheControl: '3600' });
       if (upErr) return `${file.name}: ${upErr.message}`;
+      // One hour of CDN cache: enough to absorb the release-minute burst,
+      // short enough that a deleted attachment stops answering within the hour.
       // ?download makes browsers save the file instead of rendering a .txt
       // or .png inline, which is what a player expects from an attachment.
       const url = supabase.storage.from(FILE_BUCKET).getPublicUrl(path, { download: file.name }).data.publicUrl;
