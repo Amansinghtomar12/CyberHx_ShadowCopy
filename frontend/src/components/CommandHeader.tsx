@@ -168,7 +168,7 @@ export default function CommandHeader({
       {/* Readouts. Four numbers, no chrome, all derived from data the board
           already had. */}
       <div className="mt-6 grid grid-cols-2 gap-5 border-t border-border-subtle pt-5 sm:grid-cols-4">
-        <Readout icon={Zap} label="Your score" tone="var(--color-cyber-neon)">
+        <Readout icon={Zap} label={hasTeam ? 'Team score' : 'Your score'} tone="var(--color-cyber-neon)">
           <AnimatedNumber value={score} />
         </Readout>
 
