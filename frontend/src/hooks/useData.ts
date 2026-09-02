@@ -109,7 +109,7 @@ export function useChallenges() {
         id, title, category, difficulty, points,
         description, author, is_visible, tags, created_at,
         max_attempts, connection_info,
-        challenge_files (id, name, url),
+        challenge_files (id, name, url, size_bytes),
         hints (id, cost)
       `)
       .eq('is_visible', true)

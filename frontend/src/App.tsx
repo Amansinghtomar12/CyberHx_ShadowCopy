@@ -83,7 +83,7 @@ function dbToChallenge(c: DBChallenge, solveCount = 0): Challenge {
     solvedCount: solveCount,
     author: c.author,
     flag: '',
-    files: c.files?.map(f => ({ name: f.name, url: f.url })) ?? [],
+    files: c.files?.map(f => ({ name: f.name, url: f.url, size: f.size_bytes })) ?? [],
     hints: c.hints?.map(h => ({ id: h.id, cost: h.cost, text: '' })) ?? [],
     tags: c.tags,
     connection_info: (c as any).connection_info ?? null,
@@ -1975,6 +1975,11 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
                         >
                           <Download className="w-4 h-4 shrink-0" />
                           <span className="truncate">{file.name}</span>
+                          {file.size ? (
+                            <span className="ml-auto font-mono text-small text-text-muted tabular-nums normal-case tracking-normal">
+                              {(file.size / 1048576).toFixed(file.size >= 10485760 ? 0 : 1)} MB
+                            </span>
+                          ) : null}
                         </a>
                       ))}
                       {links.map((link, i) => (

@@ -55,7 +55,7 @@ export interface DBChallenge {
   tags: string[];
   created_at: string;
   connection_info?: string;
-  files?: { id: string; name: string; url: string }[];
+  files?: { id: string; name: string; url: string; size_bytes?: number }[];
   hints?: { id: string; cost: number }[];
 }
 

@@ -224,27 +224,33 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
    * failed delete can never leave a dangling button on the player's panel.
    */
   const FILE_BUCKET = 'challenge-files';
-  const FILE_MAX_BYTES = 50 * 1024 * 1024;
-  const [attachments, setAttachments] = useState<{ id: string; name: string; url: string }[]>([]);
+  const FILE_MAX_BYTES = 50 * 1024 * 1024;          // per file: the plan's ceiling
+  const BUDGET_BYTES = 200 * 1024 * 1024;           // per challenge: enforced by trigger too
+  const [attachments, setAttachments] = useState<{ id: string; name: string; url: string; size_bytes: number }[]>([]);
   const [pending, setPending] = useState<File[]>([]);
   const [fileError, setFileError] = useState('');
   const fileInputId = `chal-files-${initial?.id ?? 'new'}`;
 
   useEffect(() => {
     if (!initial?.id) return;
-    supabase.from('challenge_files').select('id, name, url').eq('challenge_id', initial.id).order('created_at')
-      .then(({ data }) => setAttachments((data ?? []) as { id: string; name: string; url: string }[]));
+    supabase.from('challenge_files').select('id, name, url, size_bytes').eq('challenge_id', initial.id).order('created_at')
+      .then(({ data }) => setAttachments((data ?? []) as { id: string; name: string; url: string; size_bytes: number }[]));
   }, [initial?.id]);
 
+  const mb = (n: number) => `${(n / 1048576).toFixed(n >= 10485760 ? 0 : 1)} MB`;
+  const usedBytes = attachments.reduce((a, f) => a + (f.size_bytes || 0), 0) + pending.reduce((a, f) => a + f.size, 0);
   const queueFiles = (list: FileList | null) => {
     if (!list) return;
-    const next: File[] = []; const rejected: string[] = [];
+    const next: File[] = []; const problems: string[] = [];
+    let running = usedBytes;
     Array.from(list).forEach(f => {
-      if (f.size > FILE_MAX_BYTES) rejected.push(`${f.name} (${(f.size / 1048576).toFixed(1)} MB)`);
-      else if (!pending.some(p => p.name === f.name && p.size === f.size)) next.push(f);
+      if (f.size > FILE_MAX_BYTES) { problems.push(`${f.name} is ${mb(f.size)} — the per-file limit is 50 MB`); return; }
+      if (pending.some(p => p.name === f.name && p.size === f.size)) return;
+      if (running + f.size > BUDGET_BYTES) { problems.push(`${f.name} would take this challenge past its 200 MB budget (${mb(running)} used)`); return; }
+      running += f.size; next.push(f);
     });
     setPending(prev => [...prev, ...next]);
-    setFileError(rejected.length ? `Over the 50 MB limit: ${rejected.join(', ')}. Host large images elsewhere and add a resource link.` : '');
+    setFileError(problems.length ? `Not added: ${problems.join('; ')}. Larger material belongs on an external host — add it as a resource link.` : '');
   };
   const removePending = (i: number) => setPending(prev => prev.filter((_, idx) => idx !== i));
 
@@ -278,7 +284,7 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
       // ?download makes browsers save the file instead of rendering a .txt
       // or .png inline, which is what a player expects from an attachment.
       const url = supabase.storage.from(FILE_BUCKET).getPublicUrl(path, { download: file.name }).data.publicUrl;
-      const { error: rowErr } = await supabase.from('challenge_files').insert({ challenge_id: challengeId, name: file.name, url });
+      const { error: rowErr } = await supabase.from('challenge_files').insert({ challenge_id: challengeId, name: file.name, url, size_bytes: file.size });
       if (rowErr) {
         await supabase.storage.from(FILE_BUCKET).remove([path]);
         return `${file.name}: ${rowErr.message}`;
@@ -381,8 +387,11 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
     if (challengeId && pending.length > 0) {
       const failed = await uploadPending(challengeId);
       if (failed) {
+        // The challenge is saved; keep the editor open with the reason in
+        // view, so the file can be retried rather than silently lost.
         setSaving(false);
-        alert('Challenge saved, but an attachment failed: ' + failed);
+        setFileError(`Challenge saved, but an attachment failed — ${failed}. Fix and press Save again.`);
+        setError('One attachment did not upload. See Attachments below.');
         return;
       }
     }
@@ -573,7 +582,7 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
         <FormSection
           icon={<Paperclip className="w-4 h-4" />}
           title="Attachments"
-          description="Files players download from the challenge page — pcaps, binaries, images, archives. Up to 50 MB each."
+          description={`Files players download from the challenge page — pcaps, binaries, images, archives. Up to 50 MB each, 200 MB per challenge (${mb(usedBytes)} used).`}
           action={
             <>
               <input
@@ -599,6 +608,7 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
                 <li key={file.id} className="surface-inset flex items-center gap-3 px-3 py-2.5">
                   <FileDown aria-hidden className="w-4 h-4 shrink-0 text-cyber-neon" />
                   <a href={file.url} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate font-mono text-small text-cyber-text hover:text-cyber-neon">{file.name}</a>
+                  <span className="font-mono text-small text-text-muted tabular-nums">{file.size_bytes ? mb(file.size_bytes) : ''}</span>
                   <span className="badge badge-solved">Uploaded</span>
                   <button type="button" onClick={() => removeExisting(file)} aria-label={`Remove ${file.name}`} title="Remove attachment"
                     className="btn btn-ghost btn-sm btn-icon text-diff-hard hover:text-danger-fg">

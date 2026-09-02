@@ -20,7 +20,7 @@ export interface Challenge {
   solvedCount: number;
   author: string;
   flag: string;
-  files?: { name: string; url: string }[];
+  files?: { name: string; url: string; size?: number }[];
   hints?: { id: string; cost: number; text: string }[];
   tags: string[];
   connection_info?: string | null;
