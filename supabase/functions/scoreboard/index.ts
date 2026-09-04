@@ -21,12 +21,30 @@ function getCorsHeaders(origin: string | null) {
   };
 }
 
+// The feed is public and unauthenticated, so it is the one endpoint a
+// stranger can hammer. Standings only change on a solve, and CTFtime polls
+// every few minutes; a 30-second cache means a flood costs invocations,
+// which are cheap, rather than database time, which is shared with players.
+const CACHE_MS = 30_000;
+let cached: { body: string; at: number } | null = null;
+
 serve(async (req) => {
   const origin = req.headers.get('Origin');
   const cors = getCorsHeaders(origin);
 
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: cors });
+  }
+  if (req.method !== 'GET') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405, headers: { ...cors, 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (cached && Date.now() - cached.at < CACHE_MS) {
+    return new Response(cached.body, {
+      headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=30', 'X-Cache': 'HIT' },
+    });
   }
 
   try {
@@ -49,8 +67,10 @@ serve(async (req) => {
       score: team.total_points ?? 0,
     }));
 
-    return new Response(JSON.stringify({ standings }), {
-      headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=30' },
+    const body = JSON.stringify({ standings });
+    cached = { body, at: Date.now() };
+    return new Response(body, {
+      headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=30', 'X-Cache': 'MISS' },
     });
   } catch (err) {
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
