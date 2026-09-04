@@ -849,10 +849,10 @@ export default function App() {
                         <button
                           onClick={() => setSelectedDiff('all')}
                           aria-current={selectedDiff === 'all' ? 'true' : undefined}
-                          className={`group relative flex w-full items-center gap-3 rounded-control px-3 py-2 text-left transition-colors duration-[var(--duration-base)] ${selectedDiff === 'all' ? 'bg-surface-raised text-cyber-neon' : 'text-text-secondary hover:bg-surface-card hover:text-cyber-text'}`}
+                          className={`rail-item group relative flex w-full items-center gap-3 rounded-control px-3 py-2 text-left ${selectedDiff === 'all' ? 'is-active bg-surface-raised text-cyber-neon' : 'text-text-secondary'}`}
+                          style={{ ['--rail-hue' as string]: 'var(--color-neon)' }}
                         >
-                          {selectedDiff === 'all' && <span aria-hidden="true" className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-cyber-neon" />}
-                          <span aria-hidden="true" className={`w-1.5 h-1.5 rounded-pill ${selectedDiff === 'all' ? 'bg-cyber-neon' : 'bg-border-strong group-hover:bg-text-muted'}`} />
+                          <span aria-hidden="true" className="rail-dot w-1.5 h-1.5 rounded-pill" />
                           <span className="text-small font-medium">All Operations</span>
                           <span className="ml-auto font-mono text-small text-text-muted">{filteredChallenges.length}</span>
                         </button>
@@ -862,14 +862,10 @@ export default function App() {
                           <button
                             onClick={() => setSelectedDiff(diff.id)}
                             aria-current={selectedDiff === diff.id ? 'true' : undefined}
-                            className={`group relative flex w-full items-center gap-3 rounded-control px-3 py-2 text-left transition-colors duration-[var(--duration-base)] ${selectedDiff === diff.id ? 'bg-surface-raised text-cyber-neon' : 'text-text-secondary hover:bg-surface-card hover:text-cyber-text'}`}
+                            className={`rail-item group relative flex w-full items-center gap-3 rounded-control px-3 py-2 text-left ${selectedDiff === diff.id ? 'is-active bg-surface-raised text-cyber-neon' : 'text-text-secondary'}`}
+                            style={{ ['--rail-hue' as string]: `var(--color-diff-${diff.id.toLowerCase()})` }}
                           >
-                            {selectedDiff === diff.id && <span aria-hidden="true" className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-cyber-neon" />}
-                            <span
-                              aria-hidden="true"
-                              className="w-1.5 h-1.5 rounded-pill"
-                              style={{ backgroundColor: `var(--color-diff-${diff.id.toLowerCase()})` }}
-                            />
+                            <span aria-hidden="true" className="rail-dot w-1.5 h-1.5 rounded-pill" />
                             <span className="text-small font-medium">{diff.label} Operations</span>
                             <span className="ml-auto font-mono text-small text-text-muted">{challengesByDiff[diff.id]?.length ?? 0}</span>
                           </button>

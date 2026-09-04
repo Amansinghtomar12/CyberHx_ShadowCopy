@@ -644,6 +644,56 @@
     animation: cyber-pulse 1.8s var(--ease-standard) infinite;
   }
 
+  /* ══ RAIL (difficulty filter) ══════════════════════════════════════════
+     Hover is a short slide toward the content with the item's own hue lit:
+     the dot swells and glows, the edge grows in from the middle. Same curve
+     and duration as the rest of the platform's hover language. Transform,
+     opacity and shadow only; nothing here relayouts the rail. */
+  .rail-item {
+    --rail-hue: var(--color-neon);
+    transition:
+      transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      background-color 180ms var(--ease-standard),
+      color 180ms var(--ease-standard);
+  }
+  .rail-item::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.5rem;
+    bottom: 0.5rem;
+    width: 2px;
+    border-radius: 999px;
+    background: var(--rail-hue);
+    box-shadow: 0 0 10px var(--rail-hue);
+    transform: scaleY(0);
+    transform-origin: center;
+    transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .rail-item:hover {
+    transform: translateX(4px);
+    background-color: var(--color-surface-card);
+    color: var(--color-text-primary);
+  }
+  .rail-item:hover::before,
+  .rail-item.is-active::before { transform: scaleY(1); }
+  .rail-dot {
+    background: var(--rail-hue);
+    transition:
+      transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      box-shadow 220ms var(--ease-standard),
+      opacity 180ms var(--ease-standard);
+    opacity: 0.75;
+  }
+  .rail-item:hover .rail-dot,
+  .rail-item.is-active .rail-dot {
+    opacity: 1;
+    transform: scale(1.6);
+    box-shadow: 0 0 10px var(--rail-hue), 0 0 2px var(--rail-hue);
+  }
+  .rail-item.is-active { color: var(--rail-hue); }
+  .rail-item:active { transform: translateX(4px) scale(0.99); }
+
   /* ══ BOARD TOOLS ═══════════════════════════════════════════════════════ */
   .board-kbd {
     position: absolute;
@@ -1898,6 +1948,8 @@
   .deny-mark { animation: none !important; opacity: var(--deny-fade, 0.9); }
   .deny-stamp { animation: none !important; opacity: 0; }
   .badge-blood > svg { animation: none !important; }
+  .rail-item, .rail-item:hover, .rail-item:active { transform: none !important; }
+  .rail-item::before, .rail-dot { transition: none !important; }
   .stagger > * { animation: none !important; }
   .standings-row[data-moved]::after { animation: none !important; opacity: 1; }
   .access-ring { display: none; }
