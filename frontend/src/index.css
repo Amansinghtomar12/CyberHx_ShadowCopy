@@ -369,6 +369,7 @@
   .btn-ghost:hover:not(:disabled) {
     background-color: rgba(255, 255, 255, 0.05);
     color: var(--color-text-primary);
+    transform: translateY(-1px);
   }
   .btn-ghost:active:not(:disabled) {
     transform: scale(0.985);
@@ -750,6 +751,7 @@
     color: var(--color-text-primary);
     border-color: var(--color-border-strong);
     background-color: var(--color-surface-raised);
+    transform: translateY(-2px);
   }
   .chip:active { transform: scale(0.97); }
   .chip:focus-visible {
@@ -780,20 +782,13 @@
     text-transform: uppercase;
     cursor: pointer;
     transition:
+      transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
       color var(--duration-base) var(--ease-standard),
       background-color var(--duration-base) var(--ease-standard);
   }
-  .tab:hover { color: var(--color-text-primary); background-color: rgba(255, 255, 255, 0.04); }
-  .tab:focus-visible {
-    outline: var(--focus-ring-width) solid var(--focus-ring-color);
-    outline-offset: var(--focus-ring-offset);
-  }
-  .tab.is-active {
-    color: var(--color-text-primary);
-    background-color: var(--color-surface-card);
-    box-shadow: var(--shadow-e1);
-  }
-  .tab.is-active::after {
+  /* The underline is always there, scaled to nothing; hover grows it in
+     from the middle at half strength, the active tab holds it at full. */
+  .tab::after {
     content: "";
     position: absolute;
     left: 0.875rem;
@@ -803,7 +798,26 @@
     border-radius: 2px;
     background-color: var(--color-neon);
     box-shadow: 0 0 12px var(--color-neon-glow);
+    transform: scaleX(0);
+    transform-origin: center;
+    opacity: 0.55;
+    transition:
+      transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      opacity 180ms var(--ease-standard);
   }
+  .tab:hover { color: var(--color-text-primary); background-color: rgba(255, 255, 255, 0.04); transform: translateY(-1px); }
+  .tab:hover::after { transform: scaleX(1); }
+  .tab:active { transform: translateY(0) scale(0.985); }
+  .tab:focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring-color);
+    outline-offset: var(--focus-ring-offset);
+  }
+  .tab.is-active {
+    color: var(--color-text-primary);
+    background-color: var(--color-surface-card);
+    box-shadow: var(--shadow-e1);
+  }
+  .tab.is-active::after { transform: scaleX(1); opacity: 1; }
 
   /* legacy nav underline — still used in App.tsx, refined */
   .nav-link-active {
@@ -1949,6 +1963,8 @@
   .deny-stamp { animation: none !important; opacity: 0; }
   .badge-blood > svg { animation: none !important; }
   .rail-item, .rail-item:hover, .rail-item:active { transform: none !important; }
+  .tab:hover, .tab:active, .btn-ghost:hover, .chip:hover { transform: none !important; }
+  .tab::after { transition: none !important; }
   .rail-item::before, .rail-dot { transition: none !important; }
   .stagger > * { animation: none !important; }
   .standings-row[data-moved]::after { animation: none !important; opacity: 1; }
