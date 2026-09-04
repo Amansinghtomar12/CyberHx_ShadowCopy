@@ -220,7 +220,9 @@ function NotificationBell({ userId }: { userId: string }) {
 
   return (
     <div className="relative">
-      <button onClick={() => { setOpen(o => !o); if (!open) markAllRead(); }}
+      {/* Opening the panel refetches, so a broadcast deleted by an admin is
+          gone the moment anyone looks, not two minutes later on the poll. */}
+      <button onClick={() => { setOpen(o => !o); if (!open) { markAllRead(); void fetchNotifs(); } }}
         aria-label="Notifications"
         aria-expanded={open}
         className="btn btn-ghost btn-sm relative">
