@@ -420,8 +420,11 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
 
                 {/* Massive brand wordmark */}
                 <div className="mt-8 xl:mt-10">
-                  <div className="inline-flex items-center gap-2 mb-3">
-                    <span className="h-px w-8 bg-cyber-neon" aria-hidden="true" />
+                  <div className="inline-flex items-center gap-2.5 mb-3">
+                    {/* The same mark the header and footer carry, not a stray rule. */}
+                    <span aria-hidden="true" className="flex h-5 w-5 items-center justify-center rounded-inset border border-border-neon bg-neon-wash shadow-neon">
+                      <Flag className="h-2.5 w-2.5 text-cyber-neon" />
+                    </span>
                     <span className="label-micro !text-cyber-neon">CTF Platform</span>
                   </div>
                   <h1
