@@ -4,6 +4,10 @@ import { serve } from 'https://deno.land/std@0.208.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const ALLOWED_ORIGINS = (Deno.env.get('ALLOWED_ORIGINS') ?? '').split(',').map(s => s.trim()).filter(Boolean);
+// When set, only callers presenting this key are answered. The proxy on
+// ctf.cyberhx.com sends it, so the public route is the cached one and a
+// flood aimed straight at this function is refused before any query.
+const FEED_KEY = Deno.env.get('FEED_KEY') ?? '';
 
 function getCorsHeaders(origin: string | null) {
   if (ALLOWED_ORIGINS.length === 0) {
@@ -31,6 +35,11 @@ serve(async (req) => {
   if (req.method !== 'GET') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405, headers: { ...cors, 'Content-Type': 'application/json' },
+    });
+  }
+  if (FEED_KEY && req.headers.get('x-feed-key') !== FEED_KEY) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401, headers: { ...cors, 'Content-Type': 'application/json' },
     });
   }
 
