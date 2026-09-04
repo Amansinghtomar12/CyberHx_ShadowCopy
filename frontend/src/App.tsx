@@ -1188,7 +1188,7 @@ export default function App() {
               </main>
             </>
           ) : currentView === 'scoreboard' ? (
-            <Scoreboard myTeamId={profile?.team_id ?? null} />
+            <Scoreboard myTeamId={profile?.team_id ?? null} eventStatus={eventStatus} startTime={eventSettings?.start_time ?? null} />
           ) : currentView === 'teams' ? (
             <TeamsList />
           ) : currentView === 'users' ? (

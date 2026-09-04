@@ -7,7 +7,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import AnimatedNumber from './components/AnimatedNumber';
 import {
   Trophy, Crown, Medal, Activity, Radio, Flag,
-  ArrowUp, ArrowDown, Minus, TrendingUp, Lock, EyeOff, RefreshCw, ChevronDown, Users
+  ArrowUp, ArrowDown, Minus, TrendingUp, Lock, EyeOff, RefreshCw, ChevronDown, Users, Clock
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 
@@ -65,10 +65,17 @@ const formatClock = (iso: string | null) => {
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 };
+/** Date and time, for an instant that is not today. */
+const formatWhen = (iso: string | null | undefined) => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleString('en-US', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+};
 
 /** Rank ornament: crown / medals for the podium, plain mono index below. */
-function RankMark({ rank }: { rank: number }) {
-  if (rank > 3) {
+function RankMark({ rank, plain = false }: { rank: number; plain?: boolean }) {
+  if (rank > 3 || plain) {
     return (
       <span className="font-mono text-small text-text-muted tabular-nums">
         {String(rank).padStart(2, '0')}
@@ -231,7 +238,7 @@ function PodiumCard({
  * Standings rows. Owns nothing but presentation: it remembers the previous
  * ordering of the same `teams` array so it can draw a movement arrow.
  */
-function StandingsRows({ teams, reduced, meId }: { teams: TeamScore[]; reduced: boolean; meId: string | null }) {
+function StandingsRows({ teams, reduced, meId, scored }: { teams: TeamScore[]; reduced: boolean; meId: string | null; scored: boolean }) {
   const prevRanks = useRef<Record<string, number>>({});
   const [deltas, setDeltas] = useState<Record<string, number>>({});
 
@@ -276,7 +283,7 @@ function StandingsRows({ teams, reduced, meId }: { teams: TeamScore[]; reduced: 
           >
             <td className="px-5 py-4 align-middle">
               <div className="flex items-center gap-2">
-                <RankMark rank={rank} />
+                <RankMark rank={rank} plain={!scored} />
                 <RankDelta delta={deltas[team.id]} />
               </div>
             </td>
@@ -346,9 +353,15 @@ function EmptyState({
 
 /* ─────────────────────────────── page ─────────────────────────────── */
 
+type EventStatus = 'waiting' | 'live' | 'ended' | 'inactive';
+
 interface ScoreboardProps {
   /** The viewer's team, so the board can answer "where am I?" first. */
   myTeamId?: string | null;
+  /** Where the event is in its life; before kickoff the board is a roster, not a race. */
+  eventStatus?: EventStatus;
+  /** When the event opens, shown while waiting. */
+  startTime?: string | null;
 }
 
 /** One number in the "you" strip. */
@@ -363,7 +376,7 @@ function Stat({ label, tone, children }: { label: string; tone?: string; childre
   );
 }
 
-export default function Scoreboard({ myTeamId = null }: ScoreboardProps) {
+export default function Scoreboard({ myTeamId = null, eventStatus = 'live', startTime = null }: ScoreboardProps) {
   const [teams, setTeams] = useState<TeamScore[]>([]);
   /**
    * The viewer's own row and place. The standings only carry the top ten, so
@@ -684,6 +697,12 @@ export default function Scoreboard({ myTeamId = null }: ScoreboardProps) {
   const reduced = !!useReducedMotion();
   const podium = teams.slice(0, 3);
   const leaderPoints = teams[0]?.total_points ?? 0;
+  const waiting = eventStatus === 'waiting';
+  const inactive = eventStatus === 'inactive';
+  const opensAt = formatWhen(startTime);
+  // A podium with nobody on it is not a podium. Until a team scores, the
+  // top three are just the first three names in the roster.
+  const podiumReady = leaderPoints > 0;
 
   return (
     <div className="flex-1 w-full min-w-0 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
@@ -692,7 +711,7 @@ export default function Scoreboard({ myTeamId = null }: ScoreboardProps) {
         <div className="min-w-0">
           <p className="label-micro flex items-center gap-1.5 mb-2">
             <Radio className="w-3 h-3 text-cyber-neon" aria-hidden="true" />
-            Live telemetry
+            {waiting ? 'Pre-event' : inactive ? 'Standby' : 'Live telemetry'}
           </p>
           <h2 className="text-h1 text-cyber-text">Scoreboard</h2>
           <div
@@ -711,6 +730,12 @@ export default function Scoreboard({ myTeamId = null }: ScoreboardProps) {
             <span className="badge badge-medium inline-flex items-center gap-1.5">
               <Lock className="w-3 h-3" aria-hidden="true" /> {ended ? 'Final' : 'Frozen'}
             </span>
+          ) : waiting ? (
+            <span className="badge badge-medium inline-flex items-center gap-1.5">
+              <Clock className="w-3 h-3" aria-hidden="true" /> Starts soon
+            </span>
+          ) : inactive ? (
+            <span className="badge badge-locked">Inactive</span>
           ) : (
             <span className="badge badge-live">Live</span>
           )}
@@ -726,7 +751,11 @@ export default function Scoreboard({ myTeamId = null }: ScoreboardProps) {
                 ? ended
                   ? `Final standings as of ${freezeAt ? formatClock(freezeAt) : 'the close'}`
                   : `Frozen${freezeAt ? ` at ${formatClock(freezeAt)}` : ''} — final standings hidden until the reveal`
-                : <>Updated <RelativeTime at={lastRefresh} /></>}
+                : waiting
+                  ? (opensAt ? `Opens ${opensAt}` : 'Opens when the organisers start the event')
+                  : inactive
+                    ? 'No event running'
+                    : <>Updated <RelativeTime at={lastRefresh} /></>}
           </span>
           {!hidden && (
             <button
@@ -781,6 +810,18 @@ export default function Scoreboard({ myTeamId = null }: ScoreboardProps) {
             </div>
           ))}
         </div>
+      ) : podium.length > 0 && !podiumReady ? (
+        <section aria-label="Podium" className="surface mb-8 sm:mb-section">
+          <EmptyState
+            icon={Trophy}
+            title={waiting ? 'Podium opens at kickoff' : 'No flags captured yet'}
+            hint={
+              waiting
+                ? `${teams.length} ${teams.length === 1 ? 'team is' : 'teams are'} registered${opensAt ? `. Doors open ${opensAt}` : ''}. The first team to land a flag takes the crown.`
+                : 'Every team is on zero. First blood decides who stands here.'
+            }
+          />
+        </section>
       ) : podium.length > 0 ? (
         <section aria-label="Top three teams" className="mb-8 sm:mb-section">
           <h3 className="label-micro mb-3 flex items-center gap-1.5">
@@ -829,8 +870,8 @@ export default function Scoreboard({ myTeamId = null }: ScoreboardProps) {
               <div className="h-full flex items-center justify-center">
                 <EmptyState
                   icon={Activity}
-                  title="Awaiting the first solve"
-                  hint="The progression curve starts drawing as soon as a team lands a flag."
+                  title={waiting ? 'Curves start at kickoff' : 'Awaiting the first solve'}
+                  hint={waiting && opensAt ? `Doors open ${opensAt}. The progression curve draws from the first flag.` : 'The progression curve starts drawing as soon as a team lands a flag.'}
                 />
               </div>
             ) : (
@@ -915,7 +956,8 @@ export default function Scoreboard({ myTeamId = null }: ScoreboardProps) {
         const above = r > 1 && r <= teams.length ? teams[r - 2] : null;
         const tenth = teams[9] ?? teams[teams.length - 1];
         let gap: { label: string; value: string; tone?: string } | null = null;
-        if (r === 1 && teams[1]) gap = { label: 'Lead', value: `+${Math.max(0, pts - Number(teams[1].total_points)).toLocaleString()}`, tone: 'var(--color-neon)' };
+        if (!podiumReady) gap = null;
+        else if (r === 1 && teams[1]) gap = { label: 'Lead', value: `+${Math.max(0, pts - Number(teams[1].total_points)).toLocaleString()}`, tone: 'var(--color-neon)' };
         else if (above) gap = { label: `Behind #${r - 1}`, value: `${(Number(above.total_points) - pts).toLocaleString()} pts` };
         else if (r > teams.length && tenth) gap = { label: `To #${teams.length}`, value: `${Math.max(0, Number(tenth.total_points) - pts + 1).toLocaleString()} pts` };
         return (
@@ -929,7 +971,7 @@ export default function Scoreboard({ myTeamId = null }: ScoreboardProps) {
                 )}
               </div>
               <div className="ml-auto flex flex-wrap items-end gap-x-6 gap-y-2">
-                <Stat label="Place" tone={r <= 3 ? 'var(--color-neon)' : undefined}>#{r}</Stat>
+                <Stat label="Place" tone={podiumReady && r <= 3 ? 'var(--color-neon)' : undefined}>{podiumReady ? `#${r}` : '—'}</Stat>
                 <Stat label="Score">{pts.toLocaleString()}</Stat>
                 <Stat label="Solves">{mine.team.solved_count}</Stat>
                 {gap && <Stat label={gap.label} tone={gap.tone}>{gap.value}</Stat>}
@@ -1049,7 +1091,7 @@ export default function Scoreboard({ myTeamId = null }: ScoreboardProps) {
                     </td>
                   </tr>
                 ) : (
-                  <StandingsRows teams={teams} reduced={reduced} meId={myTeamId} />
+                  <StandingsRows teams={teams} reduced={reduced} meId={myTeamId} scored={podiumReady} />
                 )}
               </tbody>
             </table>
