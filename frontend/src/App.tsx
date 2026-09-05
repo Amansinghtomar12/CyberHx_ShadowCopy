@@ -1899,14 +1899,18 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
           anywhere without a card (or after a scroll that moved it), `origin` is
           null and this degrades to the plain centre scale it always was. */}
       <motion.div
+        style={{ transformPerspective: 1200 }}
+        // A few degrees of pitch on arrival: the panel docks out of the depth
+        // the environment already has, in the same language as a view change.
         initial={reduce ? false : {
           scale: 0.9,
           opacity: 0,
+          rotateX: 4,
           x: origin ? origin.x * 0.28 : 0,
           y: origin ? origin.y * 0.28 : 10,
         }}
-        animate={{ scale: 1, opacity: 1, x: 0, y: 0 }}
-        exit={reduce ? undefined : { scale: 0.97, opacity: 0, y: 8 }}
+        animate={{ scale: 1, opacity: 1, x: 0, y: 0, rotateX: 0 }}
+        exit={reduce ? undefined : { scale: 0.97, opacity: 0, y: 8, rotateX: -2 }}
         transition={{ duration: reduce ? 0.2 : 0.42, ease: [0.22, 1, 0.36, 1] }}
         role="dialog"
         aria-modal="true"

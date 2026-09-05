@@ -279,6 +279,19 @@ The ambient root sits at `z-index: 0`; anything that must be readable goes insid
 `.page-shell` (or any `relative z-10` wrapper). Use `intensity="normal"` on the auth page
 and other low-density screens; keep `subtle` on challenge/scoreboard views.
 
+### 5.1 The deep field (WebGL tiers)
+
+On the `high` and `medium` tiers the canvas is `environment/lattice.ts`: the node lattice
+plus a far star field, a noise nebula along a galactic band, a planetary limb below the
+frame, a slow camera bank, a scroll-driven pitch, and a warp burst on navigation. Moods
+(`environment/mood.ts`) set presence, drift, traffic and `horizon` per view; `triggerWarp()`
+is fired by `AnimatedView` on every view change. Everything is uniform-driven shader work.
+
+The player's dial is `environment/fx.ts` (`cyberhx.fx` in localStorage): `cinematic` (default),
+`calm` (no warp, no bank, fewer stars) or `off` (static tier). `PerformanceManager` reads it,
+so every consumer of `getCapability()` agrees. Surface it with `<FxToggle />`. Never add an
+effect that bypasses this dial or `prefers-reduced-motion`.
+
 ---
 
 ## 6. Recipe: restyle a page with this
