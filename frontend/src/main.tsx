@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react';
 import { useAuth } from './hooks/useAuth';
 import AuthPage from './components/AuthPage';
 import HoldScreen from './components/HoldScreen';
-import LostSector from './components/LostSector';
 import AmbientBackground from './components/AmbientBackground';
 import { captureInvite } from './lib/invite';
 import { subscribeUplink, uplinkState } from './lib/uplink';
@@ -18,18 +17,6 @@ function Root() {
   const { user, loading } = useAuth();
   const [uplink, setUplink] = useState(uplinkState);
   useEffect(() => subscribeUplink(setUplink), []);
-  // The platform has one route. Anything else is a sector that does not
-  // exist, answered in-world rather than by the host's plain 404.
-  const [lost, setLost] = useState(() => window.location.pathname !== '/');
-
-  if (lost) {
-    return (
-      <LostSector
-        path={window.location.pathname}
-        onReturn={() => { window.history.replaceState(null, '', '/'); setLost(false); }}
-      />
-    );
-  }
 
   // Backend unreachable: hold, with the environment alive, whoever you are.
   if (uplink.down) {
