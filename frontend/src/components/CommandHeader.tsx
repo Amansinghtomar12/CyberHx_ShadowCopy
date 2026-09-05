@@ -45,6 +45,8 @@ interface CommandHeaderProps {
   /** Solves this player submitted personally, out of `solved`. */
   mine: number;
   hasTeam: boolean;
+  /** Organiser pause. Players never see this header while paused; admins do. */
+  paused?: boolean;
 }
 
 /** Splits a duration into padded h/m/s. Returns null once it has run out. */
@@ -99,13 +101,14 @@ function Readout({
 
 export default function CommandHeader({
   status, eventName, startTime, endTime,
-  score, solved, total, mine, hasTeam,
+  score, solved, total, mine, hasTeam, paused = false,
 }: CommandHeaderProps) {
-  const countdown = useCountdown(status === 'live' ? endTime : null);
+  const countdown = useCountdown(status === 'live' && !paused ? endTime : null);
   const pct = total > 0 ? Math.round((solved / total) * 100) : 0;
 
   const statusTone =
-    status === 'live' ? 'var(--color-neon)'
+    paused ? 'var(--color-diff-medium)'
+      : status === 'live' ? 'var(--color-neon)'
       : status === 'waiting' ? 'var(--color-diff-medium)'
       : status === 'ended' ? 'var(--color-diff-hard)'
       : 'var(--color-text-muted)';
@@ -122,7 +125,8 @@ export default function CommandHeader({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2.5">
-            {status === 'live' && <span className="badge badge-live">Live</span>}
+            {paused && <span className="badge badge-medium">Paused</span>}
+            {status === 'live' && !paused && <span className="badge badge-live">Live</span>}
             {status === 'waiting' && <span className="badge badge-locked">Standby</span>}
             {status === 'ended' && <span className="badge badge-hard">Closed</span>}
             {status === 'inactive' && <span className="badge badge-locked">Offline</span>}
@@ -136,7 +140,8 @@ export default function CommandHeader({
               <>Opens <span className="readout text-cyber-text">{new Date(startTime).toLocaleString()}</span></>
             )}
             {status === 'waiting' && !startTime && 'Start time not set.'}
-            {status === 'live' && 'Submissions open. Good hunting.'}
+            {status === 'live' && paused && 'Paused by control. The clock is stopped; players are holding.'}
+            {status === 'live' && !paused && 'Submissions open. Good hunting.'}
             {status === 'ended' && 'Submissions are closed.'}
             {status === 'inactive' && 'No event is currently running.'}
           </p>

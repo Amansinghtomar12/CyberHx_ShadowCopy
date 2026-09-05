@@ -68,6 +68,8 @@ import { getCapability } from './components/environment/performance';
 import { play, playValidating, initAudioLifecycle } from './audio/AudioManager';
 import SoundToggle from './components/SoundToggle';
 import OperationIntro from './components/OperationIntro';
+import HoldScreen from './components/HoldScreen';
+import EventClock from './components/EventClock';
 import MilestoneBanner from './components/MilestoneBanner';
 import { pendingInvite, clearInvite, type InvitePreview } from './lib/invite';
 import { detectMilestones, type Milestone } from './lib/milestones';
@@ -579,19 +581,40 @@ export default function App() {
   }, [user, fetchAllSolveData]);
 
   // ── Event settings ───────────────────────────────────────
+  // Polled, not loaded once: a pause has to reach every open tab within
+  // seconds, and a tab opened at 09:55 has to flip to live at 10:00 without
+  // a reload. One indexed single-row read every 30 s, plus one when the tab
+  // comes back into view.
+  const loadEventSettings = useCallback(async () => {
+    const { data } = await supabase.from('event_settings').select('*').order('id', { ascending: false }).limit(1).maybeSingle();
+    if (data) setEventSettings(data);
+  }, []);
   useEffect(() => {
-    supabase.from('event_settings').select('*').order('id', { ascending: false }).limit(1).maybeSingle().then(({ data }) => {
+    void loadEventSettings();
+    const id = setInterval(() => { if (!document.hidden) void loadEventSettings(); }, 30_000);
+    const onVis = () => { if (!document.hidden) void loadEventSettings(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
+  }, [loadEventSettings]);
+
+  // Status is a function of the clock, re-evaluated every second, so the
+  // board opens and closes on time for everyone already looking at it.
+  useEffect(() => {
+    const derive = () => {
+      const data = eventSettings;
       if (!data) return;
-      setEventSettings(data);
       if (!data.is_active) { setEventStatus('inactive'); return; }
-      const now = new Date();
-      const start = data.start_time ? new Date(data.start_time) : null;
-      const end = data.end_time ? new Date(data.end_time) : null;
+      const now = Date.now();
+      const start = data.start_time ? new Date(data.start_time).getTime() : null;
+      const end = data.end_time ? new Date(data.end_time).getTime() : null;
       if (start && now < start) setEventStatus('waiting');
       else if (end && now > end) setEventStatus('ended');
       else setEventStatus('live');
-    });
-  }, []);
+    };
+    derive();
+    const id = setInterval(derive, 1000);
+    return () => clearInterval(id);
+  }, [eventSettings]);
 
   /** Categories actually present, in the palette's own order, with counts. */
   const categories = useMemo(() => {
@@ -674,7 +697,8 @@ export default function App() {
   };
 
   // Admin always sees challenges regardless of event status
-  const canSubmit = profile?.is_admin || eventStatus === 'live';
+  const paused = !!eventSettings?.is_paused;
+  const canSubmit = profile?.is_admin || (eventStatus === 'live' && !paused);
   const isTeamMode = eventSettings?.mode !== 'individual';
   const hasTeam = !!(profile?.team_id);
   const needsTeam = !hasTeam;  // Server refuses teamless solves; admins included
@@ -756,6 +780,15 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-1 shrink-0">
+              <span className="hidden md:inline-flex">
+                <EventClock
+                  status={eventStatus}
+                  startTime={eventSettings?.start_time}
+                  endTime={eventSettings?.end_time}
+                  paused={paused}
+                  pausedAt={eventSettings?.paused_at}
+                />
+              </span>
               <NotificationBell userId={user?.id ?? ''} />
               <SoundToggle />
               <span className="divider-vertical hidden lg:block mx-1 h-6 self-center" />
@@ -836,7 +869,22 @@ export default function App() {
           </AnimatePresence>
         </nav>
 
+        {paused && profile?.is_admin && (
+          <div className="max-w-screen-2xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-4">
+            <div className="rounded-control border px-4 py-3 flex flex-wrap items-center gap-3 text-small"
+              style={{ borderColor: 'rgba(224, 179, 74, 0.45)', backgroundColor: 'var(--color-diff-medium-wash)' }}>
+              <span className="badge badge-medium">Paused</span>
+              <span className="text-text-secondary">
+                Players see the hold screen; submissions and hints are sealed for them. You still see everything.
+                Resume from <button type="button" className="underline text-cyber-text" onClick={() => setCurrentView('admin')}>Admin → Event</button>.
+              </span>
+            </div>
+          </div>
+        )}
         <div className="flex flex-1 max-w-screen-2xl mx-auto w-full relative">
+          {paused && !profile?.is_admin ? (
+            <HoldScreen reason="paused" message={eventSettings?.pause_message} since={eventSettings?.paused_at} />
+          ) : (
           <AnimatePresence mode="wait" initial={false}>
           <AnimatedView viewKey={currentView}>
           {currentView === 'challenges' ? (
@@ -949,6 +997,7 @@ export default function App() {
               <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 py-8 lg:py-10 w-full">
                 <CommandHeader
                   status={eventStatus}
+                  paused={paused}
                   eventName={eventSettings?.name}
                   startTime={eventSettings?.start_time}
                   endTime={eventSettings?.end_time}
@@ -1206,6 +1255,7 @@ export default function App() {
           )}
           </AnimatedView>
           </AnimatePresence>
+          )}
         </div>
 
         {/* Team invite, offered once the profile is known */}

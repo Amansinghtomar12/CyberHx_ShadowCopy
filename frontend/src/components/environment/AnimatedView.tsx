@@ -61,14 +61,14 @@ export default function AnimatedView({ viewKey, children }: AnimatedViewProps) {
       style={{ transformPerspective: 1400, transformOrigin: '50% 40%' }}
       // A degree of pitch on the way in, so the view arrives out of the
       // corridor the stars just streaked down rather than fading on a flat.
-      initial={reduce ? false : { opacity: 0, scale: 0.988, y: -8, rotateX: 1.4 }}
+      initial={reduce ? false : { opacity: 0, scale: 0.99, y: -6, rotateX: 0.7 }}
       animate={{ opacity: 1, scale: 1, y: 0, rotateX: 0 }}
       // Leaving is quicker than arriving, and eases *in* rather than out, so
       // the old view drops away and the new one is already coming forward
       // before the eye has finished tracking the first.
       exit={reduce
         ? { opacity: 0, transition: { duration: 0.001 } }
-        : { opacity: 0, scale: 0.982, y: 10, rotateX: -1.2,
+        : { opacity: 0, scale: 0.985, y: 8, rotateX: -0.5,
             transition: { duration: 0.15, ease: [0.4, 0, 1, 1] } }}
       transition={{ duration: reduce ? 0.001 : 0.3, ease: [0.22, 1, 0.36, 1] }}
     >

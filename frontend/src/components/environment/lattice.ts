@@ -277,7 +277,7 @@ const FIELD_FS = `
     col += rim * (atmo * 0.55 + haze) * uHorizon;
 
     // Warp rush: the edges of the frame flare cold as the corridor accelerates.
-    col += vec3(0.35, 0.55, 0.85) * smoothstep(0.35, 1.5, length(p)) * uWarp * 0.10;
+    col += vec3(0.35, 0.55, 0.85) * smoothstep(0.45, 1.6, length(p)) * uWarp * 0.06;
 
     // Vignette last, so nothing above competes with foreground text.
     col *= 1.0 - smoothstep(0.55, 1.65, length(p)) * 0.65;
@@ -472,10 +472,16 @@ const STREAK_VS = `
     vec3 home = aPos;
     // The far end of the streak is the star a little closer to the camera:
     // in projection that is a line radiating from the centre of the screen.
-    home.z += aEnd * uWarp * (70.0 + fract(aSeed * 5.1) * 90.0);
+    home.z += aEnd * uWarp * (42.0 + fract(aSeed * 5.1) * 58.0);
     vec3 p = starPos(home, aSeed);
-    gl_Position = project(p);
-    vAlpha = starFade(p) * uWarp * (0.35 + 0.65 * (1.0 - aEnd)) * 0.62;
+    vec4 clip = project(p);
+    gl_Position = clip;
+    // Only the periphery streaks, so the content in the middle of the screen
+    // never has lines drawn behind it, and only some stars take part: a
+    // jump reads through a handful of clean streaks, not a wall of them.
+    float edge = smoothstep(0.18, 0.7, length(clip.xy));
+    float takes = step(0.55, fract(aSeed * 3.17));
+    vAlpha = starFade(p) * uWarp * (0.35 + 0.65 * (1.0 - aEnd)) * 0.5 * edge * takes;
   }
 `;
 const STREAK_FS = `

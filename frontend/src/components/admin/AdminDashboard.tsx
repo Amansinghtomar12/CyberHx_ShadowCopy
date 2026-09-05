@@ -8,6 +8,7 @@ import {
   Plus, Eye, EyeOff, Trash2, Edit3, Shield, Users, Flag, Activity, RotateCcw, KeyRound,
   X, AlertTriangle, Megaphone, Zap, Lightbulb, Link2, Save, Inbox, Lock,
   Settings2, ListChecks, Hash, Send, CalendarClock, Radio, Paperclip, Upload, FileDown, Download,
+  Clock, Play, Pause,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { resetEventScores } from '../../api/submitFlag';
@@ -1593,7 +1594,46 @@ function EventTab() {
   const [confirmText, setConfirmText] = useState('');
   const [msg, setMsg] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [pausing, setPausing] = useState(false);
+  const [pauseNote, setPauseNote] = useState('');
+  const [extending, setExtending] = useState(false);
   const { profile: viewer } = useAuth();
+
+  /** Stop the clock for everyone but admins. Resume gives the time back. */
+  const togglePause = async () => {
+    if (!event) return;
+    const next = !event.is_paused;
+    const warn = next
+      ? 'Pause the event?\n\nEvery player sees the hold screen instead of the board and the scoreboard. Submissions and hints are refused for them. The clock stops, and the time paused is added back to the end when you resume.'
+      : 'Resume the event?\n\nThe board and scoreboard return for everyone, submissions reopen, and the end time moves forward by the time spent paused.';
+    if (!confirm(warn)) return;
+    setPausing(true);
+    const { data, error } = await supabase.rpc('admin_set_paused', { p_paused: next, p_message: next ? pauseNote.trim() || null : null });
+    setPausing(false);
+    if (error || data?.error) {
+      setMsg('❌ ' + (error?.message ?? data.error));
+      setTimeout(() => setMsg(''), 6000);
+      return;
+    }
+    await loadEvent();
+    if (next) setMsg('⏸ Event paused — players are on the hold screen');
+    else setMsg(`▶ Event resumed — end time moved by ${Math.round((data?.extended_by_seconds ?? 0) / 60)} min`);
+    setPauseNote('');
+    setTimeout(() => setMsg(''), 8000);
+  };
+
+  /** Push the end time out by a fixed amount without opening the form. */
+  const extend = async (minutes: number) => {
+    if (!event?.end_time) { setMsg('❌ Set an end time first.'); setTimeout(() => setMsg(''), 4000); return; }
+    const next = new Date(new Date(event.end_time).getTime() + minutes * 60_000);
+    if (!confirm(`Extend the event by ${minutes} minutes?\n\nNew end: ${next.toLocaleString()}`)) return;
+    setExtending(true);
+    const { error } = await supabase.from('event_settings').update({ end_time: next.toISOString() }).eq('id', event.id);
+    setExtending(false);
+    setMsg(error ? '❌ ' + error.message : `⏱ Extended — now ends ${next.toLocaleString()}`);
+    if (!error) await loadEvent();
+    setTimeout(() => setMsg(''), 6000);
+  };
 
   /** The final standings as a file, top 200 teams with rosters. */
   const exportNow = async () => {
@@ -1894,6 +1934,69 @@ function EventTab() {
             <p className="mt-3 text-small text-text-muted">
               Freezes automatically at {new Date(event.end_time).toLocaleString()}.
             </p>
+          )}
+        </div>
+
+        {/* ── Pause: the event-day switch ─────────────────────────────── */}
+        <div className="mt-6 pt-6 border-t border-border-subtle">
+          <p className="field-label flex items-center gap-1.5">
+            <Clock aria-hidden className="w-3.5 h-3.5" /> Clock
+          </p>
+          <div
+            className="rounded-control border px-4 py-4"
+            style={{
+              borderColor: event.is_paused ? 'rgba(224, 179, 74, 0.45)' : 'var(--color-border-base)',
+              backgroundColor: event.is_paused ? 'var(--color-diff-medium-wash)' : 'var(--color-surface-inset)',
+            }}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-body font-semibold text-cyber-text flex items-center gap-2">
+                  {event.is_paused ? <span className="badge badge-medium">Paused</span> : <span className="badge badge-neon">Running</span>}
+                  {event.is_paused ? 'Players are on the hold screen' : 'Pause the event'}
+                </p>
+                <p className="text-small text-text-muted mt-1 max-w-prose">
+                  {event.is_paused
+                    ? `Paused ${event.paused_at ? new Date(event.paused_at).toLocaleTimeString() : ''}. Submissions and hints are sealed for players; you still see everything. Resuming adds the paused time back to the end.`
+                    : 'Stops the clock for everyone. Players see a hold screen instead of the board and scoreboard; you keep full access to check a challenge. Resume gives back the exact time paused.'}
+                </p>
+                {event.is_paused && event.pause_message && (
+                  <p className="text-small text-text-secondary mt-2 font-mono">&gt; control: {event.pause_message}</p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={togglePause}
+                disabled={pausing}
+                className={`btn btn-md shrink-0 ${event.is_paused ? 'btn-primary' : 'btn-danger'} ${pausing ? 'is-loading' : ''}`}
+              >
+                {event.is_paused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+                {pausing ? 'Working…' : event.is_paused ? 'Resume Event' : 'Pause Event'}
+              </button>
+            </div>
+            {!event.is_paused && (
+              <input
+                type="text"
+                value={pauseNote}
+                onChange={e => setPauseNote(e.target.value.slice(0, 300))}
+                placeholder="Optional line for players, e.g. “Fixing the forensics attachment, back in 10”"
+                className="input mt-3 w-full"
+                aria-label="Message shown to players while paused"
+              />
+            )}
+          </div>
+
+          {event.end_time && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-small text-text-muted mr-1">Quick extend:</span>
+              {[15, 30, 60].map(m => (
+                <button key={m} type="button" onClick={() => extend(m)} disabled={extending}
+                  className="btn btn-outline btn-sm">
+                  +{m} min
+                </button>
+              ))}
+              <span className="text-small text-text-muted">Ends {new Date(event.end_time).toLocaleString()}</span>
+            </div>
           )}
         </div>
 

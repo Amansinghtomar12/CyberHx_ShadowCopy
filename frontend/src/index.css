@@ -1972,3 +1972,86 @@
   .cursor-ring { display: none; }
   .magnetic { transform: none !important; }
 }
+
+/* ══ HOLD — the platform holding, on purpose or not ═══════════════════════
+   Shared by the pause screen, the uplink screen and the lost-sector page.
+   One panel language: a scan line that sweeps once, a log that types, a
+   caret that blinks. All transform/opacity; nothing repaints. */
+@layer components {
+  .hold-panel {
+    border-radius: var(--radius-panel);
+    box-shadow: var(--shadow-e5), 0 0 0 1px rgba(198, 255, 0, 0.08), 0 0 80px -30px rgba(198, 255, 0, 0.35);
+  }
+  .hold-scan {
+    position: absolute;
+    left: 0; right: 0; top: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--color-neon), transparent);
+    opacity: 0.8;
+    animation: hold-scan 2.6s var(--ease-out-quint) 1 both;
+    pointer-events: none;
+  }
+  .hold-title { letter-spacing: -0.02em; }
+  .hold-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 8px currentColor;
+    animation: cyber-pulse 1.6s var(--ease-standard) infinite;
+  }
+  .hold-log { color: var(--color-text-secondary); }
+  .hold-line {
+    animation: hold-line var(--duration-slow) var(--ease-out-quint) both;
+  }
+  .hold-line--control { color: var(--color-text-secondary); }
+  .hold-caret {
+    display: inline-block;
+    width: 0.55em; height: 1em;
+    margin-left: 0.3em;
+    vertical-align: -0.15em;
+    background: var(--color-neon);
+    animation: hold-caret 1s steps(2, start) infinite;
+  }
+  .uplink-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--color-status-solved);
+    box-shadow: 0 0 8px rgba(166, 224, 74, 0.6);
+  }
+  .uplink-dot[data-down] {
+    background: var(--color-status-live);
+    box-shadow: 0 0 8px rgba(255, 106, 94, 0.7);
+    animation: cyber-pulse 1s var(--ease-standard) infinite;
+  }
+  .event-clock {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    padding: 0.3rem 0.65rem;
+    border: 1px solid var(--color-border-base);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-inset);
+    font-family: var(--font-mono);
+    font-size: var(--text-small);
+    letter-spacing: 0.04em;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+  }
+  .event-clock[data-tone="live"] { border-color: var(--color-border-neon); color: var(--color-neon); }
+  .event-clock[data-tone="urgent"] { border-color: rgba(255, 106, 94, 0.45); color: var(--color-status-live); }
+  .event-clock[data-tone="paused"] { border-color: rgba(224, 179, 74, 0.45); color: var(--color-diff-medium); }
+}
+@keyframes hold-scan {
+  0% { transform: translateY(0); opacity: 0.9; }
+  70% { transform: translateY(420px); opacity: 0.35; }
+  100% { transform: translateY(560px); opacity: 0; }
+}
+@keyframes hold-line {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes hold-caret {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hold-scan, .hold-caret { animation: none !important; }
+  .hold-line { animation: none !important; }
+  .hold-dot, .uplink-dot[data-down] { animation: none !important; }
+}

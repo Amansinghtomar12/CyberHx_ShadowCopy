@@ -1,5 +1,6 @@
 // src/lib/supabase.ts
 import { createClient } from '@supabase/supabase-js';
+import { configureUplink, uplinkFetch } from './uplink';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -8,7 +9,13 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase env vars. Check your .env.local file.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+configureUplink(supabaseUrl, supabaseAnonKey);
+
+// Every request goes through the uplink monitor, so an unreachable backend is
+// noticed by the platform rather than discovered by the player.
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  global: { fetch: uplinkFetch },
+});
 
 // ─────────────────────────────────────────
 // DATABASE TYPES
