@@ -2110,11 +2110,28 @@ function TeamsTab() {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
 
+  // Teams that include an admin. Their ban and delete controls lock, the way
+  // the admin's own row locks in the Users tab; the server refuses too.
+  const [protectedTeams, setProtectedTeams] = useState<Record<string, 'owner' | 'admin'>>({});
+
   const loadTeams = async () => {
     const { data: teamsData } = await supabase
       .from('teams')
       .select('id, name, is_banned, captain_id, created_at')
       .order('created_at', { ascending: true });
+
+    const { data: admins } = await supabase
+      .from('profiles')
+      .select('team_id, is_owner')
+      .eq('role', 'admin')
+      .not('team_id', 'is', null);
+    const prot: Record<string, 'owner' | 'admin'> = {};
+    (admins ?? []).forEach((a: any) => {
+      if (!a.team_id) return;
+      if (a.is_owner) prot[a.team_id] = 'owner';
+      else if (!prot[a.team_id]) prot[a.team_id] = 'admin';
+    });
+    setProtectedTeams(prot);
 
     if (!teamsData) return;
 
@@ -2136,6 +2153,27 @@ function TeamsTab() {
     supabase.rpc('admin_team_members', { p_team_id: selected.id }).then(({ data }) => setMembers(data ?? []));
     supabase.rpc('admin_team_invite', { p_team_id: selected.id }).then(({ data }) => setSelInvite(data ?? null));
   }, [selected]);
+
+  const protectHint = (kind?: 'owner' | 'admin') =>
+    kind === 'owner' ? 'This team includes the owner and cannot be banned.'
+      : kind === 'admin' ? 'This team includes an admin. Change their role to player first.'
+      : undefined;
+
+  /** Ban / Unban for a row: locked while the team includes an admin. */
+  const banControl = (t: any, extra = '') => {
+    const kind = protectedTeams[t.id];
+    if (t.is_banned) {
+      return <button onClick={e => { e.stopPropagation(); act('unban', t.id); }} className={`btn btn-success btn-sm ${extra}`}>Unban</button>;
+    }
+    if (kind) {
+      return (
+        <button disabled title={protectHint(kind)} className={`btn btn-danger btn-sm ${extra}`} onClick={e => e.stopPropagation()}>
+          <Lock aria-hidden className="w-3 h-3" /> Ban
+        </button>
+      );
+    }
+    return <button onClick={e => { e.stopPropagation(); act('ban', t.id); }} className={`btn btn-danger btn-sm ${extra}`}>Ban</button>;
+  };
 
   const act = async (action: string, teamId: string) => {
     setLoading(true); setMsg('');
@@ -2205,13 +2243,15 @@ function TeamsTab() {
                     <span className={`badge ${t.is_banned ? 'badge-hard' : 'badge-solved'}`}>
                       {t.is_banned ? 'Banned' : 'Active'}
                     </span>
+                    {protectedTeams[t.id] && !t.is_banned && (
+                      <span className="badge badge-neon ml-2" title={protectHint(protectedTeams[t.id])}>
+                        {protectedTeams[t.id] === 'owner' ? 'Owner' : 'Admin'}
+                      </span>
+                    )}
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex justify-end">
-                      {t.is_banned
-                        ? <button onClick={e => { e.stopPropagation(); act('unban', t.id); }} className="btn btn-success btn-sm">Unban</button>
-                        : <button onClick={e => { e.stopPropagation(); act('ban', t.id); }} className="btn btn-danger btn-sm">Ban</button>
-                      }
+                      {banControl(t)}
                     </div>
                   </td>
                 </tr>
@@ -2246,10 +2286,7 @@ function TeamsTab() {
                 </div>
               </button>
               <div className="mt-3 pt-3 border-t border-border-subtle flex justify-end">
-                {t.is_banned
-                  ? <button onClick={e => { e.stopPropagation(); act('unban', t.id); }} className="btn btn-success btn-sm">Unban</button>
-                  : <button onClick={e => { e.stopPropagation(); act('ban', t.id); }} className="btn btn-danger btn-sm">Ban</button>
-                }
+                {banControl(t)}
               </div>
             </div>
           ))}
@@ -2318,13 +2355,21 @@ function TeamsTab() {
             <p className="label-micro pt-3">Danger zone</p>
             {selected.is_banned
               ? <button disabled={loading} onClick={() => act('unban', selected.id)} className={`btn btn-success btn-sm btn-block ${loading ? 'is-loading' : ''}`}>Unban Team</button>
+              : protectedTeams[selected.id]
+              ? <button disabled title={protectHint(protectedTeams[selected.id])} className="btn btn-danger btn-sm btn-block"><Lock aria-hidden className="w-3 h-3" /> Ban Team</button>
               : <button disabled={loading} onClick={() => act('ban', selected.id)} className={`btn btn-danger btn-sm btn-block ${loading ? 'is-loading' : ''}`}>Ban Team</button>
             }
-            <button disabled={loading} onClick={() => act('delete', selected.id)} className={`btn btn-danger btn-sm btn-block ${loading ? 'is-loading' : ''}`}>
-              <Trash2 className="w-3.5 h-3.5" /> Delete Team
-            </button>
+            {protectedTeams[selected.id]
+              ? <button disabled title={protectHint(protectedTeams[selected.id])} className="btn btn-danger btn-sm btn-block"><Lock aria-hidden className="w-3 h-3" /> Delete Team</button>
+              : <button disabled={loading} onClick={() => act('delete', selected.id)} className={`btn btn-danger btn-sm btn-block ${loading ? 'is-loading' : ''}`}>
+                  <Trash2 className="w-3.5 h-3.5" /> Delete Team
+                </button>}
             <p className="text-small leading-relaxed text-text-muted">
-              Deleting is permanent and detaches every member. You will be asked to confirm.
+              {protectedTeams[selected.id]
+                ? (protectedTeams[selected.id] === 'owner'
+                    ? 'This team includes the owner, so it cannot be banned or deleted.'
+                    : 'This team includes an admin. Change their role to player first to ban or delete it.')
+                : 'Deleting is permanent and detaches every member. You will be asked to confirm.'}
             </p>
           </div>
         </aside>
