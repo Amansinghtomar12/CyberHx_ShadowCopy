@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
 import SoundToggle from './components/SoundToggle';
+import FxToggle from './components/FxToggle';
 import { supabase } from './lib/supabase';
 
 /* ── presentational helpers (no logic, same file) ─────────────────────────── */
@@ -322,9 +323,10 @@ export default function Settings() {
               <PanelHeader
                 icon={<Volume2 className="h-4 w-4" />}
                 title="Experience"
-                description="How the platform sounds while you work."
+                description="How the platform sounds and moves while you work."
               />
               <SoundToggle variant="row" />
+              <FxToggle />
             </div>
           )}
 

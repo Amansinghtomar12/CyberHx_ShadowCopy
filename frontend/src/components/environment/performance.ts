@@ -23,6 +23,8 @@
  * cut-down one we hand a weak phone.
  */
 
+import { getFx, subscribeFx } from './fx';
+
 export type Tier = 'high' | 'medium' | 'low' | 'still';
 
 export interface Capability {
@@ -35,6 +37,8 @@ export interface Capability {
   motion: boolean;
   /** Upper bound on devicePixelRatio for GPU work. */
   dpr: number;
+  /** Warp jumps, camera banking, the full star density. Off under 'calm'. */
+  cinematic: boolean;
 }
 
 let cached: Capability | null = null;
@@ -42,11 +46,17 @@ let cached: Capability | null = null;
 function measure(): Capability {
   // SSR and prerender: assume the least, upgrade on the client.
   if (typeof window === 'undefined') {
-    return { tier: 'still', webgl: false, pointerFx: false, motion: false, dpr: 1 };
+    return { tier: 'still', webgl: false, pointerFx: false, motion: false, dpr: 1, cinematic: false };
   }
 
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    return { tier: 'still', webgl: false, pointerFx: false, motion: false, dpr: 1 };
+    return { tier: 'still', webgl: false, pointerFx: false, motion: false, dpr: 1, cinematic: false };
+  }
+
+  // The player's own dial sits above everything the hardware says.
+  const fx = getFx();
+  if (fx === 'off') {
+    return { tier: 'still', webgl: false, pointerFx: false, motion: false, dpr: 1, cinematic: false };
   }
 
   const nav = navigator as Navigator & { deviceMemory?: number };
@@ -57,7 +67,7 @@ function measure(): Capability {
   // A device reporting 2GB or two cores is telling us it has better uses for
   // its battery than our background.
   if (mem <= 2 || cores <= 2) {
-    return { tier: 'low', webgl: false, pointerFx: false, motion: true, dpr: 1 };
+    return { tier: 'low', webgl: false, pointerFx: false, motion: true, dpr: 1, cinematic: false };
   }
 
   // Probe rather than infer: a machine can look capable and still have WebGL
@@ -71,16 +81,16 @@ function measure(): Capability {
     webgl = false;
   }
   if (!webgl) {
-    return { tier: 'low', webgl: false, pointerFx: !coarse, motion: true, dpr: 1 };
+    return { tier: 'low', webgl: false, pointerFx: !coarse, motion: true, dpr: 1, cinematic: false };
   }
 
   if (coarse || mem <= 4 || cores <= 4) {
     // Touch devices get the environment but never the cursor systems: there is
     // no hover to serve, and a tilt would fight the scroll.
-    return { tier: 'medium', webgl: true, pointerFx: !coarse, motion: true, dpr: 1.5 };
+    return { tier: 'medium', webgl: true, pointerFx: !coarse, motion: true, dpr: 1.5, cinematic: fx === 'cinematic' };
   }
 
-  return { tier: 'high', webgl: true, pointerFx: true, motion: true, dpr: 2 };
+  return { tier: 'high', webgl: true, pointerFx: true, motion: true, dpr: 2, cinematic: fx === 'cinematic' };
 }
 
 /** Cached capability for this session. Safe to call from anywhere, any number of times. */
@@ -91,3 +101,7 @@ export function getCapability(): Capability {
 
 /** Test seam: forget the cached measurement. */
 export function resetCapability() { cached = null; }
+
+// A change of preference invalidates the cached answer; consumers that care
+// about live changes subscribe to fx themselves and re-read.
+if (typeof window !== 'undefined') subscribeFx(() => { cached = null; });

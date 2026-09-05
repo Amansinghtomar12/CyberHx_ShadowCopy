@@ -22,6 +22,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createLattice, type LatticeHandle } from './environment/lattice';
 import { getCapability } from './environment/performance';
 import { setLatticeCapacity } from './environment/signals';
+import { getFx, subscribeFx, type FxLevel } from './environment/fx';
 
 export interface AmbientBackgroundProps {
   /** 'subtle' (default) sits far behind the UI; 'normal' brings it forward. */
@@ -48,9 +49,15 @@ export default function AmbientBackground({
 }: AmbientBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [mode, setMode] = useState<Mode>('static');
+  const [fx, setFxState] = useState<FxLevel>(() => getFx());
 
   // Decide after mount so SSR and the first paint are never blocked on it.
-  useEffect(() => { setMode(detectMode()); }, []);
+  // Re-decided live when the player changes the effects preference: the
+  // capability cache is dropped on that event, so this reads a fresh answer.
+  useEffect(() => {
+    setMode(detectMode());
+    return subscribeFx(next => { setFxState(next); setMode(detectMode()); });
+  }, []);
 
   useEffect(() => {
     if (mode === 'static' || !canvasRef.current) return;
@@ -60,6 +67,7 @@ export default function AmbientBackground({
       handle = createLattice(canvasRef.current, {
         tier: mode,
         presence: intensity === 'normal' ? 1 : 0.6,
+        cinematic: getCapability().cinematic,
       });
     } catch {
       handle = null;
@@ -78,6 +86,9 @@ export default function AmbientBackground({
     };
     // Pause completely in a hidden tab: no frames, no GPU, no battery.
     const onVisibility = () => handle?.setRunning(!document.hidden);
+    // Scroll pitches the camera. Normalised to a screen height so a long
+    // board and a short profile page lean by the same amount per wheel turn.
+    const onScroll = () => handle?.setScroll(window.scrollY / Math.max(1, window.innerHeight));
 
     let queued = false;
     const onResize = () => {
@@ -88,16 +99,19 @@ export default function AmbientBackground({
 
     window.addEventListener('pointermove', onPointer, { passive: true });
     window.addEventListener('resize', onResize, { passive: true });
+    window.addEventListener('scroll', onScroll, { passive: true });
     document.addEventListener('visibilitychange', onVisibility);
+    onScroll();
 
     return () => {
       window.removeEventListener('pointermove', onPointer);
       window.removeEventListener('resize', onResize);
+      window.removeEventListener('scroll', onScroll);
       document.removeEventListener('visibilitychange', onVisibility);
       handle?.destroy();
       setLatticeCapacity(0);
     };
-  }, [mode, intensity]);
+  }, [mode, intensity, fx]);
 
   return (
     <div

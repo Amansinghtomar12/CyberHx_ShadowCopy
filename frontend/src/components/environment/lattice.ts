@@ -30,7 +30,7 @@
  *   fixed 320-node buffer.
  */
 
-import { subscribeMood, moodProfile } from './mood';
+import { subscribeMood, moodProfile, subscribeWarp } from './mood';
 import { subscribeSignals, subscribePulse } from './signals';
 
 export type Tier = 'high' | 'medium';
@@ -39,7 +39,29 @@ export interface LatticeOptions {
   tier: Tier;
   /** 0 = far behind the UI (app), 1 = foreground presence (auth). */
   presence: number;
+  /** Warp jumps, camera banking and full star density. */
+  cinematic?: boolean;
 }
+
+/* ── Deep field ─────────────────────────────────────────────────────────
+ *
+ * Two more passes sit behind the lattice and turn the corridor into space:
+ *
+ *   stars    a far field of points in a slab three times deeper than the
+ *            lattice, so it parallaxes slower and reads as distance
+ *   streaks  the same stars drawn as lines from where they are to where they
+ *            are going. Invisible at rest; during a warp the line stretches
+ *            and the field becomes the hyperspace jump every viewer already
+ *            knows how to read
+ *
+ * The field shader gains a noise nebula with a galactic band, a planetary
+ * limb whose visibility is a mood value (in orbit on the auth page, a faint
+ * arc under the app), and the camera gains a slow bank plus a pitch driven by
+ * scroll. All of it is uniforms and closed-form math; the CPU still does
+ * nothing per frame but set numbers.
+ */
+const STAR_DEPTH = 900;
+const STAR_SPREAD = 260;
 
 /* ── Geometry constants ─────────────────────────────────────────────────── */
 const DEPTH = 300;      // world depth of the slab the camera tunnels through
@@ -48,8 +70,8 @@ const FOCAL = 1.55;
 const MAX_LINK = 48;    // longest believable wire between two nodes
 
 const TIERS = {
-  high:   { nodes: 420, links: 3, pulses: 72, dpr: 2 },
-  medium: { nodes: 240, links: 2, pulses: 40, dpr: 1.5 },
+  high:   { nodes: 420, links: 3, pulses: 72, dpr: 2,   stars: 1400, octaves: 3 },
+  medium: { nodes: 240, links: 2, pulses: 40, dpr: 1.5, stars: 800,  octaves: 2 },
 } as const;
 
 /* ── Shared GLSL ────────────────────────────────────────────────────────── */
@@ -64,7 +86,18 @@ const TIERS = {
  */
 const TRANSFORM = `
   uniform float uTime, uCamZ, uAspect, uPresence, uTraffic;
+  uniform float uRoll, uPitch, uWarp;
   uniform vec2  uMouse;   // −1..1, spring-smoothed
+
+  // The camera banks slowly and pitches with scroll. Applied to the near
+  // geometry more than the far, which is what makes it read as the viewer
+  // turning rather than the world sliding.
+  vec3 cameraFrame(vec3 p, float depthMix) {
+    float c = cos(uRoll), s = sin(uRoll);
+    p.xy = mat2(c, -s, s, c) * p.xy;
+    p.y += uPitch * 22.0 * depthMix;
+    return p;
+  }
 
   // A wave travelling the depth of the slab. Nodes brighten as it reaches
   // them, so the field reads as carrying activity rather than just existing.
@@ -91,7 +124,24 @@ const TRANSFORM = `
     float depthMix = 1.0 - clamp(-p.z / ${DEPTH}.0, 0.0, 1.0);
     p.x += uMouse.x * 26.0 * depthMix;
     p.y += uMouse.y * 18.0 * depthMix;
-    return p;
+    return cameraFrame(p, depthMix);
+  }
+
+  // Stars live in a deeper slab with their own wrap, so they drift slower
+  // than the lattice and sit behind it in the eye.
+  vec3 starPos(vec3 home, float seed) {
+    vec3 p = home;
+    float wrapped = home.z - uCamZ * 0.55;
+    float folded  = wrapped - floor(wrapped / ${STAR_DEPTH}.0) * ${STAR_DEPTH}.0;
+    p.z = folded - ${STAR_DEPTH}.0;
+    float depthMix = 1.0 - clamp(-p.z / ${STAR_DEPTH}.0, 0.0, 1.0);
+    p.x += uMouse.x * 40.0 * depthMix;
+    p.y += uMouse.y * 28.0 * depthMix;
+    return cameraFrame(p, depthMix);
+  }
+  float starFade(vec3 p) {
+    float d = clamp(-p.z / ${STAR_DEPTH}.0, 0.0, 1.0);
+    return (1.0 - smoothstep(0.7, 1.0, d)) * smoothstep(0.0, 0.02, d);
   }
 
   vec4 project(vec3 p) {
@@ -128,6 +178,7 @@ const FIELD_FS = `
   precision mediump float;
   varying vec2 vUV;
   uniform float uTime, uAspect, uPresence, uTraffic;
+  uniform float uHorizon, uWarp, uRoll, uOctaves;
   uniform vec2  uMouse;
 
   // Distance to a ring of radius r, used for the distant megastructures.
@@ -135,8 +186,32 @@ const FIELD_FS = `
 
   mat2 rot(float a) { float s = sin(a), c = cos(a); return mat2(c, -s, s, c); }
 
+  // Value noise. Three octaves on the high tier, two on medium; both are a
+  // handful of hashes per pixel, far cheaper than a texture fetch chain.
+  float hash(vec2 q) { return fract(sin(dot(q, vec2(127.1, 311.7))) * 43758.5453); }
+  float vnoise(vec2 q) {
+    vec2 i = floor(q), f = fract(q);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = hash(i), b = hash(i + vec2(1.0, 0.0));
+    float c = hash(i + vec2(0.0, 1.0)), d = hash(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+  }
+  float fbm(vec2 q) {
+    float v = 0.0, a = 0.5;
+    for (int i = 0; i < 3; i++) {
+      if (float(i) >= uOctaves) break;
+      v += a * vnoise(q);
+      q = q * 2.03 + vec2(17.0, 9.0);
+      a *= 0.5;
+    }
+    return v;
+  }
+
   void main() {
     vec2 p = vec2(vUV.x * uAspect, vUV.y);
+    // The whole backdrop banks with the camera, a fraction of the geometry's
+    // angle, so the far field agrees with the near one about which way is up.
+    p = rot(uRoll * 0.6) * p;
 
     // Ground: a near-black blue that lifts very slightly toward the horizon.
     vec3 col = mix(vec3(0.012, 0.020, 0.028), vec3(0.020, 0.032, 0.042),
@@ -175,11 +250,34 @@ const FIELD_FS = `
     col += vec3(0.26, 0.40, 0.14) * beam * 0.020
          * smoothstep(-0.9, 0.6, vUV.y) * uPresence;
 
-    // Nebula: two decorrelated sine fields standing in for cheap noise. Gives
-    // the void some internal structure so it is never a flat black rectangle.
-    float n = sin(p.x * 1.7 + uTime * 0.03) * sin(p.y * 2.1 - uTime * 0.025)
-            + sin(p.x * 3.3 - uTime * 0.017) * sin(p.y * 2.9 + uTime * 0.021) * 0.5;
-    col += vec3(0.12, 0.20, 0.30) * smoothstep(0.35, 1.4, n) * 0.05;
+    // Nebula. Two noise fields in two temperatures, gathered along a tilted
+    // galactic band so the void has an axis, like a real night sky does.
+    vec2 np = p * 0.85 + vec2(uTime * 0.006, -uTime * 0.004) + uMouse * 0.03;
+    float n1 = fbm(np);
+    float n2 = fbm(np * 1.6 + vec2(5.2, 1.7) - uTime * 0.003);
+    float bandAxis = p.y * 0.78 + p.x * 0.38 + 0.22;
+    float band = exp(-bandAxis * bandAxis * 2.6);
+    float breath = 0.85 + 0.15 * sin(uTime * 0.05);
+    vec3 nebA = vec3(0.16, 0.36, 0.20) * smoothstep(0.42, 0.88, n1);   // lime-teal
+    vec3 nebB = vec3(0.22, 0.13, 0.38) * smoothstep(0.48, 0.92, n2);   // violet
+    col += (nebA + nebB) * (0.32 + 0.95 * band) * breath * (0.14 + 0.16 * uPresence);
+    // Dust: a sprinkle of the finest octave, so the band has grain up close.
+    col += vec3(0.55, 0.75, 0.6) * pow(vnoise(p * 9.0 + uTime * 0.02), 14.0) * 0.06 * band;
+
+    // The planet. A limb below the frame with an atmosphere that glows along
+    // it. On the auth page it fills the bottom of the screen and says "orbit";
+    // under the app it is a faint arc the eye notices but never reads.
+    vec2 pc = vec2(p.x + uMouse.x * 0.02, p.y + 2.62 - (1.0 - uHorizon) * 0.55 + uMouse.y * 0.015);
+    float limb = length(pc) - 1.98;
+    float atmo = exp(-max(limb, 0.0) * 22.0) * 0.9 + exp(-max(limb, 0.0) * 6.0) * 0.45;
+    float haze = exp(-max(limb, 0.0) * 1.9) * 0.30;
+    vec3 rim = mix(vec3(0.20, 0.50, 0.62), vec3(0.62, 0.95, 0.35), smoothstep(-0.1, 0.35, p.x * 0.3 + 0.5));
+    float body = 1.0 - smoothstep(-0.10, 0.0, limb);
+    col = mix(col, col * 0.42 + vec3(0.02, 0.05, 0.06), body * uHorizon);
+    col += rim * (atmo * 0.55 + haze) * uHorizon;
+
+    // Warp rush: the edges of the frame flare cold as the corridor accelerates.
+    col += vec3(0.35, 0.55, 0.85) * smoothstep(0.35, 1.5, length(p)) * uWarp * 0.10;
 
     // Vignette last, so nothing above competes with foreground text.
     col *= 1.0 - smoothstep(0.55, 1.65, length(p)) * 0.65;
@@ -328,6 +426,64 @@ const NODE_FS = `
   }
 `;
 
+/* ── 5. Stars ───────────────────────────────────────────────────────────── */
+const STAR_VS = `
+  attribute vec3  aPos;
+  attribute float aSeed;
+  attribute float aSize;
+  uniform float uDpr;
+  varying float vAlpha;
+  varying float vTint;
+  ${TRANSFORM}
+  void main() {
+    vec3 p = starPos(aPos, aSeed);
+    gl_Position = project(p);
+    float z = max(-p.z, 0.6);
+    gl_PointSize = clamp(aSize * 560.0 / z, 1.0, 3.6) * uDpr;
+    // Twinkle at three different rates so the field never pulses in unison.
+    float tw = 0.7 + 0.3 * sin(uTime * (1.3 + fract(aSeed * 3.7) * 2.4) + aSeed * 40.0);
+    vAlpha = starFade(p) * tw * (0.72 + 0.4 * uPresence) * (1.0 - uWarp * 0.5);
+    vTint = fract(aSeed * 11.3);
+  }
+`;
+const STAR_FS = `
+  precision mediump float;
+  varying float vAlpha;
+  varying float vTint;
+  void main() {
+    float d = length(gl_PointCoord - 0.5);
+    float a = 1.0 - smoothstep(0.15, 0.5, d);
+    // Mostly cool white, a few lime, a few warm: a population, not a colour.
+    vec3 col = vec3(0.78, 0.86, 1.0);
+    col = mix(col, vec3(0.80, 1.0, 0.55), step(0.82, vTint));
+    col = mix(col, vec3(1.0, 0.85, 0.65), step(0.94, vTint));
+    gl_FragColor = vec4(col, a * vAlpha);
+  }
+`;
+
+/* ── 6. Streaks ─────────────────────────────────────────────────────────── */
+const STREAK_VS = `
+  attribute vec3  aPos;
+  attribute float aSeed;
+  attribute float aEnd;    // 0 = the star, 1 = where it is heading
+  varying float vAlpha;
+  ${TRANSFORM}
+  void main() {
+    vec3 home = aPos;
+    // The far end of the streak is the star a little closer to the camera:
+    // in projection that is a line radiating from the centre of the screen.
+    home.z += aEnd * uWarp * (70.0 + fract(aSeed * 5.1) * 90.0);
+    vec3 p = starPos(home, aSeed);
+    gl_Position = project(p);
+    vAlpha = starFade(p) * uWarp * (0.35 + 0.65 * (1.0 - aEnd)) * 0.62;
+  }
+`;
+const STREAK_FS = `
+  precision mediump float;
+  varying float vAlpha;
+  void main() { gl_FragColor = vec4(0.70, 0.88, 1.0, vAlpha); }
+`;
+
 /* ── Engine ─────────────────────────────────────────────────────────────── */
 
 function compile(gl: WebGLRenderingContext, vs: string, fs: string) {
@@ -370,6 +526,8 @@ export interface LatticeHandle {
   nodeCount: number;
   resize: () => void;
   setPointer: (x: number, y: number) => void;
+  /** 0 at the top of the page, 1 a screen down. Pitches the camera. */
+  setScroll: (fraction: number) => void;
   setRunning: (on: boolean) => void;
   destroy: () => void;
 }
@@ -390,7 +548,10 @@ export function createLattice(
   const progEdge  = compile(gl, EDGE_VS, EDGE_FS);
   const progPulse = compile(gl, PULSE_VS, PULSE_FS);
   const progNode  = compile(gl, NODE_VS, NODE_FS);
-  if (!progField || !progEdge || !progPulse || !progNode) return null;
+  const progStar  = compile(gl, STAR_VS, STAR_FS);
+  const progStreak = compile(gl, STREAK_VS, STREAK_FS);
+  if (!progField || !progEdge || !progPulse || !progNode || !progStar || !progStreak) return null;
+  const cinematic = opts.cinematic !== false;
 
   /* ── Build the lattice once ─────────────────────────────────────────── */
   type P = { x: number; y: number; z: number; seed: number; size: number };
@@ -506,6 +667,32 @@ export function createLattice(
   const bPulseA = track(buffer(gl, pulseA)), bPulseB = track(buffer(gl, pulseB));
   const bPulseSeed = track(buffer(gl, pulseSeed)), bPulseAnchor = track(buffer(gl, pulseAnchor));
 
+  // The star field. Uniform in a wide, deep slab; size follows a long tail so
+  // a few stars are bright enough to catch the eye and most are dust.
+  const starN = cinematic ? cfg.stars : Math.round(cfg.stars * 0.6);
+  const starPosA = new Float32Array(starN * 3);
+  const starSeed = new Float32Array(starN);
+  const starSize = new Float32Array(starN);
+  for (let i = 0; i < starN; i++) {
+    starPosA[i * 3]     = (Math.random() * 2 - 1) * STAR_SPREAD;
+    starPosA[i * 3 + 1] = (Math.random() * 2 - 1) * STAR_SPREAD * 0.7;
+    starPosA[i * 3 + 2] = -Math.random() * STAR_DEPTH;
+    starSeed[i] = Math.random();
+    starSize[i] = 0.35 + Math.pow(Math.random(), 4) * 1.4;
+  }
+  // Streaks reuse the star positions, two vertices per star.
+  const streakPos = new Float32Array(starN * 6);
+  const streakSeed = new Float32Array(starN * 2);
+  const streakEnd = new Float32Array(starN * 2);
+  for (let i = 0; i < starN; i++) {
+    streakPos.set([starPosA[i * 3], starPosA[i * 3 + 1], starPosA[i * 3 + 2],
+                   starPosA[i * 3], starPosA[i * 3 + 1], starPosA[i * 3 + 2]], i * 6);
+    streakSeed[i * 2] = starSeed[i]; streakSeed[i * 2 + 1] = starSeed[i];
+    streakEnd[i * 2] = 0; streakEnd[i * 2 + 1] = 1;
+  }
+  const bStarPos = track(buffer(gl, starPosA)), bStarSeed = track(buffer(gl, starSeed)), bStarSize = track(buffer(gl, starSize));
+  const bStreakPos = track(buffer(gl, streakPos)), bStreakSeed = track(buffer(gl, streakSeed)), bStreakEnd = track(buffer(gl, streakEnd));
+
   // Every location we have ever enabled, so each pass can start from a known
   // clean slate instead of inheriting the previous program's wiring.
   const armed = new Set<number>();
@@ -523,13 +710,18 @@ export function createLattice(
   };
   const U = (p: WebGLProgram, n: string) => gl.getUniformLocation(p, n);
 
+  // Every program fetches the full set; a program that does not declare a
+  // uniform gets a null location, which WebGL ignores on set.
   const uniforms = (p: WebGLProgram) => ({
     time: U(p, 'uTime'), camZ: U(p, 'uCamZ'),
     aspect: U(p, 'uAspect'), mouse: U(p, 'uMouse'), presence: U(p, 'uPresence'),
-    traffic: U(p, 'uTraffic'),
+    traffic: U(p, 'uTraffic'), roll: U(p, 'uRoll'), pitch: U(p, 'uPitch'),
+    warp: U(p, 'uWarp'), horizon: U(p, 'uHorizon'), octaves: U(p, 'uOctaves'),
+    dpr: U(p, 'uDpr'),
   });
   const uField = uniforms(progField), uEdge = uniforms(progEdge);
   const uPulse = uniforms(progPulse), uNode = uniforms(progNode);
+  const uStar = uniforms(progStar), uStreak = uniforms(progStreak);
   const uSurgeAt = U(progNode, 'uSurgeAt');
   const uSurgeOrigin = U(progNode, 'uSurgeOrigin');
 
@@ -569,12 +761,29 @@ export function createLattice(
   let pres = moodProfile().presence * opts.presence;
   let drift = moodProfile().drift;
   let traffic = moodProfile().traffic;
-  let tPres = pres, tDrift = drift, tTraffic = traffic;
+  let horizon = moodProfile().horizon;
+  let tPres = pres, tDrift = drift, tTraffic = traffic, tHorizon = horizon;
   const unsubMood = subscribeMood(p => {
     tPres = p.presence * opts.presence;
     tDrift = p.drift;
     tTraffic = p.traffic;
+    tHorizon = p.horizon;
   });
+
+  // Warp: a one-shot envelope. Rises in about a tenth of a second, holds,
+  // and is gone within a second. Re-triggering mid-jump restarts it, so a
+  // player clicking through tabs quickly gets one continuous rush rather
+  // than a stutter of separate ones.
+  let warpAt = -1, warpStrength = 0, warp = 0;
+  const unsubWarp = subscribeWarp(strength => {
+    if (!cinematic) return;
+    warpAt = t;
+    warpStrength = Math.min(1.6, strength);
+  });
+
+  // Scroll pitches the camera; the value chases the target so a flick of the
+  // wheel reads as a lean, not a jolt.
+  let scrollT = 0, pitch = 0;
 
   const dprCap = Math.min(window.devicePixelRatio || 1, cfg.dpr);
 
@@ -600,7 +809,22 @@ export function createLattice(
     const dt = Math.min(0.05, last ? (now - last) / 1000 : 0.016);
     last = now;
     t += dt;
-    camZ -= dt * 7.2 * drift;               // perpetual forward drift
+
+    // Warp envelope, then the drift it multiplies.
+    if (warpAt >= 0) {
+      const age = t - warpAt;
+      const rise = Math.min(1, age / 0.11);
+      const fall = 1 - Math.min(1, Math.max(0, (age - 0.28) / 0.62));
+      warp = rise * rise * (fall * fall * (3 - 2 * fall)) * warpStrength;
+      if (age > 0.95) { warpAt = -1; warp = 0; }
+    }
+    camZ -= dt * 7.2 * drift * (1 + warp * 11);   // perpetual forward drift, faster mid-jump
+
+    // Bank: a slow figure-of-eight, plus a lean into the cursor.
+    const roll = cinematic
+      ? Math.sin(t * 0.09) * 0.028 + Math.sin(t * 0.23 + 1.3) * 0.010 + mx * 0.022
+      : 0;
+    pitch += (scrollT - pitch) * Math.min(1, dt * 3.2);
 
     mx += (tmx - mx) * Math.min(1, dt * 2.4);
     my += (tmy - my) * Math.min(1, dt * 2.4);
@@ -609,6 +833,7 @@ export function createLattice(
     pres    += (tPres - pres) * ease;
     drift   += (tDrift - drift) * ease;
     traffic += (tTraffic - traffic) * ease;
+    horizon += (tHorizon - horizon) * ease;
 
     const set = (u: ReturnType<typeof uniforms>) => {
       gl.uniform1f(u.time, t);
@@ -617,6 +842,12 @@ export function createLattice(
       gl.uniform1f(u.presence, pres);
       gl.uniform1f(u.traffic, traffic);
       gl.uniform2f(u.mouse, mx, my);
+      gl.uniform1f(u.roll, roll);
+      gl.uniform1f(u.pitch, pitch);
+      gl.uniform1f(u.warp, warp);
+      gl.uniform1f(u.horizon, horizon);
+      gl.uniform1f(u.octaves, cfg.octaves);
+      gl.uniform1f(u.dpr, dprCap);
     };
 
     // 1. field — opaque, so it also clears the frame
@@ -627,6 +858,26 @@ export function createLattice(
     set(uField);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.enable(gl.BLEND);
+
+    // 1b. stars — behind everything that has a wire
+    disarm();
+    gl.useProgram(progStar);
+    bind(progStar, 'aPos', bStarPos, 3);
+    bind(progStar, 'aSeed', bStarSeed, 1);
+    bind(progStar, 'aSize', bStarSize, 1);
+    set(uStar);
+    gl.drawArrays(gl.POINTS, 0, starN);
+
+    // 1c. streaks — only while a jump is in flight
+    if (warp > 0.015) {
+      disarm();
+      gl.useProgram(progStreak);
+      bind(progStreak, 'aPos', bStreakPos, 3);
+      bind(progStreak, 'aSeed', bStreakSeed, 1);
+      bind(progStreak, 'aEnd', bStreakEnd, 1);
+      set(uStreak);
+      gl.drawArrays(gl.LINES, 0, starN * 2);
+    }
 
     // 2. edges
     disarm();
@@ -670,17 +921,19 @@ export function createLattice(
     nodeCount: pts.length,
     resize,
     setPointer: (x, y) => { tmx = x; tmy = y; },
+    setScroll: (fraction) => { scrollT = cinematic ? Math.max(0, Math.min(1.4, fraction)) : 0; },
     setRunning: (on) => { running = on; if (on) last = 0; },
     destroy: () => {
       unsubMood();
       unsubSignals();
       unsubPulse();
+      unsubWarp();
       cancelAnimationFrame(raf);
       // Free what we allocated before dropping the context, so a remount does
       // not accumulate GPU memory across a long session.
       owned.forEach(b => gl.deleteBuffer(b));
       owned.length = 0;
-      [progField, progEdge, progPulse, progNode].forEach(pr => gl.deleteProgram(pr));
+      [progField, progEdge, progPulse, progNode, progStar, progStreak].forEach(pr => gl.deleteProgram(pr));
       const ext = gl.getExtension('WEBGL_lose_context');
       if (ext) ext.loseContext();
     },

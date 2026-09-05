@@ -25,6 +25,8 @@ export interface MoodProfile {
   drift: number;
   /** How energetically payloads travel the wires. */
   traffic: number;
+  /** How much of the planet's limb shows below the field. 1 = in orbit. */
+  horizon: number;
 }
 
 /**
@@ -35,10 +37,10 @@ export interface MoodProfile {
  * compete  the scoreboard: the network is busy, something is at stake
  */
 const PROFILES: Record<Mood, MoodProfile> = {
-  auth:    { presence: 1.00, drift: 1.00, traffic: 1.00 },
-  calm:    { presence: 0.52, drift: 0.60, traffic: 0.65 },
-  focus:   { presence: 0.60, drift: 0.80, traffic: 0.85 },
-  compete: { presence: 0.78, drift: 1.25, traffic: 1.45 },
+  auth:    { presence: 1.00, drift: 1.00, traffic: 1.00, horizon: 1.00 },
+  calm:    { presence: 0.60, drift: 0.60, traffic: 0.65, horizon: 0.28 },
+  focus:   { presence: 0.70, drift: 0.80, traffic: 0.85, horizon: 0.22 },
+  compete: { presence: 0.86, drift: 1.25, traffic: 1.45, horizon: 0.34 },
 };
 
 /* ── Composition ────────────────────────────────────────────────────────
@@ -62,13 +64,13 @@ const PROFILES: Record<Mood, MoodProfile> = {
 
 /** Per-difficulty lean. Kept in sync with DIFFICULTY_PROFILES.atmosphere. */
 const DIFFICULTY_LEAN: Record<string, MoodProfile> = {
-  Easy:   { presence: 0.90, drift: 0.74, traffic: 0.78 },
-  Medium: { presence: 1.00, drift: 1.00, traffic: 1.06 },
-  Hard:   { presence: 1.12, drift: 1.30, traffic: 1.36 },
-  Insane: { presence: 1.30, drift: 1.58, traffic: 1.72 },
+  Easy:   { presence: 0.90, drift: 0.74, traffic: 0.78, horizon: 1 },
+  Medium: { presence: 1.00, drift: 1.00, traffic: 1.06, horizon: 1 },
+  Hard:   { presence: 1.12, drift: 1.30, traffic: 1.36, horizon: 1 },
+  Insane: { presence: 1.30, drift: 1.58, traffic: 1.72, horizon: 1 },
 };
 
-const NEUTRAL: MoodProfile = { presence: 1, drift: 1, traffic: 1 };
+const NEUTRAL: MoodProfile = { presence: 1, drift: 1, traffic: 1, horizon: 1 };
 
 let current: Mood = 'calm';
 let focus: string | null = null;
@@ -85,6 +87,7 @@ function composed(): MoodProfile {
     presence: base.presence * lean.presence * (1 + 0.22 * p),
     drift:    base.drift    * lean.drift    * (1 + 0.12 * p),
     traffic:  base.traffic  * lean.traffic  * (1 + 0.36 * p),
+    horizon:  base.horizon,
   };
 }
 
@@ -131,4 +134,22 @@ export function moodProfile(): MoodProfile { return composed(); }
 export function subscribeMood(fn: (p: MoodProfile) => void): () => void {
   listeners.add(fn);
   return () => { listeners.delete(fn); };
+}
+
+/* ── Warp ────────────────────────────────────────────────────────────────
+ *
+ * A jump between rooms. Navigation calls this; the lattice answers with a
+ * sub-second burst where the corridor accelerates and the far stars streak.
+ * Strength scales the burst, 1 being a view change. It is a one-shot event,
+ * not state, which is why it does not live in the profile above.
+ */
+const warpListeners = new Set<(strength: number) => void>();
+
+export function triggerWarp(strength = 1) {
+  warpListeners.forEach(fn => fn(strength));
+}
+
+export function subscribeWarp(fn: (strength: number) => void): () => void {
+  warpListeners.add(fn);
+  return () => { warpListeners.delete(fn); };
 }
