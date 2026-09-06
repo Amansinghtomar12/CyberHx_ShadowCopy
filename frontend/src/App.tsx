@@ -1859,14 +1859,12 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
       return;
     }
 
-    if (!result.alreadySolved) {
-      // Sync attempts from server response (maxAttempts - attemptsLeft = used)
-      if (result.maxAttempts !== undefined && result.attemptsLeft !== undefined) {
-        const usedAttempts = result.maxAttempts - result.attemptsLeft;
-        onAttempt(challenge.id, usedAttempts);
-      } else {
-        onAttempt(challenge.id);
-      }
+    // Only the server's own count moves the meter. A gate that recorded
+    // nothing (event not started / paused / ended, no team, or the cooldown)
+    // comes back with no attemptsLeft, and must not tick the counter — that
+    // was the "attempts climb before the event starts" bug.
+    if (!result.alreadySolved && result.maxAttempts !== undefined && result.attemptsLeft !== undefined) {
+      onAttempt(challenge.id, result.maxAttempts - result.attemptsLeft);
     }
 
     const endValidation = () => {
@@ -1914,15 +1912,16 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
     }
 
     setError(result.message ?? 'Access Denied: Invalid Key Sequence');
-    // Pick the rung from the server's count where it gave us one, so the ladder
-    // survives a reload and cannot be reset by reopening the panel.
-    const used = (result.maxAttempts !== undefined && result.attemptsLeft !== undefined)
-      ? result.maxAttempts - result.attemptsLeft
-      : attempts + 1;
-    const rung = DENY_LADDER[Math.min(Math.max(used, 1), DENY_LADDER.length) - 1];
-    setDenyRung(rung);
-    setDenySeq(n => n + 1);
-    play('failure', { intensity: rung.vol });
+    // The escalating deny ladder is for real wrong answers the server counted.
+    // A gate (event not started / paused / ended, no team, cooldown) shows only
+    // the message: it neither burns an attempt nor climbs the ladder.
+    if (result.maxAttempts !== undefined && result.attemptsLeft !== undefined) {
+      const used = result.maxAttempts - result.attemptsLeft;
+      const rung = DENY_LADDER[Math.min(Math.max(used, 1), DENY_LADDER.length) - 1];
+      setDenyRung(rung);
+      setDenySeq(n => n + 1);
+      play('failure', { intensity: rung.vol });
+    }
   };
 
   // ── Presentation-only derivations ────────────────────────
