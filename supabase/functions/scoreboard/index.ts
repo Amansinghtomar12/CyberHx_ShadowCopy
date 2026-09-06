@@ -3,7 +3,11 @@
 import { serve } from 'https://deno.land/std@0.208.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const ALLOWED_ORIGINS = (Deno.env.get('ALLOWED_ORIGINS') ?? '').split(',').map(s => s.trim()).filter(Boolean);
+// Default to the live site so an unset env never falls back to reflecting an
+// arbitrary Origin. Set ALLOWED_ORIGINS (comma-separated) to override/extend.
+const DEFAULT_ORIGINS = ['https://ctf.cyberhx.com'];
+const _envOrigins = (Deno.env.get('ALLOWED_ORIGINS') ?? '').split(',').map(s => s.trim()).filter(Boolean);
+const ALLOWED_ORIGINS = _envOrigins.length ? _envOrigins : DEFAULT_ORIGINS;
 // When set, only callers presenting this key are answered. The proxy on
 // ctf.cyberhx.com sends it, so the public route is the cached one and a
 // flood aimed straight at this function is refused before any query.
