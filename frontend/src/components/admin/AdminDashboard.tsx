@@ -4,6 +4,7 @@ import { supabase, DBChallenge } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import OwnerFlagVault from './OwnerFlagVault';
 import { exportScoreboardCsv } from '../../lib/scoreboardExport';
+import { safeHttpUrl } from '../../lib/url';
 import {
   Plus, Eye, EyeOff, Trash2, Edit3, Shield, Users, Flag, Activity, RotateCcw, KeyRound,
   X, AlertTriangle, Megaphone, Zap, Lightbulb, Link2, Save, Inbox, Lock,
@@ -609,7 +610,7 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
               {attachments.map(file => (
                 <li key={file.id} className="surface-inset flex items-center gap-3 px-3 py-2.5">
                   <FileDown aria-hidden className="w-4 h-4 shrink-0 text-cyber-neon" />
-                  <a href={file.url} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate font-mono text-small text-cyber-text hover:text-cyber-neon">{file.name}</a>
+                  <a href={safeHttpUrl(file.url) || undefined} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate font-mono text-small text-cyber-text hover:text-cyber-neon">{file.name}</a>
                   <span className="font-mono text-small text-text-muted tabular-nums">{file.size_bytes ? mb(file.size_bytes) : ''}</span>
                   <span className="badge badge-solved">Uploaded</span>
                   <button type="button" onClick={() => removeExisting(file)} aria-label={`Remove ${file.name}`} title="Remove attachment"

@@ -13,6 +13,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
+import { safeHttpUrl } from './lib/url';
 import { useAuth } from './hooks/useAuth';
 import { ProgressBars, SolvesTable, ScoreChart } from './SharedComponents';
 
@@ -231,9 +232,9 @@ export default function UserProfile() {
                   boxShadow: 'var(--shadow-neon)',
                 }}
               >
-                {profile?.avatar_url ? (
+                {safeHttpUrl(profile?.avatar_url) ? (
                   <img
-                    src={profile.avatar_url}
+                    src={safeHttpUrl(profile?.avatar_url)}
                     alt=""
                     className="h-full w-full object-cover"
                   />

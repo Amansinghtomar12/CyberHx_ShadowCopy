@@ -39,6 +39,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Category, Challenge } from './types';
+import { safeHttpUrl } from './lib/url';
 import { DBChallenge, supabase } from './lib/supabase';
 import { useChallenges, usePolling, useThrottled } from './hooks/useData';
 import { submitFlag, getUnlockedHints, unlockHint } from './api/submitFlag';
@@ -2063,7 +2064,7 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
                       {files.map((file: any, i: number) => (
                         <a
                           key={i}
-                          href={file.url}
+                          href={safeHttpUrl(file.url) || undefined}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="btn btn-secondary btn-md btn-block justify-start gap-3"
@@ -2080,7 +2081,7 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
                       {links.map((link, i) => (
                         <a
                           key={`link-${i}`}
-                          href={link.url}
+                          href={safeHttpUrl(link.url) || undefined}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="btn btn-outline btn-md btn-block justify-start gap-3"
