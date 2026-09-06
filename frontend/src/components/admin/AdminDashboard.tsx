@@ -1668,6 +1668,7 @@ function EventTab() {
       end_time: event.end_time,
       is_active: event.is_active,
       registration_open: event.registration_open,
+      allow_team_changes: event.allow_team_changes,
       mode: event.mode,
     }).eq('id', event.id);
     setSaving(false);
@@ -1840,7 +1841,14 @@ function EventTab() {
                 className="w-4 h-4 accent-cyber-neon shrink-0" />
               <label htmlFor="registration" className="text-label uppercase text-text-secondary cursor-pointer">Registration Open</label>
             </div>
+            <div className="flex items-center gap-3 rounded-control border border-border-subtle bg-surface-inset px-4 py-3">
+              <input type="checkbox" id="allow-team-changes" checked={event.allow_team_changes ?? true}
+                onChange={e => setEvent((p: any) => ({ ...p, allow_team_changes: e.target.checked }))}
+                className="w-4 h-4 accent-cyber-neon shrink-0" />
+              <label htmlFor="allow-team-changes" className="text-label uppercase text-text-secondary cursor-pointer">Allow Team Changes</label>
+            </div>
           </div>
+          <p className="mt-2 text-small text-text-muted leading-relaxed">Uncheck at kickoff to lock rosters: while the event is active, players can no longer create, join, or leave teams.</p>
         </div>
 
         {/* ── Scoreboard freeze: its own control, applied instantly ────── */}
