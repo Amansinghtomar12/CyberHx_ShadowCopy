@@ -1598,6 +1598,10 @@ function EventTab() {
   const [pausing, setPausing] = useState(false);
   const [pauseNote, setPauseNote] = useState('');
   const [extending, setExtending] = useState(false);
+  const [allowCount, setAllowCount] = useState<number | null>(null);
+  const [allowInput, setAllowInput] = useState('');
+  const [allowMsg, setAllowMsg] = useState('');
+  const [allowBusy, setAllowBusy] = useState(false);
   const { profile: viewer } = useAuth();
 
   /** Stop the clock for everyone but admins. Resume gives the time back. */
@@ -1655,6 +1659,32 @@ function EventTab() {
 
   useEffect(() => { loadEvent(); }, []);
 
+  const loadAllowCount = () =>
+    supabase.rpc('admin_allowlist_count').then(({ data }: any) => {
+      if (data && typeof data.total === 'number') setAllowCount(data.total);
+    });
+  useEffect(() => { loadAllowCount(); }, []);
+
+  const addAllowlist = async () => {
+    const emails = allowInput
+      .split(/[\s,;]+/)
+      .map(s => s.trim().toLowerCase())
+      .filter(s => s.includes('@'));
+    if (emails.length === 0) { setAllowMsg('❌ Paste at least one email.'); setTimeout(() => setAllowMsg(''), 4000); return; }
+    setAllowBusy(true);
+    const { data, error } = await supabase.rpc('admin_allowlist_add', { p_emails: emails });
+    setAllowBusy(false);
+    if (error || (data as any)?.error) {
+      setAllowMsg('❌ ' + (error?.message ?? (data as any).error));
+    } else {
+      const d = data as any;
+      setAllowCount(d.total);
+      setAllowInput('');
+      setAllowMsg(`✅ Added ${d.added}. Total on list: ${d.total}.`);
+    }
+    setTimeout(() => setAllowMsg(''), 6000);
+  };
+
   // freeze_scoreboard is deliberately NOT in this payload. It is owned by the
   // Freeze control below, which writes it through its own RPC. Including it
   // here would let a Save with stale form state silently unfreeze a board that
@@ -1669,6 +1699,7 @@ function EventTab() {
       is_active: event.is_active,
       registration_open: event.registration_open,
       allow_team_changes: event.allow_team_changes,
+      registration_allowlist_only: event.registration_allowlist_only,
       mode: event.mode,
     }).eq('id', event.id);
     setSaving(false);
@@ -1847,8 +1878,39 @@ function EventTab() {
                 className="w-4 h-4 accent-cyber-neon shrink-0" />
               <label htmlFor="allow-team-changes" className="text-label uppercase text-text-secondary cursor-pointer">Allow Team Changes</label>
             </div>
+            <div className="flex items-center gap-3 rounded-control border border-border-subtle bg-surface-inset px-4 py-3">
+              <input type="checkbox" id="allowlist-only" checked={event.registration_allowlist_only ?? false}
+                onChange={e => setEvent((p: any) => ({ ...p, registration_allowlist_only: e.target.checked }))}
+                className="w-4 h-4 accent-cyber-neon shrink-0" />
+              <label htmlFor="allowlist-only" className="text-label uppercase text-text-secondary cursor-pointer">Registration: Allowlist Only</label>
+            </div>
           </div>
-          <p className="mt-2 text-small text-text-muted leading-relaxed">Uncheck at kickoff to lock rosters: while the event is active, players can no longer create, join, or leave teams.</p>
+          <p className="mt-2 text-small text-text-muted leading-relaxed">Uncheck "Allow Team Changes" at kickoff to lock rosters: while the event is active, players can no longer create, join, or leave teams.</p>
+        </div>
+
+        {/* ── Registration allowlist: only pre-registered emails may sign up ── */}
+        <div className="mt-6 pt-6 border-t border-border-subtle">
+          <p className="field-label flex items-center gap-1.5"><ListChecks aria-hidden className="w-3.5 h-3.5" /> Registration Allowlist</p>
+          <p className="mt-1 text-small text-text-muted leading-relaxed">
+            Paste registered emails (one per line, or comma-separated) and add them. When
+            <span className="font-mono text-text-secondary"> Registration: Allowlist Only </span>
+            is on (above), only these emails can create an account. Load the list first, then turn the switch on and Save.
+            Currently on the list: <span className="font-mono text-text-secondary">{allowCount ?? '…'}</span>.
+          </p>
+          <textarea
+            value={allowInput}
+            onChange={e => setAllowInput(e.target.value)}
+            rows={5}
+            placeholder={'alice@example.com\nbob@example.com'}
+            className="mt-3 w-full rounded-control border border-border-subtle bg-surface-inset px-3 py-2 font-mono text-small text-cyber-text"
+          />
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <button type="button" onClick={addAllowlist} disabled={allowBusy}
+              className={`btn btn-secondary btn-md ${allowBusy ? 'is-loading' : ''}`}>
+              <ListChecks className="w-4 h-4" /> Add to allowlist
+            </button>
+            {allowMsg && <span className="text-small text-text-muted">{allowMsg}</span>}
+          </div>
         </div>
 
         {/* ── Scoreboard freeze: its own control, applied instantly ────── */}
