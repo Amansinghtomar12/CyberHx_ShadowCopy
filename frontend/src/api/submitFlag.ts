@@ -3,6 +3,15 @@
 
 import { supabase } from '../lib/supabase';
 
+// The server refuses non-allowlisted players with a plain sentence; show a
+// themed, on-brand refusal for it instead. Matched exactly against the
+// server string in submit_flag_tx / unlock_hint.
+const PLAY_GATE_SENTINEL = 'Your email is not on the registration list to play this event';
+const PLAY_GATE_THEMED = 'ACCESS DENIED :: identity not on the roster — your email is not registered for this event.';
+function themePlayGate(msg?: string): string | undefined {
+  return msg === PLAY_GATE_SENTINEL ? PLAY_GATE_THEMED : msg;
+}
+
 // ── Submit flag via Edge Function (server-side validation) ────
 export async function submitFlag(challengeId: string, flag: string, userId: string) {
   // Check if already solved (client-side quick check)
@@ -35,7 +44,7 @@ export async function submitFlag(challengeId: string, flag: string, userId: stri
   }
 
   if (data.error) {
-    return { correct: false, message: data.error };
+    return { correct: false, message: themePlayGate(data.error) };
   }
 
   return {
@@ -61,7 +70,7 @@ export async function unlockHint(userId: string, hintId: string) {
   }
 
   if (data?.error) {
-    return { success: false, error: data.error };
+    return { success: false, error: themePlayGate(data.error) };
   }
 
   return { success: true, text: data?.text };
