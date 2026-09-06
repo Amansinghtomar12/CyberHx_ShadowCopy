@@ -1882,7 +1882,7 @@ function EventTab() {
               <input type="checkbox" id="allowlist-only" checked={event.registration_allowlist_only ?? false}
                 onChange={e => setEvent((p: any) => ({ ...p, registration_allowlist_only: e.target.checked }))}
                 className="w-4 h-4 accent-cyber-neon shrink-0" />
-              <label htmlFor="allowlist-only" className="text-label uppercase text-text-secondary cursor-pointer">Registration: Allowlist Only</label>
+              <label htmlFor="allowlist-only" className="text-label uppercase text-text-secondary cursor-pointer">Restrict Play to Allowlist</label>
             </div>
           </div>
           <p className="mt-2 text-small text-text-muted leading-relaxed">Uncheck "Allow Team Changes" at kickoff to lock rosters: while the event is active, players can no longer create, join, or leave teams.</p>
@@ -1892,9 +1892,11 @@ function EventTab() {
         <div className="mt-6 pt-6 border-t border-border-subtle">
           <p className="field-label flex items-center gap-1.5"><ListChecks aria-hidden className="w-3.5 h-3.5" /> Registration Allowlist</p>
           <p className="mt-1 text-small text-text-muted leading-relaxed">
-            Paste registered emails (one per line, or comma-separated) and add them. When
-            <span className="font-mono text-text-secondary"> Registration: Allowlist Only </span>
-            is on (above), only these emails can create an account. Load the list first, then turn the switch on and Save.
+            Paste registered emails (one per line, or comma-separated) and add them. Registration
+            stays open to everyone; when
+            <span className="font-mono text-text-secondary"> Restrict Play to Allowlist </span>
+            is on (above), only these emails can submit flags or unlock hints — everyone else can
+            sign in and look around but cannot play. Load the list, then turn the switch on and Save.
             Currently on the list: <span className="font-mono text-text-secondary">{allowCount ?? '…'}</span>.
           </p>
           <textarea

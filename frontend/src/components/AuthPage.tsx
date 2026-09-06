@@ -347,14 +347,8 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
       if (!registrationOpen) { abort('Registration is currently closed.'); return; }
       if (!form.username.trim()) { abort('Username required'); return; }
       if (form.username.length < 3) { abort('Username must be at least 3 characters'); return; }
-      // Allowlist gate (only when the organiser has turned it on). Show a clear,
-      // themed refusal here instead of the auth layer's opaque "database error".
-      // handle_new_user is the real enforcement; this only drives the message.
-      const { data: emailAllowed, error: allowErr } = await supabase.rpc('registration_email_allowed', { p_email: form.email });
-      if (!allowErr && emailAllowed === false) {
-        abort('[ ACCESS DENIED ] — this identity is not on the Null Origin operative roster. The operation is invite-only; only pre-registered agents may enlist. Registered and still locked out? Contact the organisers at support@cyberhx.com.');
-        return;
-      }
+      // Registration is open to everyone; the allowlist is enforced only at
+      // play time (flag submission / hints), not here.
       result = await register({ email: form.email, password: form.password, username: form.username, captchaToken });
     }
 
