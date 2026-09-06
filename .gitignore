@@ -1,0 +1,3 @@
+
+# Security audit reports: kept out of git on purpose (lists residual weaknesses).
+SECURITY_AUDIT_*.md
