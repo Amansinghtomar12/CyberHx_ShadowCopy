@@ -29,6 +29,9 @@ type FieldOpts = {
   hint?: string;
 };
 
+/** Where a player is sent when they no longer know their current password. */
+const ADMIN_EMAIL = 'support@cyberhx.com';
+
 /** Read-only requirement row used under the password fields. */
 function Requirement({ met, label }: { met: boolean; label: string }) {
   return (
@@ -148,11 +151,24 @@ export default function Settings() {
   };
 
   const handlePasswordChange = async () => {
+    if (!passwords.current) { setMsg({ text: 'Enter your current password first.', ok: false }); return; }
     if (!passwords.newPass) { setMsg({ text: 'New password cannot be empty.', ok: false }); return; }
     if (passwords.newPass !== passwords.confirm) { setMsg({ text: 'Passwords do not match.', ok: false }); return; }
     if (passwords.newPass.length < 6) { setMsg({ text: 'Password must be at least 6 characters.', ok: false }); return; }
+    if (passwords.newPass === passwords.current) { setMsg({ text: 'New password must be different from your current one.', ok: false }); return; }
     setSaving(true);
     setMsg(null);
+
+    // Prove knowledge of the current password server-side before anything
+    // changes. A wrong or forgotten password stops here; no update happens.
+    const { data: verified, error: verifyErr } = await supabase.rpc('verify_current_password', { p_password: passwords.current });
+    if (verifyErr) { setSaving(false); setMsg({ text: verifyErr.message, ok: false }); return; }
+    if (verified !== true) {
+      setSaving(false);
+      setMsg({ text: `Current password is incorrect. Forgot it? Contact the admin at ${ADMIN_EMAIL} to reset it.`, ok: false });
+      return;
+    }
+
     const { error } = await supabase.auth.updateUser({ password: passwords.newPass });
     setSaving(false);
     if (error) setMsg({ text: error.message, ok: false });
@@ -335,10 +351,17 @@ export default function Settings() {
               <PanelHeader
                 icon={<KeyRound className="h-4 w-4" />}
                 title="Change Password"
-                description="Pick something long and unique — you will stay signed in."
+                description="Confirm your current password, then pick something long and unique — you will stay signed in."
               />
 
               <div className="space-y-5">
+                {inp('Current Password', passwords.current, v => setPasswords(p => ({ ...p, current: v })), 'password', '••••••••', {
+                  icon: <KeyRound className="h-3.5 w-3.5" />,
+                })}
+                <p className="-mt-3 text-small text-cyber-muted">
+                  Forgot your current password? Contact the admin at{' '}
+                  <a href={`mailto:${ADMIN_EMAIL}`} className="text-cyber-neon hover:underline">{ADMIN_EMAIL}</a> to reset it.
+                </p>
                 {inp('New Password', passwords.newPass, v => setPasswords(p => ({ ...p, newPass: v })), 'password', '••••••••', {
                   icon: <Lock className="h-3.5 w-3.5" />,
                 })}
