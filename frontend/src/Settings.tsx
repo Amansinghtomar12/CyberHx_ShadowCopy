@@ -6,6 +6,7 @@ import {
   Building2,
   Globe,
   MapPin,
+  ChevronDown,
   ShieldCheck,
   Lock,
   KeyRound,
@@ -20,6 +21,8 @@ import { useAuth } from './hooks/useAuth';
 import SoundToggle from './components/SoundToggle';
 import FxToggle from './components/FxToggle';
 import { ADMIN_EMAIL, FORGOT_NO_RESET, WRONG_CURRENT } from './lib/support';
+import { COUNTRIES } from './lib/countries';
+import { validateWebsite, validateAffiliation, validateCountry } from './lib/validation';
 import { supabase } from './lib/supabase';
 
 /* ── presentational helpers (no logic, same file) ─────────────────────────── */
@@ -142,30 +145,36 @@ export default function Settings() {
     if (r.includes('profiles_username_check'))
       return '[ INVALID CALLSIGN ] Handles are 3–30 characters: letters, numbers, _ and - only.';
     if (r.includes('profiles_website_safe'))
-      return '[ INVALID LINK ] Website must be a full https:// address — or leave it blank.';
+      return '[ INVALID LINK ] Website must be a full https:// address with a real domain — or leave it blank.';
     if (r.includes('profiles_avatar_url_safe'))
       return '[ INVALID LINK ] Avatar must be a full https:// image address.';
+    if (r.includes('profiles_affiliation_safe'))
+      return '[ INVALID AFFILIATION ] Enter a real organisation name (2–100 characters, no links).';
+    if (r.includes('profiles_country_safe'))
+      return '[ INVALID COUNTRY ] Pick a country from the list.';
     return `[ SAVE FAILED ] ${raw}`;
   };
 
-  /** Blank optional fields are "not set", never empty strings; a bare domain
-      is completed to https:// so a player need not know the rule. */
-  const cleanUrl = (v: string): string | null => {
-    const t = v.trim();
-    if (!t) return null;
-    return /^https?:\/\//i.test(t) ? t : `https://${t}`;
-  };
-  const cleanText = (v: string): string | null => { const t = v.trim(); return t ? t : null; };
-
   const handleProfileSave = async () => {
     if (!form.username.trim()) { setMsg({ text: 'Username cannot be empty.', ok: false }); return; }
+    // Validate and normalise every optional field before anything is sent,
+    // so a player gets a clear message instead of a database refusal. Blank
+    // is stored as NULL; a bare domain is completed to https://.
+    const aff = validateAffiliation(form.affiliation);
+    if (aff.ok === false) { setMsg({ text: aff.reason, ok: false }); return; }
+    const site = validateWebsite(form.website);
+    if (site.ok === false) { setMsg({ text: site.reason, ok: false }); return; }
+    // A legacy free-text value that is not in the list shows as blank in the
+    // picker, so it saves as blank too — what you see is what is stored.
+    const ctry = validateCountry(COUNTRIES.includes(form.country) ? form.country : '', COUNTRIES);
+    if (ctry.ok === false) { setMsg({ text: ctry.reason, ok: false }); return; }
     setSaving(true);
     setMsg(null);
     const result = await updateProfile({
       username: form.username.trim(),
-      affiliation: cleanText(form.affiliation),
-      website: cleanUrl(form.website),
-      country: cleanText(form.country),
+      affiliation: aff.value,
+      website: site.value,
+      country: ctry.value,
     });
     setSaving(false);
     if ((result as any)?.error) setMsg({ text: profileErrorMessage((result as any).error), ok: false });
@@ -324,10 +333,26 @@ export default function Settings() {
                     icon: <Building2 className="h-3.5 w-3.5" />,
                     hint: 'Optional. Team, university or company.',
                   })}
-                  {inp('Country', form.country, v => setForm(p => ({ ...p, country: v })), 'text', 'e.g. India', {
-                    icon: <MapPin className="h-3.5 w-3.5" />,
-                    hint: 'Optional. Used for regional standings.',
-                  })}
+                  <div className="min-w-0">
+                    <label className="field-label" htmlFor="field-country">Country</label>
+                    <div className="relative">
+                      <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-cyber-muted">
+                        <MapPin className="h-3.5 w-3.5" />
+                      </span>
+                      <select
+                        id="field-country"
+                        value={COUNTRIES.includes(form.country) ? form.country : ''}
+                        onChange={e => setForm(p => ({ ...p, country: e.target.value }))}
+                        className="input appearance-none pl-9 pr-9"
+                        aria-describedby="field-country-hint"
+                      >
+                        <option value="">Select your country</option>
+                        {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                      <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-cyber-muted" />
+                    </div>
+                    <p id="field-country-hint" className="mt-1.5 text-small text-cyber-muted">Optional. Used for regional standings.</p>
+                  </div>
                   <div className="sm:col-span-2">
                     {inp('Website', form.website, v => setForm(p => ({ ...p, website: v })), 'url', 'https://', {
                       icon: <Globe className="h-3.5 w-3.5" />,
