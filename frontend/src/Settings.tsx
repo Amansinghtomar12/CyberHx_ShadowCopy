@@ -19,6 +19,7 @@ import {
 import { useAuth } from './hooks/useAuth';
 import SoundToggle from './components/SoundToggle';
 import FxToggle from './components/FxToggle';
+import { ADMIN_EMAIL, FORGOT_NO_RESET, WRONG_CURRENT } from './lib/support';
 import { supabase } from './lib/supabase';
 
 /* ── presentational helpers (no logic, same file) ─────────────────────────── */
@@ -28,9 +29,6 @@ type FieldOpts = {
   icon?: React.ReactNode;
   hint?: string;
 };
-
-/** Where a player is sent when they no longer know their current password. */
-const ADMIN_EMAIL = 'support@cyberhx.com';
 
 /** Read-only requirement row used under the password fields. */
 function Requirement({ met, label }: { met: boolean; label: string }) {
@@ -165,7 +163,7 @@ export default function Settings() {
     if (verifyErr) { setSaving(false); setMsg({ text: verifyErr.message, ok: false }); return; }
     if (verified !== true) {
       setSaving(false);
-      setMsg({ text: `Current password is incorrect. Forgot it? Contact the admin at ${ADMIN_EMAIL} to reset it.`, ok: false });
+      setMsg({ text: WRONG_CURRENT, ok: false });
       return;
     }
 
@@ -358,9 +356,9 @@ export default function Settings() {
                 {inp('Current Password', passwords.current, v => setPasswords(p => ({ ...p, current: v })), 'password', '••••••••', {
                   icon: <KeyRound className="h-3.5 w-3.5" />,
                 })}
-                <p className="-mt-3 text-small text-cyber-muted">
-                  Forgot your current password? Contact the admin at{' '}
-                  <a href={`mailto:${ADMIN_EMAIL}`} className="text-cyber-neon hover:underline">{ADMIN_EMAIL}</a> to reset it.
+                <p role="note" className="-mt-3 font-mono text-small leading-relaxed text-cyber-muted">
+                  {FORGOT_NO_RESET}{' '}
+                  <a href={`mailto:${ADMIN_EMAIL}`} className="text-cyber-neon hover:underline">{ADMIN_EMAIL}</a>.
                 </p>
                 {inp('New Password', passwords.newPass, v => setPasswords(p => ({ ...p, newPass: v })), 'password', '••••••••', {
                   icon: <Lock className="h-3.5 w-3.5" />,

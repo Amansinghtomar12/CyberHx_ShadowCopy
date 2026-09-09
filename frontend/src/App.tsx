@@ -68,6 +68,7 @@ import {
 import { getCapability } from './components/environment/performance';
 import { play, playValidating, initAudioLifecycle } from './audio/AudioManager';
 import SoundToggle from './components/SoundToggle';
+import MotionToggle from './components/MotionToggle';
 import OperationIntro from './components/OperationIntro';
 import HoldScreen from './components/HoldScreen';
 import EventClock from './components/EventClock';
@@ -792,6 +793,7 @@ export default function App() {
               </span>
               <NotificationBell userId={user?.id ?? ''} />
               <SoundToggle />
+              <MotionToggle />
               <span className="divider-vertical hidden lg:block mx-1 h-6 self-center" />
               <div className="hidden lg:flex items-center gap-1">
                 <button onClick={() => setCurrentView('teamProfile')} aria-label="My team"

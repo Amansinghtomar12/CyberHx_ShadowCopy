@@ -9,6 +9,8 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 import AmbientBackground from './AmbientBackground';
+import MotionToggle from './MotionToggle';
+import { ADMIN_EMAIL, REGISTER_NO_RESET, FORGOT_NO_RESET } from '../lib/support';
 import SurfaceLight from './environment/SurfaceLight';
 import CursorRing from './environment/CursorRing';
 import { setMood } from './environment/mood';
@@ -378,6 +380,13 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
       <SurfaceLight />
       <CursorRing />
 
+      {/* One-click background-motion switch, reachable before sign-in — the
+          field is first seen here, and a player who finds it distracting must
+          be able to stop it without an account. */}
+      <div className="fixed top-3 right-3 z-50 sm:top-4 sm:right-4">
+        <MotionToggle className="surface" />
+      </div>
+
       {/* Full-viewport viewfinder brackets — signal that this is a serious environment */}
       <div className="hidden lg:block">
         <CornerBracket position="tl" />
@@ -694,6 +703,21 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                           </button>
                         </div>
                       </div>
+
+                      {/* No password reset exists on this platform. Say so before a
+                          new player picks a key, and wherever one may already have
+                          forgotten it — in the platform's voice, everywhere the same. */}
+                      {mode === 'register' ? (
+                        <p role="note" className="rounded-control border border-diff-hard/40 bg-surface-inset px-3 py-2.5 font-mono text-small leading-relaxed text-diff-hard">
+                          {REGISTER_NO_RESET}{' '}
+                          <a href={`mailto:${ADMIN_EMAIL}`} className="underline hover:text-cyber-text">{ADMIN_EMAIL}</a>
+                        </p>
+                      ) : (
+                        <p role="note" className="font-mono text-small leading-relaxed text-text-muted">
+                          {FORGOT_NO_RESET}{' '}
+                          <a href={`mailto:${ADMIN_EMAIL}`} className="text-cyber-neon hover:underline">{ADMIN_EMAIL}</a>.
+                        </p>
+                      )}
 
                       {/* Cloudflare Turnstile Captcha */}
                       <div className="rounded-control border border-border-subtle bg-surface-inset px-3 py-2.5">
