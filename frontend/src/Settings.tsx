@@ -133,18 +133,42 @@ export default function Settings() {
     );
   };
 
+  /** Translate a raw database refusal into the platform's voice. Unknown
+      errors keep their text so a real fault is still diagnosable. */
+  const profileErrorMessage = (raw: string): string => {
+    const r = raw.toLowerCase();
+    if (r.includes('profiles_username_key') || (r.includes('duplicate key') && r.includes('username')))
+      return '[ CALLSIGN TAKEN ] That handle is already claimed by another operative. Choose a different one.';
+    if (r.includes('profiles_username_check'))
+      return '[ INVALID CALLSIGN ] Handles are 3–30 characters: letters, numbers, _ and - only.';
+    if (r.includes('profiles_website_safe'))
+      return '[ INVALID LINK ] Website must be a full https:// address — or leave it blank.';
+    if (r.includes('profiles_avatar_url_safe'))
+      return '[ INVALID LINK ] Avatar must be a full https:// image address.';
+    return `[ SAVE FAILED ] ${raw}`;
+  };
+
+  /** Blank optional fields are "not set", never empty strings; a bare domain
+      is completed to https:// so a player need not know the rule. */
+  const cleanUrl = (v: string): string | null => {
+    const t = v.trim();
+    if (!t) return null;
+    return /^https?:\/\//i.test(t) ? t : `https://${t}`;
+  };
+  const cleanText = (v: string): string | null => { const t = v.trim(); return t ? t : null; };
+
   const handleProfileSave = async () => {
     if (!form.username.trim()) { setMsg({ text: 'Username cannot be empty.', ok: false }); return; }
     setSaving(true);
     setMsg(null);
     const result = await updateProfile({
       username: form.username.trim(),
-      affiliation: form.affiliation,
-      website: form.website,
-      country: form.country,
+      affiliation: cleanText(form.affiliation),
+      website: cleanUrl(form.website),
+      country: cleanText(form.country),
     });
     setSaving(false);
-    if ((result as any)?.error) setMsg({ text: (result as any).error, ok: false });
+    if ((result as any)?.error) setMsg({ text: profileErrorMessage((result as any).error), ok: false });
     else setMsg({ text: 'Profile updated successfully.', ok: true });
   };
 
