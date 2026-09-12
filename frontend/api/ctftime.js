@@ -19,6 +19,13 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // The edge caches by full URL, so a query string is a cache miss on
+  // demand and every miss is a call into Supabase. The feed takes none.
+  if ((req.url ?? '').includes('?')) {
+    res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=300');
+    return res.status(400).json({ error: 'No query parameters' });
+  }
+
   const headers = { apikey: ANON_KEY, accept: 'application/json' };
   if (FEED_KEY) headers['x-feed-key'] = FEED_KEY;
 

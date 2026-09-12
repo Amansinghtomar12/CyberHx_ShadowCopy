@@ -1653,9 +1653,13 @@ function EventTab() {
     setTimeout(() => setMsg(''), 8000);
   };
 
+  // What the form was loaded with. Save writes only the fields that differ
+  // from this, so a tab left open across a Resume or an Extend (both move
+  // end_time server-side) cannot quietly put the old end time back.
+  const [loadedEvent, setLoadedEvent] = useState<any>(null);
   const loadEvent = () =>
     supabase.from('event_settings').select('*').order('id', { ascending: false }).limit(1).single()
-      .then(({ data }) => setEvent(data));
+      .then(({ data }) => { setEvent(data); setLoadedEvent(data); });
 
   useEffect(() => { loadEvent(); }, []);
 
@@ -1666,10 +1670,13 @@ function EventTab() {
   useEffect(() => { loadAllowCount(); }, []);
 
   const addAllowlist = async () => {
+    // Pasted lists arrive from spreadsheets and mail clients, which wrap
+    // addresses in quotes or angle brackets. Strip that wrapping so
+    // "alice@x.com" and Alice <alice@x.com> both become alice@x.com.
     const emails = allowInput
       .split(/[\s,;]+/)
-      .map(s => s.trim().toLowerCase())
-      .filter(s => s.includes('@'));
+      .map(s => s.trim().replace(/^["'<>\[\]()]+|["'<>\[\]()]+$/g, '').toLowerCase())
+      .filter(s => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s));
     if (emails.length === 0) { setAllowMsg('❌ Paste at least one email.'); setTimeout(() => setAllowMsg(''), 4000); return; }
     setAllowBusy(true);
     const { data, error } = await supabase.rpc('admin_allowlist_add', { p_emails: emails });
@@ -1691,19 +1698,22 @@ function EventTab() {
   // was frozen from another tab moments earlier.
   const save = async () => {
     if (!event) return;
+    const fields = ['name', 'start_time', 'end_time', 'is_active', 'registration_open',
+      'allow_team_changes', 'registration_allowlist_only', 'mode'] as const;
+    const patch: Record<string, unknown> = {};
+    for (const f of fields) {
+      if (!loadedEvent || event[f] !== loadedEvent[f]) patch[f] = event[f];
+    }
+    if (Object.keys(patch).length === 0) {
+      setMsg('Nothing changed.');
+      setTimeout(() => setMsg(''), 3000);
+      return;
+    }
     setSaving(true);
-    const { error } = await supabase.from('event_settings').update({
-      name: event.name,
-      start_time: event.start_time,
-      end_time: event.end_time,
-      is_active: event.is_active,
-      registration_open: event.registration_open,
-      allow_team_changes: event.allow_team_changes,
-      registration_allowlist_only: event.registration_allowlist_only,
-      mode: event.mode,
-    }).eq('id', event.id);
+    const { error } = await supabase.from('event_settings').update(patch).eq('id', event.id);
     setSaving(false);
     setMsg(error ? '❌ ' + error.message : '✅ Event settings saved!');
+    if (!error) void loadEvent();
     setTimeout(() => setMsg(''), 3000);
   };
 

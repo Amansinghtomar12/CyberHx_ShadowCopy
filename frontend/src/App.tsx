@@ -618,6 +618,20 @@ export default function App() {
     return () => clearInterval(id);
   }, [eventSettings]);
 
+  // The board also opens at start_time server-side, so a player who waited
+  // through the countdown is holding an empty list. Fetch it the moment the
+  // clock turns over, spread across a few seconds so thousands of clients
+  // do not land on the database in the same instant.
+  const prevStatus = useRef(eventStatus);
+  useEffect(() => {
+    const was = prevStatus.current;
+    prevStatus.current = eventStatus;
+    if (was === 'waiting' && eventStatus === 'live') {
+      const id = setTimeout(() => { void refetchChallenges(); }, Math.random() * 8000);
+      return () => clearTimeout(id);
+    }
+  }, [eventStatus, refetchChallenges]);
+
   /** Categories actually present, in the palette's own order, with counts. */
   const categories = useMemo(() => {
     const counts: Record<string, number> = {};

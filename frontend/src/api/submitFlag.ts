@@ -13,38 +13,39 @@ function themePlayGate(msg?: string): string | undefined {
 }
 
 // ── Submit flag via Edge Function (server-side validation) ────
-export async function submitFlag(challengeId: string, flag: string, userId: string) {
-  // Check if already solved (client-side quick check)
-  const { data: solvedCheck } = await supabase
-    .from('submissions')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('challenge_id', challengeId)
-    .eq('is_correct', true)
-    .maybeSingle();
-
-  if (solvedCheck) {
-    return { correct: true, alreadySolved: true, message: 'Already solved!' };
-  }
-
-  // Check attempt count
-  const { count } = await supabase
-    .from('submissions')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('challenge_id', challengeId);
-
-  // Submit via Edge Function
-  const { data, error } = await supabase.functions.invoke('submit-flag', {
+export async function submitFlag(challengeId: string, flag: string, _userId: string) {
+  // One request per submission. The server already answers "already solved"
+  // and counts attempts; asking first cost two extra round trips per flag.
+  const { data: invoked, error } = await supabase.functions.invoke('submit-flag', {
     body: { challengeId, flag },
   });
 
+  let data = invoked;
   if (error) {
-    return { correct: false, message: 'Server error. Try again.' };
+    // supabase-js reports every non-2xx as an error, but the function's
+    // refusals (cooldown, attempt limit, no team, roster gate) carry a
+    // readable body with the real message. Read it before giving up.
+    const ctx = (error as { context?: Response }).context;
+    try {
+      data = ctx && typeof ctx.json === 'function' ? await ctx.json() : null;
+    } catch {
+      data = null;
+    }
+    if (!data || typeof data !== 'object') {
+      return { correct: false, message: 'Server error. Try again.' };
+    }
   }
 
   if (data.error) {
-    return { correct: false, message: themePlayGate(data.error) };
+    return {
+      correct: false,
+      message: themePlayGate(data.error),
+      attemptsLeft: data.attemptsLeft,
+      maxAttempts: data.maxAttempts,
+      locked: data.locked,
+      alreadySolved: data.alreadySolved,
+      eventEnded: data.eventEnded,
+    };
   }
 
   return {
