@@ -307,6 +307,26 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
     });
   }, []);
 
+  // A failed Google round trip comes back as #error=...&error_description=...
+  // in the hash. supabase-js ignores it, so without this the visitor lands on
+  // a blank sign-in card with no idea what happened.
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash || !/(^#|&)error(_description|_code)?=/.test(hash)) return;
+    const params = new URLSearchParams(hash.slice(1));
+    const desc = (params.get('error_description') || params.get('error') || '').replace(/\+/g, ' ');
+    // Never echo the fragment: anyone can craft a link with their own text in
+    // it, and it would render inside the real sign-in card. Map to fixed copy.
+    setError(
+      /database error saving new user|registration is currently closed/i.test(desc)
+        ? `Google sign-in could not create your account. Registration may be closed, or an account may already exist for this email — sign in with your password instead, or contact ${ADMIN_EMAIL}.`
+        : /access_denied|cancel/i.test(desc)
+          ? 'Google sign-in was cancelled. Try again, or use email and password.'
+          : 'Google sign-in did not complete. Try again, or use email and password.',
+    );
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+  }, []);
+
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     setError('');
@@ -331,9 +351,16 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
     // mood on arrival, so this only has to cover the handover.
     setMood('compete');
 
+    // Client-side refusals leave the captcha token intact: nothing was sent,
+    // so nothing was consumed.
+    const abort = (msg: string) => { setError(msg); setLoading(false); setPhase('idle'); setMood('auth'); };
+    const email = form.email.trim();
+    if (!email) { abort('Email is required.'); return; }
+    if (!form.password) { abort('Password is required.'); return; }
+
     let result;
     if (mode === 'login') {
-      result = await login(form.email, form.password, captchaToken);
+      result = await login(email, form.password, captchaToken);
     } else {
       // Re-ask at submit rather than trusting the value fetched on mount: a
       // tab left open across the moment registration closed would otherwise
@@ -341,17 +368,17 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
       const { data: stillOpen, error: openErr } = await supabase.rpc('registration_is_open');
       if (!openErr && stillOpen === false) {
         setRegistrationOpen(false);
-        setError('Registration is currently closed.');
-        setLoading(false); setPhase('idle'); setMood('auth');
+        abort('Registration is currently closed.');
         return;
       }
-      const abort = (msg: string) => { setError(msg); setLoading(false); setPhase('idle'); setMood('auth'); };
       if (!registrationOpen) { abort('Registration is currently closed.'); return; }
-      if (!form.username.trim()) { abort('Username required'); return; }
-      if (form.username.length < 3) { abort('Username must be at least 3 characters'); return; }
+      const username = form.username.trim();
+      if (!username) { abort('Username required'); return; }
+      if (username.length < 3) { abort('Username must be at least 3 characters'); return; }
+      if (form.password.length < 6) { abort('Password must be at least 6 characters'); return; }
       // Registration is open to everyone; the allowlist is enforced only at
       // play time (flag submission / hints), not here.
-      result = await register({ email: form.email, password: form.password, username: form.username, captchaToken });
+      result = await register({ email, password: form.password, username, captchaToken });
     }
 
     setLoading(false);
@@ -611,7 +638,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                               </p>
                               <p className="mt-0.5 text-small text-text-muted">
                                 {invite.full
-                                  ? 'The team is at its size limit. Register anyway — you will be placed the moment a seat opens, or you can join another team by code.'
+                                  ? 'The team is at its size limit. Register anyway — once a seat opens, ask your captain for the link again, or join another team by code.'
                                   : mode === 'login'
                                     ? 'Sign in to accept. New here? Register and you land on the team automatically.'
                                     : 'Register and you land on the team automatically — no code to type.'}
@@ -688,6 +715,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                             type={showPass ? 'text' : 'password'}
                             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                             placeholder="••••••••"
+                            minLength={mode === 'register' ? 6 : undefined}
                             value={form.password}
                             onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
                             className="input pr-11"
@@ -703,6 +731,10 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                           </button>
                         </div>
                       </div>
+
+                      {mode === 'register' && (
+                        <p className="text-micro text-text-faint">Minimum 6 characters</p>
+                      )}
 
                       {/* No password reset exists on this platform. Say so before a
                           new player picks a key, and wherever one may already have
@@ -850,13 +882,23 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                       <button
                         type="button"
                         onClick={async () => {
+                          // The server trigger refuses the account anyway; say so
+                          // here instead of sending the visitor through Google first.
+                          if (mode === 'register' && !registrationOpen) {
+                            setError('Registration is currently closed.');
+                            return;
+                          }
                           setError('');
                           setLoading(true);
                           const result = await loginWithGoogle();
                           if (result?.error) {
                             setError(result.error);
                             setLoading(false);
+                            return;
                           }
+                          // The browser navigates to Google. If it does not (popup
+                          // blocked, redirect refused) release the button.
+                          setTimeout(() => setLoading(false), 4000);
                         }}
                         disabled={loading}
                         className="btn btn-secondary btn-block"

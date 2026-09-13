@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { returnUrl } from '../lib/invite';
+import { ADMIN_EMAIL } from '../lib/support';
 import { supabase, DBProfile } from '../lib/supabase';
 
 interface AuthState {
@@ -24,35 +25,29 @@ interface RegisterData {
   captchaToken?: string;
 }
 
-/** Strip the +tag alias the same way handle_new_user does, so we can name the
-    address the server actually collided on. */
-function normaliseEmail(email: string): string {
-  const at = email.lastIndexOf('@');
-  if (at < 1) return email.toLowerCase();
-  const local = email.slice(0, at).split('+')[0];
-  return (local + email.slice(at)).toLowerCase();
-}
-
 /**
  * Supabase Auth collapses ANY exception raised inside the handle_new_user
  * trigger into one opaque string: "Database error saving new user". The
- * trigger's own message -- "An account already exists for this email address"
- * -- is logged server-side and never reaches the browser.
- *
- * In practice that string has one dominant cause: the account already exists
- * under its normalised form. Registration treats name+tag@host as the same
- * address as name@host (20260825270000), which is deliberate -- it stops one
- * person farming accounts with plus-aliases -- but a player who uses aliases
- * for their own filing sees only a database error and assumes the site is
- * broken. Say what actually happened instead.
+ * trigger's own reasons -- registration closed, an email already on a
+ * profile, a username that could not be allocated -- are logged server-side
+ * and never reach the browser. (Plus-alias dedupe was dropped in
+ * 20260826070000, so the old "+tag counts as the same address" explanation
+ * would now be wrong.) Say what the player can act on, and translate the
+ * handful of GoTrue refusals that read like developer output.
  */
-function signupErrorMessage(raw: string, email: string): string {
-  if (/database error saving new user/i.test(raw)) {
-    const norm = normaliseEmail(email);
-    const aliased = norm !== email.toLowerCase();
-    return aliased
-      ? `An account already exists for ${norm}. Registration ignores the "+" part of an address, so ${email} counts as the same address. Sign in instead, or register with a different email.`
-      : 'An account already exists for this email address. Try signing in instead, or use a different email.';
+function authErrorMessage(raw: string): string {
+  const r = raw.toLowerCase();
+  if (r.includes('database error saving new user')) {
+    return `Registration could not be completed. Registration may be closed, or an account may already exist for this email — try signing in. If it keeps failing, contact ${ADMIN_EMAIL}.`;
+  }
+  if (r.includes('captcha')) return 'Human verification expired or failed. Complete the captcha again and retry.';
+  if (r.includes('rate limit') || r.includes('too many requests') || r.includes('request rate')) {
+    return 'Too many attempts from your network. Wait a minute and try again.';
+  }
+  if (r.includes('unable to validate email') || r.includes('invalid format')) return 'Enter a valid email address.';
+  if (r.includes('invalid login credentials')) return 'Invalid email or password.';
+  if (r.includes('already registered') || r.includes('already been registered')) {
+    return 'An account already exists for this email. Sign in instead.';
   }
   return raw;
 }
@@ -145,8 +140,9 @@ export function useAuth() {
     return () => { cancelled = true; subscription.unsubscribe(); };
   }, [fetchProfile]);
 
-  const register = async ({ email, password, username, captchaToken }: RegisterData) => {
-    // Username validation
+  const register = async ({ email, password, username: rawUsername, captchaToken }: RegisterData) => {
+    // A stray space from a phone keyboard must not read as "invalid characters".
+    const username = rawUsername.trim();
     if (!/^[a-zA-Z0-9_\-]+$/.test(username)) {
       return { error: 'Username can only contain letters, numbers, underscores, and hyphens' };
     }
@@ -170,7 +166,7 @@ export function useAuth() {
       }
     });
 
-    if (error) return { error: signupErrorMessage(error.message, email) };
+    if (error) return { error: authErrorMessage(error.message) };
     return { data };
   };
 
@@ -182,7 +178,7 @@ export function useAuth() {
         ...(captchaToken ? { captchaToken } : {}),
       }
     });
-    if (error) return { error: error.message };
+    if (error) return { error: authErrorMessage(error.message) };
     return { data };
   };
 

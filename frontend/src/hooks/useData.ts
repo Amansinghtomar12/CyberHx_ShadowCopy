@@ -194,7 +194,7 @@ export function useTeamActions(userId: string | undefined) {
 
   const joinTeam = async (inviteCode: string) => {
     if (!userId) return { error: 'Not logged in' };
-    const { data, error } = await supabase.rpc('join_team', { p_invite_code: inviteCode.trim() });
+    const { data, error } = await supabase.rpc('join_team', { p_invite_code: inviteCode.trim().toLowerCase() });
     if (error) return { error: error.message };
     if (data?.error) return { error: data.error };
     return { success: true };

@@ -57,30 +57,15 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // 0. Per-IP DoS budget. The DB trigger caps each account at 30/min, but a
-    // burst from one machine can spin up dozens of accounts and multiply that.
-    // The budget is per network, not per player: a college lab or a campus
-    // NAT puts dozens of players behind one address, so it is sized for a
-    // room of them submitting at once (600/min) while still bounding what a
-    // single machine can spend. On x-forwarded-for we take the leftmost hop,
-    // which is what Deno Deploy sets from the client TLS termination; we do
-    // not trust deeper hops for enforcement.
+    // 0. The per-network budget (600/min per address) now lives inside
+    // submit_flag_tx, after the caller is authenticated and known not to be
+    // banned. Spending it here, before the JWT check and keyed on the
+    // client-controllable leftmost x-forwarded-for hop, let anyone with the
+    // anon key exhaust a rival campus's budget with a spoofed header and no
+    // account. The address still travels with the request for that check
+    // and for the audit column; it is never trusted for anything else.
     const clientIp = (req.headers.get('x-forwarded-for') ?? '')
-      .split(',')[0]?.trim();
-    if (clientIp) {
-      const { error: ipLimitErr } = await supabaseAdmin.rpc('check_rate_limit', {
-        p_bucket: 'submit-flag-ip',
-        p_key: clientIp,
-        p_window_seconds: 60,
-        p_max_hits: 600,
-      });
-      if (ipLimitErr?.message?.includes('Rate limit exceeded')) {
-        return new Response(JSON.stringify({
-          correct: false,
-          error: 'Too many requests from your network. Wait a minute and try again.',
-        }), { status: 429, headers: { ...cors, 'Content-Type': 'application/json' } });
-      }
-    }
+      .split(',')[0]?.trim().slice(0, 64);
 
     // 1. Authenticate
     const authHeader = req.headers.get('Authorization');
@@ -102,8 +87,17 @@ serve(async (req) => {
       });
     }
 
-    // 2. Validate input before spending a database call on it.
-    const { challengeId, flag } = await req.json();
+    // 2. Validate input before spending a database call on it. A body that is
+    // not JSON is the caller's mistake, not a server fault.
+    let body: { challengeId?: unknown; flag?: unknown } | null = null;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ error: 'Invalid request body' }), {
+        status: 400, headers: { ...cors, 'Content-Type': 'application/json' }
+      });
+    }
+    const { challengeId, flag } = body ?? {};
 
     if (!challengeId || typeof challengeId !== 'string' || challengeId.length > 50) {
       return new Response(JSON.stringify({ error: 'Invalid challenge ID' }), {

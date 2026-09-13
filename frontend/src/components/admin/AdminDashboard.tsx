@@ -362,26 +362,40 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
     if (rpcResult?.error) { setError(rpcResult.error); setSaving(false); return; }
     challengeId = rpcResult?.challenge_id ?? challengeId;
 
-    // Save hints — delete old ones, insert new.
-    // The column is content, not text; get_challenge_hints only aliases it as
-    // text on the way out. Inserting text silently failed, so no hint a
-    // moderator wrote was ever stored.
+    // Save hints in place. Deleting and re-inserting them gave every hint a
+    // new id and cascaded away each player's paid hint_unlocks while their
+    // hint_spend stayed charged — one typo fix mid-event took every bought
+    // hint with it. Update existing rows by id, insert new ones, delete only
+    // the ones the editor removed.
+    // (The column is content, not text; get_challenge_hints aliases it.)
     if (challengeId) {
-      await supabase.from('hints').delete().eq('challenge_id', challengeId);
-      const validHints = hints.filter(h => h.text.trim());
-      if (validHints.length > 0) {
-        const { error: hintError } = await supabase.from('hints').insert(
-          validHints.map(h => ({
-            challenge_id: challengeId,
-            content: h.text.trim(),
-            cost: Math.max(0, Number(h.cost) || 0),
-          }))
-        );
-        if (hintError) {
-          setSaving(false);
-          alert('Challenge saved, but hints failed: ' + hintError.message);
-          return;
-        }
+      const { data: existing, error: listErr } = await supabase
+        .from('hints').select('id').eq('challenge_id', challengeId);
+      if (listErr) {
+        setSaving(false);
+        setError('Challenge saved, but its hints could not be read. Reopen it and try again.');
+        return;
+      }
+      const wanted = hints.filter(h => h.text.trim());
+      const keep = new Set(wanted.map(h => h.id).filter(Boolean));
+      const stale = (existing ?? []).map((r: { id: string }) => r.id).filter(id => !keep.has(id));
+      let hintErr: string | null = null;
+      if (stale.length) {
+        const { error } = await supabase.from('hints').delete().in('id', stale);
+        if (error) hintErr = error.message;
+      }
+      for (const h of wanted) {
+        if (hintErr) break;
+        const row = { content: h.text.trim(), cost: Math.max(0, Number(h.cost) || 0) };
+        const { error } = h.id
+          ? await supabase.from('hints').update(row).eq('id', h.id)
+          : await supabase.from('hints').insert({ challenge_id: challengeId, ...row });
+        if (error) hintErr = error.message;
+      }
+      if (hintErr) {
+        setSaving(false);
+        setError('Challenge saved, but a hint did not save: ' + hintErr);
+        return;
       }
     }
 
@@ -809,12 +823,19 @@ function AdminDashboardInner() {
 
   useEffect(() => { loadChallenges(); }, []);
 
-  // HARDENED: toggleVisibility via RPC — admin check enforced server-side
+  // Visibility has its own RPC. Toggling through admin_upsert_challenge with
+  // only p_id and p_is_visible let PostgREST fill the other arguments from
+  // their SQL defaults, which reset points to 100, attempts to unlimited,
+  // author, tags and connection info on every challenge that was switched
+  // live — exactly what the kickoff routine does to all of them at once.
   const toggleVisibility = async (id: string, current: boolean) => {
-    await supabase.rpc('admin_upsert_challenge', {
+    const { data, error } = await supabase.rpc('admin_set_challenge_visibility', {
       p_id: id,
-      p_is_visible: !current,
+      p_visible: !current,
     });
+    if (error || data?.error) {
+      alert('Could not change visibility: ' + (data?.error ?? 'request failed. Try again.'));
+    }
     loadChallenges();
   };
 

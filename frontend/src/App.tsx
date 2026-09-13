@@ -350,9 +350,9 @@ export default function App() {
   const acceptInvite = async () => {
     if (!invite) return;
     setInviteBusy(true); setInviteError('');
-    const { data, error } = await supabase.rpc('join_team', { p_invite_code: invite.code });
+    const { data, error } = await supabase.rpc('join_team', { p_invite_code: invite.code.toLowerCase() });
     setInviteBusy(false);
-    if (error || data?.error) { setInviteError(error?.message ?? data?.error ?? 'Could not join the team.'); return; }
+    if (error || data?.error) { setInviteError(data?.error ?? 'Could not join the team right now. Please try again.'); return; }
     clearInvite();
     play('success');
     await refreshProfile();
@@ -423,11 +423,13 @@ export default function App() {
 
     // 2. Team solves — CTFd style: use submissions.team_id (snapshot at solve time)
     // User cannot carry points to new team
+    // Own row from profiles: safe_profiles hides hidden/banned accounts, which
+    // would make their own team vanish from this view.
     const { data: profileData } = await supabase
-      .from('safe_profiles')
+      .from('profiles')
       .select('team_id')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     if (profileData?.team_id) {
       const [{ data: teamSubs }, { data: roster }] = await Promise.all([
@@ -547,15 +549,15 @@ export default function App() {
   }, []);
 
   // ── Load unlocked hints + their texts ───────────────────
+  // The ids are fetched once per sign-in; the grouping by challenge is
+  // derived whenever the challenge list arrives or changes. Grouping inside
+  // the fetch closed over an empty `challenges` on first render, so every
+  // bought hint rendered locked again after a reload.
+  const [unlockedHintIds, setUnlockedHintIds] = useState<string[]>([]);
   useEffect(() => {
     if (!user) return;
     getUnlockedHints(user.id).then(async ids => {
-      const grouped: Record<string, string[]> = {};
-      challenges.forEach(c => {
-        const unlocked = (c.hints ?? []).filter(h => ids.includes(h.id)).map(h => h.id);
-        if (unlocked.length) grouped[c.id] = unlocked;
-      });
-      setUsedHintIds(grouped);
+      setUnlockedHintIds(ids);
 
       // Load text for all already-unlocked hints via secure RPC
       const texts: Record<string, string> = {};
@@ -563,24 +565,24 @@ export default function App() {
         const { data } = await supabase.rpc('get_hint_text', { hint_id: hintId });
         if (data) texts[hintId] = data;
       }));
-      setHintTexts(texts);
+      setHintTexts(prev => ({ ...prev, ...texts }));
     });
   }, [user]);
-
-  // ── Polling: refresh every 2 min instead of Realtime ──
-  // Realtime has 200 concurrent connection limit on free/pro tier.
-  // Polling uses zero persistent connections.
-  // At 4500 users, 1 req/120s = 37.5 req/s (vs 75 at 60s).
   useEffect(() => {
-    if (!user) return;
-    const interval = setInterval(fetchAllSolveData, 120_000);
-    const onVis = () => { if (!document.hidden) fetchAllSolveData(); };
-    document.addEventListener('visibilitychange', onVis);
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', onVis);
-    };
-  }, [user, fetchAllSolveData]);
+    if (!unlockedHintIds.length || !challenges.length) return;
+    setUsedHintIds(prev => {
+      const grouped: Record<string, string[]> = { ...prev };
+      challenges.forEach(c => {
+        const unlocked = (c.hints ?? []).filter(h => unlockedHintIds.includes(h.id)).map(h => h.id);
+        if (unlocked.length) grouped[c.id] = Array.from(new Set([...(grouped[c.id] ?? []), ...unlocked]));
+      });
+      return grouped;
+    });
+  }, [unlockedHintIds, challenges]);
+
+  // Solve data is polled by usePolling above (every 5 minutes, plus on
+  // return to the tab and on arrival at the board). A second 2-minute
+  // interval here duplicated that stream for every client.
 
   // ── Event settings ───────────────────────────────────────
   // Polled, not loaded once: a pause has to reach every open tab within
@@ -622,6 +624,19 @@ export default function App() {
   // through the countdown is holding an empty list. Fetch it the moment the
   // clock turns over, spread across a few seconds so thousands of clients
   // do not land on the database in the same instant.
+  // Solve counts and first blood are withheld while the event is paused, and
+  // the poll that ran during the pause cleared them; refetch when play resumes.
+  const prevPaused = useRef<boolean | undefined>(undefined);
+  useEffect(() => {
+    const paused = !!eventSettings?.is_paused;
+    const was = prevPaused.current;
+    prevPaused.current = paused;
+    if (was === true && !paused) {
+      const id = setTimeout(() => { void refetchChallenges(); void fetchAllSolveData(); }, Math.random() * 8000);
+      return () => clearTimeout(id);
+    }
+  }, [eventSettings?.is_paused, refetchChallenges, fetchAllSolveData]);
+
   const prevStatus = useRef(eventStatus);
   useEffect(() => {
     const was = prevStatus.current;
@@ -682,8 +697,12 @@ export default function App() {
     return DIFFICULTIES.filter(d => d.id === selectedDiff);
   }, [selectedDiff]);
 
+  // A refused unlock (not enough points, not started, paused, no team, roster
+  // gate, rate limit) used to do nothing at all; the button just sat there.
+  const [hintError, setHintError] = useState('');
   const handleUnlockHint = useCallback(async (challengeId: string, hintId: string) => {
     if (!user) return;
+    setHintError('');
     const result = await unlockHint(user.id, hintId);
     if (result.success) {
       setUsedHintIds(prev => {
@@ -694,7 +713,16 @@ export default function App() {
       if (result.text) {
         setHintTexts(prev => ({ ...prev, [hintId]: result.text! }));
       }
+      return;
     }
+    const raw = result.error ?? '';
+    setHintError(
+      /rate limit exceeded/i.test(raw)
+        ? 'Too many hint requests. Wait a minute and try again.'
+        : raw && !/relation|constraint|permission denied|pgrst|syntax/i.test(raw)
+          ? raw
+          : 'Could not unlock this hint right now. Try again in a moment.',
+    );
   }, [user]);
 
   const getPoints = (challenge: Challenge) => {
@@ -1356,14 +1384,15 @@ export default function App() {
               points={getPoints(selectedChallenge)}
               usedHints={usedHintIds[selectedChallenge.id] || []}
               hintTexts={hintTexts}
+              hintError={hintError}
               onUnlockHint={(hintId) => handleUnlockHint(selectedChallenge.id, hintId)}
-              onClose={() => setSelectedChallenge(null)}
+              onClose={() => { setSelectedChallenge(null); setHintError(''); }}
               isSolved={isChallengeSolved(selectedChallenge.id)}
               canSubmit={canSubmit}
               eventStatus={eventStatus}
               startTime={eventSettings?.start_time ?? null}
               attempts={attempts[selectedChallenge.id] || 0}
-              maxAttempts={dbChallenges.find(c => c.id === selectedChallenge.id)?.max_attempts ?? 15}
+              maxAttempts={dbChallenges.find(c => c.id === selectedChallenge.id)?.max_attempts ?? 0}
               onAttempt={(challengeId, serverCount) => setAttempts(prev => ({
                 ...prev,
                 [challengeId]: serverCount !== undefined ? serverCount : (prev[challengeId] || 0) + 1
@@ -1701,6 +1730,8 @@ interface ChallengeModalProps {
   points: number;
   usedHints: string[];
   hintTexts: Record<string, string>;
+  /** Why the last unlock was refused, if it was. */
+  hintError?: string;
   onUnlockHint: (hintId: string) => void;
   onClose: () => void;
   isSolved: boolean;
@@ -1734,6 +1765,7 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
   points,
   usedHints,
   hintTexts,
+  hintError,
   onUnlockHint,
   onClose,
   isSolved,
@@ -1834,7 +1866,10 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
       });
   }, [activeTab, challenge.id]);
 
-  const isLocked = attempts >= maxAttempts && !isSolved;
+  // max_attempts 0 (the column default) means unlimited server-side; it must
+  // not read as "0 attempts left" here.
+  const unlimited = maxAttempts <= 0;
+  const isLocked = !unlimited && attempts >= maxAttempts && !isSolved;
   const submitClosed = !canSubmit && !isSolved && !isLocked;
 
   // Escape closes the operation, as every dialog should. Not mid-submission:
@@ -1945,7 +1980,7 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
   const hue = catVar(challenge.category);
   const CategoryIcon = CATEGORY_ICON[challenge.category] ?? Boxes;
   const attemptsPct = maxAttempts > 0 ? Math.min(100, Math.round((attempts / maxAttempts) * 100)) : 0;
-  const attemptsCritical = attempts >= maxAttempts - 5;
+  const attemptsCritical = !unlimited && attempts >= maxAttempts - 5;
   const flagInputId = `flag-input-${challenge.id}`;
 
   return (
@@ -2069,7 +2104,12 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
                 let links: { label: string; url: string }[] = [];
                 try {
                   const ci = (challenge as any).connection_info;
-                  if (ci) links = JSON.parse(ci);
+                  if (ci) {
+                    // Any shape but an array of {url} objects would throw during
+                    // render and take the whole app down with it.
+                    const parsed = JSON.parse(ci);
+                    links = Array.isArray(parsed) ? parsed.filter((l: any) => l && typeof l.url === 'string') : [];
+                  }
                 } catch {}
                 if (files.length === 0 && links.length === 0) return null;
                 return (
@@ -2141,6 +2181,9 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
                       );
                     })}
                   </div>
+                  {hintError && (
+                    <p role="alert" className="mt-2 text-small" style={{ color: 'var(--color-diff-hard)' }}>{hintError}</p>
+                  )}
                 </div>
               )}
 
@@ -2223,7 +2266,7 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
                           />
                         </span>
                         <p className={`label-micro ${attemptsCritical ? 'text-diff-hard' : ''}`}>
-                          Attempts <span className="font-mono">{attempts}/{maxAttempts}</span>
+                          Attempts <span className="font-mono">{attempts}/{unlimited ? '∞' : maxAttempts}</span>
                         </p>
                       </div>
                     </div>
