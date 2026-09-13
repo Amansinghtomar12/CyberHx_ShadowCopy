@@ -506,7 +506,10 @@ export default function Scoreboard({ myTeamId = null, eventStatus = 'live', star
       if (!cancelled) timer = setTimeout(tick, delay);
     };
 
-    tick();
+    // Jitter the first fetch so thousands of clients loading the scoreboard
+    // at the same moment spread their timers across the full interval instead
+    // of hitting the database in one synchronised burst every 15 seconds.
+    timer = setTimeout(tick, Math.random() * STANDINGS_MS);
 
     // Restart the cycle now rather than waiting out the current sleep.
     kick.current = () => { clearTimeout(timer); delay = STANDINGS_MS; tick(); };

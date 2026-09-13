@@ -559,13 +559,9 @@ export default function App() {
     getUnlockedHints(user.id).then(async ids => {
       setUnlockedHintIds(ids);
 
-      // Load text for all already-unlocked hints via secure RPC
-      const texts: Record<string, string> = {};
-      await Promise.all(ids.map(async (hintId) => {
-        const { data } = await supabase.rpc('get_hint_text', { hint_id: hintId });
-        if (data) texts[hintId] = data;
-      }));
-      setHintTexts(prev => ({ ...prev, ...texts }));
+      // One round trip for all unlocked hint texts instead of N.
+      const { data } = await supabase.rpc('get_my_hint_texts');
+      if (data && typeof data === 'object') setHintTexts(prev => ({ ...prev, ...data as Record<string, string> }));
     });
   }, [user]);
   useEffect(() => {
