@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import {
   User,
@@ -91,6 +91,19 @@ export default function Settings() {
   const [passwords, setPasswords] = useState({ current: '', newPass: '', confirm: '' });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+  // This component's own useAuth() starts with profile === null, so the form
+  // above is seeded empty on first render. Fill it in once the row arrives,
+  // without overwriting anything the player has already typed.
+  useEffect(() => {
+    if (!profile) return;
+    setForm(prev => ({
+      username: prev.username || profile.username || '',
+      affiliation: prev.affiliation || (profile as any)?.affiliation || '',
+      website: prev.website || (profile as any)?.website || '',
+      country: prev.country || profile.country || '',
+    }));
+  }, [profile?.id]);
 
   const reduceMotion = useReducedMotion();
 
@@ -193,7 +206,16 @@ export default function Settings() {
     // Prove knowledge of the current password server-side before anything
     // changes. A wrong or forgotten password stops here; no update happens.
     const { data: verified, error: verifyErr } = await supabase.rpc('verify_current_password', { p_password: passwords.current });
-    if (verifyErr) { setSaving(false); setMsg({ text: verifyErr.message, ok: false }); return; }
+    if (verifyErr) {
+      setSaving(false);
+      setMsg({
+        text: /rate limit/i.test(verifyErr.message)
+          ? 'Too many attempts. Wait a minute and try again.'
+          : '[ CHECK FAILED ] Could not verify your current access key. Try again in a moment.',
+        ok: false,
+      });
+      return;
+    }
     if (verified !== true) {
       setSaving(false);
       setMsg({ text: WRONG_CURRENT, ok: false });

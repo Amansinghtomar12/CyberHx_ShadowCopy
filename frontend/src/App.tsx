@@ -350,9 +350,9 @@ export default function App() {
   const acceptInvite = async () => {
     if (!invite) return;
     setInviteBusy(true); setInviteError('');
-    const { data, error } = await supabase.rpc('join_team', { p_invite_code: invite.code });
+    const { data, error } = await supabase.rpc('join_team', { p_invite_code: invite.code.toLowerCase() });
     setInviteBusy(false);
-    if (error || data?.error) { setInviteError(error?.message ?? data?.error ?? 'Could not join the team.'); return; }
+    if (error || data?.error) { setInviteError(data?.error ?? 'Could not join the team right now. Please try again.'); return; }
     clearInvite();
     play('success');
     await refreshProfile();
@@ -423,11 +423,13 @@ export default function App() {
 
     // 2. Team solves — CTFd style: use submissions.team_id (snapshot at solve time)
     // User cannot carry points to new team
+    // Own row from profiles: safe_profiles hides hidden/banned accounts, which
+    // would make their own team vanish from this view.
     const { data: profileData } = await supabase
-      .from('safe_profiles')
+      .from('profiles')
       .select('team_id')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     if (profileData?.team_id) {
       const [{ data: teamSubs }, { data: roster }] = await Promise.all([
@@ -682,8 +684,12 @@ export default function App() {
     return DIFFICULTIES.filter(d => d.id === selectedDiff);
   }, [selectedDiff]);
 
+  // A refused unlock (not enough points, not started, paused, no team, roster
+  // gate, rate limit) used to do nothing at all; the button just sat there.
+  const [hintError, setHintError] = useState('');
   const handleUnlockHint = useCallback(async (challengeId: string, hintId: string) => {
     if (!user) return;
+    setHintError('');
     const result = await unlockHint(user.id, hintId);
     if (result.success) {
       setUsedHintIds(prev => {
@@ -694,7 +700,16 @@ export default function App() {
       if (result.text) {
         setHintTexts(prev => ({ ...prev, [hintId]: result.text! }));
       }
+      return;
     }
+    const raw = result.error ?? '';
+    setHintError(
+      /rate limit exceeded/i.test(raw)
+        ? 'Too many hint requests. Wait a minute and try again.'
+        : raw && !/relation|constraint|permission denied|pgrst|syntax/i.test(raw)
+          ? raw
+          : 'Could not unlock this hint right now. Try again in a moment.',
+    );
   }, [user]);
 
   const getPoints = (challenge: Challenge) => {
@@ -1356,8 +1371,9 @@ export default function App() {
               points={getPoints(selectedChallenge)}
               usedHints={usedHintIds[selectedChallenge.id] || []}
               hintTexts={hintTexts}
+              hintError={hintError}
               onUnlockHint={(hintId) => handleUnlockHint(selectedChallenge.id, hintId)}
-              onClose={() => setSelectedChallenge(null)}
+              onClose={() => { setSelectedChallenge(null); setHintError(''); }}
               isSolved={isChallengeSolved(selectedChallenge.id)}
               canSubmit={canSubmit}
               eventStatus={eventStatus}
@@ -1701,6 +1717,8 @@ interface ChallengeModalProps {
   points: number;
   usedHints: string[];
   hintTexts: Record<string, string>;
+  /** Why the last unlock was refused, if it was. */
+  hintError?: string;
   onUnlockHint: (hintId: string) => void;
   onClose: () => void;
   isSolved: boolean;
@@ -1734,6 +1752,7 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
   points,
   usedHints,
   hintTexts,
+  hintError,
   onUnlockHint,
   onClose,
   isSolved,
@@ -2141,6 +2160,9 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
                       );
                     })}
                   </div>
+                  {hintError && (
+                    <p role="alert" className="mt-2 text-small" style={{ color: 'var(--color-diff-hard)' }}>{hintError}</p>
+                  )}
                 </div>
               )}
 

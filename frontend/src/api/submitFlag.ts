@@ -32,8 +32,19 @@ export async function submitFlag(challengeId: string, flag: string, _userId: str
       data = null;
     }
     if (!data || typeof data !== 'object') {
-      return { correct: false, message: 'Server error. Try again.' };
+      return {
+        correct: false,
+        message: ctx?.status === 401
+          ? 'Your session has expired — sign in again.'
+          : 'The server could not check that flag. Try again in a moment.',
+      };
     }
+  }
+
+  // The server refuses a late flag with { eventEnded: true } and no error
+  // text; without this it read as a wrong flag.
+  if (data.eventEnded && !data.correct) {
+    return { correct: false, eventEnded: true, message: 'The event has ended — submissions are closed.' };
   }
 
   if (data.error) {

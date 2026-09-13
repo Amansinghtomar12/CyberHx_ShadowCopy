@@ -95,11 +95,13 @@ export default function TeamProfile() {
     if (!user) return;
     setLoading(true);
 
+    // Own row from profiles, not safe_profiles: the view hides hidden and
+    // banned accounts, which would read as "no team" for their own viewer.
     const { data: profileData } = await supabase
-      .from('safe_profiles')
+      .from('profiles')
       .select('team_id')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     if (!profileData?.team_id) {
       setTeam(null);
@@ -170,17 +172,24 @@ export default function TeamProfile() {
       .eq('team_id', teamId);
     const memberIds = (memberProfiles ?? []).map((m: any) => m.id);
 
-    // Get each member's individual solve count (NOT points — CTFd style)
+    // Get each member's individual solve count (NOT points — CTFd style).
+    // The roster itself comes from safe_profiles: user_scores is empty while
+    // the scoreboard is hidden, and a roster must never read as empty.
     const { data: memberSolveCounts } = await supabase
       .from('user_scores')
       .select('id, username, solved_count, total_points')
-      .in('id', memberIds)
-      .order('solved_count', { ascending: false });
+      .in('id', memberIds);
+    const scoreById = new Map((memberSolveCounts ?? []).map((m: any) => [m.id, m]));
 
-    setMembers((memberSolveCounts ?? []).map((m: any) => ({
-      ...m,
-      isCaptain: m.id === teamData?.captain_id,
-    })));
+    setMembers((memberProfiles ?? [])
+      .map((p: any) => ({
+        id: p.id,
+        username: p.username,
+        solved_count: scoreById.get(p.id)?.solved_count ?? 0,
+        total_points: scoreById.get(p.id)?.total_points ?? 0,
+        isCaptain: p.id === teamData?.captain_id,
+      }))
+      .sort((a: any, b: any) => b.solved_count - a.solved_count || a.username.localeCompare(b.username)));
 
     // CTFd style: get UNIQUE solves per team using submissions.team_id
     // This prevents point carrying when user switches teams
@@ -229,14 +238,29 @@ export default function TeamProfile() {
     setLoading(false);
   };
 
+  /** The RPCs answer refusals as JSON; anything else is transport or a raw
+      database message, which is never something a player can act on. */
+  const rpcFailure = (fallback: string) => (error: { message?: string } | null, data: any) =>
+    data?.error ?? (error ? fallback : null);
+
   const handleCreateTeam = async () => {
     if (!user || !teamName.trim()) return;
+    const name = teamName.trim();
+    if (name.length < 2 || name.length > 40) {
+      setActionError('Team name must be 2 to 40 characters.');
+      return;
+    }
+    if (/[\x00-\x1f\x7f<>{}]/.test(name)) {
+      setActionError('Team name cannot contain < > { } or control characters.');
+      return;
+    }
     setActionLoading(true);
     setActionError('');
 
-    const { data, error } = await supabase.rpc('create_team', { p_name: teamName.trim() });
+    const { data, error } = await supabase.rpc('create_team', { p_name: name });
     setActionLoading(false);
-    if (error || data?.error) { setActionError(error?.message ?? data.error); return; }
+    const failure = rpcFailure('Unable to create the team right now. Please try again.')(error, data);
+    if (failure) { setActionError(failure); return; }
     setMode('none');
     setTeamName('');
     fetchTeam();
@@ -247,9 +271,11 @@ export default function TeamProfile() {
     setActionLoading(true);
     setActionError('');
 
-    const { data, error } = await supabase.rpc('join_team', { p_invite_code: inviteCode.trim() });
+    // Codes are lowercase hex; whatever casing a keyboard or a chat applied.
+    const { data, error } = await supabase.rpc('join_team', { p_invite_code: inviteCode.trim().toLowerCase() });
     setActionLoading(false);
-    if (error || data?.error) { setActionError(error?.message ?? data.error ?? 'Invalid invite code.'); return; }
+    const failure = rpcFailure('Unable to join the team right now. Please try again.')(error, data);
+    if (failure) { setActionError(failure); return; }
     setMode('none');
     setInviteCode('');
     fetchTeam();
@@ -257,12 +283,19 @@ export default function TeamProfile() {
 
   const handleLeaveTeam = async () => {
     if (!user) return;
-    if (team?.captain_id === user.id && members.length > 1) {
-      alert('You are the captain. Transfer captaincy before leaving, or delete the team.');
-      return;
-    }
-    if (!confirm('Leave this team? Your solves stay on record.')) return;
-    await supabase.rpc('leave_team');
+    const isCaptain = team?.captain_id === user.id;
+    const msg = isCaptain && members.length > 1
+      ? 'You are the captain. Leaving hands the team to its longest-standing member. Continue?'
+      : members.length <= 1
+        ? 'Leave this team? With nobody left it is removed. Your solves stay on record.'
+        : 'Leave this team? Your solves stay on record.';
+    if (!confirm(msg)) return;
+    setActionLoading(true);
+    setActionError('');
+    const { data, error } = await supabase.rpc('leave_team');
+    setActionLoading(false);
+    const failure = rpcFailure('Unable to leave the team right now. Please try again.')(error, data);
+    if (failure) { setActionError(failure); return; }
     setTeam(null); setMembers([]); setSolves([]);
     fetchTeam();
   };
@@ -363,8 +396,10 @@ export default function TeamProfile() {
             <div className="space-y-2">
               <label className="field-label" htmlFor="team-name">Team name</label>
               <input id="team-name" type="text" placeholder="Team name" value={teamName}
+                maxLength={40}
                 onChange={e => { setTeamName(e.target.value); setActionError(''); }}
                 className={`input w-full ${actionError ? 'is-invalid' : ''}`} />
+              <p className="text-micro text-text-faint">2–40 characters</p>
             </div>
             {actionError && <FormError message={actionError} />}
             <div className="flex flex-col-reverse sm:flex-row gap-3 pt-1">
@@ -390,8 +425,9 @@ export default function TeamProfile() {
             <div className="space-y-2">
               <label className="field-label" htmlFor="invite-code">Invite code</label>
               <input id="invite-code" type="text" placeholder="Enter invite code" value={inviteCode}
+                autoCapitalize="none" autoCorrect="off" spellCheck={false} maxLength={64}
                 onChange={e => { setInviteCode(e.target.value); setActionError(''); }}
-                className={`input w-full font-mono uppercase tracking-code ${actionError ? 'is-invalid' : ''}`} />
+                className={`input w-full font-mono tracking-code ${actionError ? 'is-invalid' : ''}`} />
             </div>
             {actionError && <FormError message={actionError} />}
             <div className="flex flex-col-reverse sm:flex-row gap-3 pt-1">
@@ -567,6 +603,18 @@ export default function TeamProfile() {
         <p className="label-micro mt-3 text-right leading-relaxed">
           * Team score counts each challenge once regardless of who solved it
         </p>
+
+        {actionError && <div className="mt-3"><FormError message={actionError} /></div>}
+        <div className="mt-4 flex justify-end">
+          <button
+            onClick={handleLeaveTeam}
+            disabled={actionLoading}
+            className={`btn btn-ghost btn-sm text-text-muted hover:text-diff-hard ${actionLoading ? 'is-loading' : ''}`}
+          >
+            <Trash2 aria-hidden="true" className="w-3.5 h-3.5" />
+            {actionLoading ? 'Leaving...' : 'Leave Team'}
+          </button>
+        </div>
       </section>
 
       {/* Solves — only first solve per challenge shown (CTFd style) */}
