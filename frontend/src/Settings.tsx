@@ -195,6 +195,13 @@ export default function Settings() {
   };
 
   const handlePasswordChange = async () => {
+    // A Google-only account has no password to verify; the current-password
+    // check would always fail and send them to "reset" a key they never had.
+    const hasPassword = !user?.identities || user.identities.some(i => i.provider === 'email');
+    if (!hasPassword) {
+      setMsg({ text: 'This account signs in with Google and has no password to change.', ok: false });
+      return;
+    }
     if (!passwords.current) { setMsg({ text: 'Enter your current password first.', ok: false }); return; }
     if (!passwords.newPass) { setMsg({ text: 'New password cannot be empty.', ok: false }); return; }
     if (passwords.newPass !== passwords.confirm) { setMsg({ text: 'Passwords do not match.', ok: false }); return; }

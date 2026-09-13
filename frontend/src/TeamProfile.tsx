@@ -156,13 +156,26 @@ export default function TeamProfile() {
     });
     setTeamTotalPoints(pts);
 
-    // Get team rank
-    const { data: allTeams } = await supabase
+    // Team rank: one row plus one count, not the whole board. Reading every
+    // team_scores row stopped at PostgREST's 1000-row cap, so any team past
+    // #1000 had no rank, and each visit shipped the entire board.
+    let teamRank = 0;
+    const { data: mine } = await supabase
       .from('team_scores')
-      .select('id')
-      .order('total_points', { ascending: false })
-      .order('last_solve', { ascending: true }); // tie break by time (CTFd style)
-    const teamRank = (allTeams ?? []).findIndex(t => t.id === teamId) + 1;
+      .select('total_points, last_solve')
+      .eq('id', teamId)
+      .maybeSingle();
+    if (mine) {
+      const pts = Number(mine.total_points ?? 0);
+      const tie = mine.last_solve
+        ? `and(total_points.eq.${pts},last_solve.lt.${mine.last_solve})`
+        : `and(total_points.eq.${pts},last_solve.not.is.null)`;
+      const { count } = await supabase
+        .from('team_scores')
+        .select('id', { count: 'exact', head: true })
+        .or(`total_points.gt.${pts},${tie}`);
+      teamRank = (count ?? 0) + 1;
+    }
     setRank(teamRank > 0 ? teamRank : null);
 
     // Get all team members (safe_profiles view — no email/role)

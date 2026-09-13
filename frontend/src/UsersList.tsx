@@ -103,7 +103,9 @@ export default function UsersList() {
       let q = supabase
         .from('user_scores')
         .select('id, username, country, total_points, solved_count');
-      if (term) q = q.ilike('username', `${term}%`);
+      // '_' is a valid handle character and '%'/'*' are wildcards; escape them
+      // so a search for team_1 does not also match team-1 or teamX1.
+      if (term) q = q.ilike('username', `${term.replace(/[\\%_*]/g, m => '\\' + m)}%`);
 
       const { data } = await q
         .order('total_points', { ascending: false })

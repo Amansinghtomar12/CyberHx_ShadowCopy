@@ -315,10 +315,14 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
     if (!hash || !/(^#|&)error(_description|_code)?=/.test(hash)) return;
     const params = new URLSearchParams(hash.slice(1));
     const desc = (params.get('error_description') || params.get('error') || '').replace(/\+/g, ' ');
+    // Never echo the fragment: anyone can craft a link with their own text in
+    // it, and it would render inside the real sign-in card. Map to fixed copy.
     setError(
       /database error saving new user|registration is currently closed/i.test(desc)
         ? `Google sign-in could not create your account. Registration may be closed, or an account may already exist for this email — sign in with your password instead, or contact ${ADMIN_EMAIL}.`
-        : `Google sign-in did not complete${desc ? `: ${desc}` : ''}. Try again, or use email and password.`,
+        : /access_denied|cancel/i.test(desc)
+          ? 'Google sign-in was cancelled. Try again, or use email and password.'
+          : 'Google sign-in did not complete. Try again, or use email and password.',
     );
     window.history.replaceState(null, '', window.location.pathname + window.location.search);
   }, []);

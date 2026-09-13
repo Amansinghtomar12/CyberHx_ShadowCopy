@@ -71,7 +71,7 @@ export default function TeamsList() {
       setHidden(false);
 
       let q = supabase.from('team_scores').select('*');
-      if (term) q = q.ilike('name', `${term}%`);
+      if (term) q = q.ilike('name', `${term.replace(/[\\%_*]/g, m => '\\' + m)}%`);
 
       const { data } = await q
         .order('total_points', { ascending: false })

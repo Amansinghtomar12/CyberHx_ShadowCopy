@@ -335,6 +335,12 @@ BEGIN
     );
   END IF;
 
+  IF NOT public.is_admin() AND EXISTS (
+    SELECT 1 FROM public.teams t WHERE t.id = v_team AND COALESCE(t.is_banned, false)
+  ) THEN
+    RETURN jsonb_build_object('error', 'Your team has been removed from the competition.');
+  END IF;
+
   -- Allowlist gate: non-listed accounts cannot unlock hints while it is on.
   IF NOT public.is_admin() AND public.play_allowlist_blocks(auth.uid()) THEN
     RETURN jsonb_build_object('error', 'Your email is not on the registration list to play this event');
@@ -585,6 +591,15 @@ BEGIN
 
   v_is_admin := (v_profile.role = 'admin');
 
+  -- A banned team is out of the competition, members included. The team
+  -- vanished from the board but its players could still submit and unlock.
+  IF NOT v_is_admin AND EXISTS (
+    SELECT 1 FROM public.teams t WHERE t.id = v_profile.team_id AND COALESCE(t.is_banned, false)
+  ) THEN
+    RETURN jsonb_build_object('status', 403, 'body',
+      jsonb_build_object('correct', false, 'error', 'Your team has been removed from the competition.'));
+  END IF;
+
   -- Allowlist gate: only registered emails may play while it is on (admins
   -- exempt). Covers accounts that were created before the switch was set.
   -- Status 200 (like the paused / not-started gates) so the client surfaces
@@ -643,19 +658,6 @@ BEGIN
       jsonb_build_object('correct', true, 'alreadySolved', true));
   END IF;
 
-  -- ── 5b. Per-network budget: 600 a minute per address, admins exempt ──
-  -- Taken after the per-player locks so lock order is always player first,
-  -- then network, in every path that touches both.
-  IF v_ip_key <> '' AND NOT v_is_admin THEN
-    BEGIN
-      PERFORM public.check_rate_limit('submit-flag-ip', v_ip_key, 60, 600);
-    EXCEPTION WHEN check_violation THEN
-      RETURN jsonb_build_object('status', 429, 'body', jsonb_build_object(
-        'correct', false,
-        'error', 'Too many requests from your network. Wait a minute and try again.'));
-    END;
-  END IF;
-
   -- ── 6. Attempt cap and cooldown, from one scan ───────────────────────
   SELECT count(*)::int, max(s.submitted_at) INTO v_used, v_last
   FROM public.submissions s
@@ -702,6 +704,23 @@ BEGIN
     v_ip := NULL;
   END;
 
+  -- ── 7b. Per-network budget: 600 a minute per address, admins exempt ──
+  -- Charged only on the path that records a submission, so every hostile
+  -- spend also costs the caller one of their own 30 rows a minute (the
+  -- enforce_global_rate_limit trigger) and a 10 s cooldown; charging it
+  -- before the cooldown return let one account drain a spoofed address's
+  -- budget without ever writing a row. Lock order stays player first, then
+  -- network.
+  IF v_ip_key <> '' AND NOT v_is_admin THEN
+    BEGIN
+      PERFORM public.check_rate_limit('submit-flag-ip', v_ip_key, 60, 600);
+    EXCEPTION WHEN check_violation THEN
+      RETURN jsonb_build_object('status', 429, 'body', jsonb_build_object(
+        'correct', false,
+        'error', 'Too many requests from your network. Wait a minute and try again.'));
+    END;
+  END IF;
+
   -- ── 8. Record it. The triggers are the backstop for everything above. ─
   BEGIN
     INSERT INTO public.submissions
@@ -734,3 +753,319 @@ END;
 $$;
 REVOKE EXECUTE ON FUNCTION public.submit_flag_tx(uuid, uuid, text, text) FROM PUBLIC, anon, authenticated;
 GRANT  EXECUTE ON FUNCTION public.submit_flag_tx(uuid, uuid, text, text) TO service_role;
+
+-- ── Challenge visibility gets its own RPC; upsert defaults stop clobbering ─
+-- The admin "Live/Hidden" chip called admin_upsert_challenge with only p_id
+-- and p_is_visible. PostgREST supplies every omitted argument from its SQL
+-- DEFAULT, and the update branch COALESCEs those non-null defaults over the
+-- row: points back to 100, attempts to unlimited, author and tags to the
+-- defaults, connection_info to NULL. Switching every challenge live at
+-- kickoff would have rewritten all of them. A dedicated function flips only
+-- the flag, and the upsert's optional arguments now default to NULL so a
+-- partial call can never overwrite a field it did not name (INSERT keeps the
+-- old defaults via COALESCE).
+CREATE OR REPLACE FUNCTION public.admin_set_challenge_visibility(p_id uuid, p_visible boolean)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE v_found int;
+BEGIN
+  IF NOT public.is_admin() THEN RETURN jsonb_build_object('error', 'Unauthorized'); END IF;
+  IF p_id IS NULL OR p_visible IS NULL THEN
+    RETURN jsonb_build_object('error', 'Challenge and visibility are required');
+  END IF;
+  UPDATE public.challenges SET is_visible = p_visible WHERE id = p_id;
+  GET DIAGNOSTICS v_found = ROW_COUNT;
+  IF v_found = 0 THEN RETURN jsonb_build_object('error', 'Challenge not found'); END IF;
+  INSERT INTO public.audit_log (actor_id, action, metadata)
+  VALUES (auth.uid(), CASE WHEN p_visible THEN 'challenge_show' ELSE 'challenge_hide' END,
+          jsonb_build_object('challenge_id', p_id));
+  RETURN jsonb_build_object('success', true, 'is_visible', p_visible);
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.admin_set_challenge_visibility(uuid, boolean) FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION public.admin_set_challenge_visibility(uuid, boolean) TO authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.admin_upsert_challenge(uuid, text, text, text, text, text, text, int, int, text, text[], boolean, text);
+CREATE FUNCTION public.admin_upsert_challenge(
+  p_id uuid DEFAULT NULL, p_title text DEFAULT NULL, p_category text DEFAULT NULL,
+  p_difficulty text DEFAULT NULL, p_description text DEFAULT NULL, p_flag text DEFAULT NULL,
+  p_flag_type text DEFAULT 'static', p_points int DEFAULT NULL, p_max_attempts int DEFAULT NULL,
+  p_author text DEFAULT NULL, p_tags text[] DEFAULT NULL,
+  p_is_visible boolean DEFAULT NULL, p_connection_info text DEFAULT NULL
+) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE
+  v_challenge_id uuid;
+  v_flag_hash    text;
+  v_flag         text;
+BEGIN
+  IF NOT public.is_admin() THEN RETURN jsonb_build_object('error', 'Unauthorized'); END IF;
+  IF COALESCE(p_flag_type, 'static') <> 'static' THEN
+    RETURN jsonb_build_object('error', 'Only static flags are supported');
+  END IF;
+  p_flag_type := 'static';
+
+  v_flag := trim(COALESCE(p_flag, ''));
+
+  IF v_flag = '[HASHED — re-enter flag to change]'
+     OR v_flag ~ '^\[HASHED' THEN
+    v_flag := '';
+  END IF;
+
+  IF v_flag <> '' THEN
+    v_flag_hash := encode(pg_catalog.sha256(pg_catalog.convert_to(v_flag, 'UTF8')), 'hex');
+  END IF;
+
+  IF p_id IS NOT NULL THEN
+    -- Only named fields change. connection_info is always sent by the
+    -- editor (NULL clears it), so it stays an unconditional write there,
+    -- but a call that omits it must leave it alone.
+    UPDATE public.challenges SET
+      title = COALESCE(p_title, title), category = COALESCE(p_category, category),
+      difficulty = COALESCE(p_difficulty, difficulty), description = COALESCE(p_description, description),
+      points = COALESCE(p_points, points), max_attempts = COALESCE(p_max_attempts, max_attempts),
+      author = COALESCE(p_author, author), tags = COALESCE(p_tags, tags),
+      is_visible = COALESCE(p_is_visible, is_visible),
+      connection_info = CASE WHEN p_title IS NULL AND p_description IS NULL THEN connection_info ELSE p_connection_info END
+    WHERE id = p_id;
+    IF NOT FOUND THEN RETURN jsonb_build_object('error', 'Challenge not found'); END IF;
+    v_challenge_id := p_id;
+
+    IF v_flag_hash IS NOT NULL THEN
+      INSERT INTO public.challenge_secrets (challenge_id, flag_hash, flag_type)
+      VALUES (v_challenge_id, v_flag_hash, p_flag_type)
+      ON CONFLICT (challenge_id) DO UPDATE SET flag_hash = v_flag_hash, flag_type = p_flag_type;
+
+      INSERT INTO public.challenge_flag_vault (challenge_id, flag, updated_by)
+      VALUES (v_challenge_id, v_flag, auth.uid())
+      ON CONFLICT (challenge_id) DO UPDATE
+        SET flag = v_flag, updated_at = now(), updated_by = auth.uid();
+    END IF;
+  ELSE
+    IF v_flag = '' THEN
+      RETURN jsonb_build_object('error', 'Flag is required for new challenges');
+    END IF;
+    INSERT INTO public.challenges (title, category, difficulty, description, points,
+      max_attempts, author, tags, is_visible, connection_info)
+    VALUES (p_title, p_category, p_difficulty, p_description, COALESCE(p_points, 100),
+      COALESCE(p_max_attempts, 0), COALESCE(p_author, 'CyberHX Team'), COALESCE(p_tags, '{}'),
+      COALESCE(p_is_visible, false), p_connection_info)
+    RETURNING id INTO v_challenge_id;
+
+    INSERT INTO public.challenge_secrets (challenge_id, flag_hash, flag_type)
+    VALUES (v_challenge_id, v_flag_hash, p_flag_type);
+
+    INSERT INTO public.challenge_flag_vault (challenge_id, flag, updated_by)
+    VALUES (v_challenge_id, v_flag, auth.uid());
+  END IF;
+
+  RETURN jsonb_build_object('challenge_id', v_challenge_id);
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.admin_upsert_challenge(uuid, text, text, text, text, text, text, int, int, text, text[], boolean, text) FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION public.admin_upsert_challenge(uuid, text, text, text, text, text, text, int, int, text, text[], boolean, text) TO authenticated, service_role;
+
+-- ── get_hint_text honours the same gates as everything else ─────────────
+-- Purchased hint text kept flowing to banned accounts, outside the event
+-- window and for hidden challenges, because this definer function checked
+-- only the unlock row.
+CREATE OR REPLACE FUNCTION public.get_hint_text(hint_id uuid)
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = '' AS $$
+DECLARE
+  v_hint_id uuid := hint_id;
+BEGIN
+  IF auth.uid() IS NULL THEN RETURN NULL; END IF;
+  IF NOT public.is_admin() AND NOT (public.is_not_banned() AND public.challenges_open()) THEN
+    RETURN NULL;
+  END IF;
+  RETURN (
+    SELECT h.content FROM public.hints h
+    JOIN public.hint_unlocks hu ON hu.hint_id = h.id
+    JOIN public.challenges c ON c.id = h.challenge_id
+    WHERE h.id = v_hint_id AND hu.user_id = auth.uid()
+      AND (c.is_visible OR public.is_admin())
+  );
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.get_hint_text(uuid) FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION public.get_hint_text(uuid) TO authenticated, service_role;
+
+-- ── Team names are stored trimmed with single spaces ────────────────────
+-- create_team trims, but a captain's direct UPDATE did not, so "Name " and
+-- "Name" could both exist and look identical on the board and in the feed.
+CREATE OR REPLACE FUNCTION public.teams_normalise_name()
+RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $$
+BEGIN
+  NEW.name := pg_catalog.btrim(pg_catalog.regexp_replace(NEW.name, '\s+', ' ', 'g'));
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS teams_normalise_name ON public.teams;
+CREATE TRIGGER teams_normalise_name
+  BEFORE INSERT OR UPDATE OF name ON public.teams
+  FOR EACH ROW EXECUTE FUNCTION public.teams_normalise_name();
+
+-- ── One playing account per listed address ──────────────────────────────
+-- The tolerant match (dots, +tags) let any number of accounts play from one
+-- listed address. The exact address is already one account (profiles.email
+-- is unique); a variant now only counts for the earliest account that
+-- claimed that address family, so the tolerance still forgives a typo
+-- without minting extra ringers. Admins are exempt in the callers.
+CREATE INDEX IF NOT EXISTS idx_profiles_play_email_norm
+  ON public.profiles (public.normalize_play_email(email));
+
+CREATE OR REPLACE FUNCTION public.play_allowlist_blocks(p_user_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT COALESCE(
+           (SELECT es.registration_allowlist_only FROM public.event_settings es WHERE es.id = 1),
+           false)
+     AND NOT EXISTS (
+       SELECT 1
+       FROM public.registration_allowlist a
+       JOIN public.profiles p ON p.id = p_user_id
+       WHERE a.email = lower(btrim(p.email))
+          OR (
+            public.normalize_play_email(a.email) = public.normalize_play_email(p.email)
+            AND p.id = (
+              SELECT p2.id FROM public.profiles p2
+              WHERE public.normalize_play_email(p2.email) = public.normalize_play_email(p.email)
+              ORDER BY p2.created_at ASC, p2.id ASC
+              LIMIT 1)));
+$$;
+REVOKE EXECUTE ON FUNCTION public.play_allowlist_blocks(uuid) FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.play_allowlist_blocks(uuid) TO service_role;
+
+-- ── Reset and new-event refuse to run on a live event ───────────────────
+-- Both wipe every submission and score. The reset was a single confirm
+-- dialog in the header. A live event (active, started, not ended) must be
+-- set inactive first, a deliberate second step.
+CREATE OR REPLACE FUNCTION public.event_is_live()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT COALESCE((
+    SELECT e.is_active AND e.start_time IS NOT NULL AND e.start_time <= now()
+           AND (e.end_time IS NULL OR e.end_time > now())
+    FROM public.event_settings e WHERE e.id = 1), false);
+$$;
+REVOKE EXECUTE ON FUNCTION public.event_is_live() FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.event_is_live() TO service_role;
+
+CREATE OR REPLACE FUNCTION public.admin_reset_event()
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+BEGIN
+  IF NOT public.is_admin() THEN RETURN jsonb_build_object('error', 'Unauthorized'); END IF;
+  IF public.event_is_live() THEN
+    RETURN jsonb_build_object('error', 'The event is live. Set it inactive (or wait for it to end) before resetting scores.');
+  END IF;
+
+  DELETE FROM public.submissions      WHERE true;
+  DELETE FROM public.hint_unlocks     WHERE true;
+  DELETE FROM public.user_score_agg   WHERE true;
+  DELETE FROM public.team_score_agg   WHERE true;
+  DELETE FROM public.frozen_user_score WHERE true;
+  DELETE FROM public.frozen_team_score WHERE true;
+
+  UPDATE public.event_settings
+  SET freeze_scoreboard = false,
+      freeze_time       = NULL,
+      auto_froze_at     = NULL,
+      hide_scores       = false
+  WHERE id = 1;
+
+  INSERT INTO public.audit_log (actor_id, action, metadata)
+  VALUES (auth.uid(), 'reset_event', jsonb_build_object('ts', now()));
+
+  RETURN jsonb_build_object('success', true);
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.admin_reset_event() FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION public.admin_reset_event() TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.admin_start_new_event(
+  p_name                text    DEFAULT NULL,
+  p_clear_challenges    boolean DEFAULT false,
+  p_clear_teams         boolean DEFAULT true,
+  p_clear_notifications boolean DEFAULT true
+)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE
+  v_name       text;
+  v_subs       int;
+  v_challenges int := 0;
+  v_teams      int := 0;
+  v_notifs     int := 0;
+BEGIN
+  IF NOT public.is_admin() THEN
+    RETURN jsonb_build_object('error', 'Unauthorized');
+  END IF;
+  IF public.event_is_live() THEN
+    RETURN jsonb_build_object('error', 'The event is live. Set it inactive (or wait for it to end) before starting a new one.');
+  END IF;
+
+  v_name := trim(COALESCE(p_name, ''));
+
+  IF v_name = '' THEN
+    RETURN jsonb_build_object('error', 'Event name is required');
+  END IF;
+
+  IF length(v_name) > 80 THEN
+    RETURN jsonb_build_object('error', 'Event name must be 80 characters or fewer');
+  END IF;
+
+  SELECT COUNT(*)::int INTO v_subs FROM public.submissions;
+
+  DELETE FROM public.submissions       WHERE true;
+  DELETE FROM public.hint_unlocks      WHERE true;
+  DELETE FROM public.user_score_agg    WHERE true;
+  DELETE FROM public.team_score_agg    WHERE true;
+  DELETE FROM public.frozen_user_score WHERE true;
+  DELETE FROM public.frozen_team_score WHERE true;
+
+  IF p_clear_challenges THEN
+    SELECT COUNT(*)::int INTO v_challenges FROM public.challenges;
+    UPDATE public.challenges SET unlock_after = NULL WHERE unlock_after IS NOT NULL;
+    DELETE FROM public.challenges WHERE true;
+  END IF;
+
+  IF p_clear_teams THEN
+    SELECT COUNT(*)::int INTO v_teams FROM public.teams;
+    DELETE FROM public.awards WHERE true;
+    DELETE FROM public.teams  WHERE true;
+  END IF;
+
+  IF p_clear_notifications THEN
+    SELECT COUNT(*)::int INTO v_notifs FROM public.notifications;
+    DELETE FROM public.notifications WHERE true;
+  END IF;
+
+  UPDATE public.event_settings
+  SET name              = v_name,
+      is_active         = false,
+      start_time        = NULL,
+      end_time          = NULL,
+      freeze_scoreboard = false,
+      freeze_time       = NULL,
+      auto_froze_at     = NULL,
+      hide_scores       = false,
+      is_paused         = false,
+      paused_at         = NULL,
+      pause_message     = NULL
+  WHERE id = 1;
+
+  INSERT INTO public.audit_log (actor_id, action, metadata)
+  VALUES (auth.uid(), 'start_new_event', jsonb_build_object(
+    'name', v_name, 'submissions_cleared', v_subs,
+    'challenges_cleared', v_challenges, 'teams_cleared', v_teams,
+    'notifications_cleared', v_notifs
+  ));
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'name', v_name,
+    'submissions_cleared', v_subs,
+    'challenges_cleared', v_challenges,
+    'teams_cleared', v_teams,
+    'notifications_cleared', v_notifs,
+    'users_kept', (SELECT COUNT(*)::int FROM public.profiles)
+  );
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.admin_start_new_event(text, boolean, boolean, boolean) FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION public.admin_start_new_event(text, boolean, boolean, boolean) TO authenticated, service_role;

@@ -823,12 +823,19 @@ function AdminDashboardInner() {
 
   useEffect(() => { loadChallenges(); }, []);
 
-  // HARDENED: toggleVisibility via RPC — admin check enforced server-side
+  // Visibility has its own RPC. Toggling through admin_upsert_challenge with
+  // only p_id and p_is_visible let PostgREST fill the other arguments from
+  // their SQL defaults, which reset points to 100, attempts to unlimited,
+  // author, tags and connection info on every challenge that was switched
+  // live — exactly what the kickoff routine does to all of them at once.
   const toggleVisibility = async (id: string, current: boolean) => {
-    await supabase.rpc('admin_upsert_challenge', {
+    const { data, error } = await supabase.rpc('admin_set_challenge_visibility', {
       p_id: id,
-      p_is_visible: !current,
+      p_visible: !current,
     });
+    if (error || data?.error) {
+      alert('Could not change visibility: ' + (data?.error ?? 'request failed. Try again.'));
+    }
     loadChallenges();
   };
 
