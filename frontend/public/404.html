@@ -20,7 +20,6 @@ body {
   padding: 2rem 1.25rem;
   overflow: hidden;
 }
-.mono { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace; font-variant-ligatures: none; }
 
 .grid-bg {
   position: fixed; inset: 0; z-index: 0;
@@ -37,16 +36,15 @@ body {
   background: repeating-linear-gradient(transparent, transparent 2px, rgba(0,0,0,.06) 2px, rgba(0,0,0,.06) 4px);
 }
 
-.wrap { position: relative; z-index: 2; text-align: center; max-width: 32rem; }
+.wrap { position: relative; z-index: 2; text-align: center; max-width: 36rem; }
 
 .code {
-  font: 700 7rem/1 "JetBrains Mono", monospace;
+  font: 700 8rem/1 "JetBrains Mono", monospace;
   letter-spacing: -.04em;
   background: linear-gradient(180deg, #c6ff00 0%, #7a9e00 100%);
   -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-  text-shadow: none;
   filter: drop-shadow(0 0 40px rgba(198,255,0,.25));
-  margin-bottom: .5rem;
+  margin-bottom: .75rem;
 }
 
 .glitch { position: relative; }
@@ -55,54 +53,63 @@ body {
   background: linear-gradient(180deg, #c6ff00 0%, #7a9e00 100%);
   -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
 }
-.glitch::before { animation: glitch-1 3s infinite linear; clip-path: inset(20% 0 60% 0); }
-.glitch::after  { animation: glitch-2 3s infinite linear; clip-path: inset(60% 0 10% 0); }
+.glitch::before { animation: g1 4s infinite linear; clip-path: inset(20% 0 60% 0); }
+.glitch::after  { animation: g2 4s infinite linear; clip-path: inset(60% 0 10% 0); }
 
-@keyframes glitch-1 {
-  0%, 92%  { transform: translate(0); }
-  93%      { transform: translate(-4px, 1px); }
-  94%      { transform: translate(3px, -1px); }
-  95%      { transform: translate(-2px, 0); }
-  96%, 100%{ transform: translate(0); }
+@keyframes g1 {
+  0%,90%   { transform: translate(0); }
+  91%      { transform: translate(-5px, 2px); }
+  92%      { transform: translate(4px, -1px); }
+  93%      { transform: translate(-3px, 0); }
+  94%,100% { transform: translate(0); }
 }
-@keyframes glitch-2 {
-  0%, 94%  { transform: translate(0); }
-  95%      { transform: translate(3px, 1px); }
-  96%      { transform: translate(-4px, -1px); }
-  97%      { transform: translate(2px, 0); }
-  98%, 100%{ transform: translate(0); }
+@keyframes g2 {
+  0%,93%   { transform: translate(0); }
+  94%      { transform: translate(4px, 1px); }
+  95%      { transform: translate(-5px, -2px); }
+  96%      { transform: translate(3px, 0); }
+  97%,100% { transform: translate(0); }
 }
 
 .tag {
   display: inline-block;
-  font: 700 .625rem/1 "JetBrains Mono", monospace;
+  font: 700 .6875rem/1 "JetBrains Mono", monospace;
   letter-spacing: .18em; text-transform: uppercase;
-  color: #c6ff00;
-  padding: .35rem .65rem;
-  border: 1px solid rgba(198,255,0,.38);
-  background: rgba(198,255,0,.08);
+  color: #e0705f;
+  padding: .4rem .75rem;
+  border: 1px solid rgba(224,112,95,.4);
+  background: rgba(224,112,95,.1);
   border-radius: 999px;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
 }
 
 h1 {
-  font-size: 1.5rem; font-weight: 700; letter-spacing: -.02em;
-  margin-bottom: .5rem;
+  font-size: 1.625rem; font-weight: 700; letter-spacing: -.02em;
+  margin-bottom: .625rem;
 }
 
-.sub { color: #8a949d; margin-bottom: 2rem; font-size: .9375rem; }
+.sub { color: #8a949d; margin-bottom: 2.25rem; font-size: .9375rem; line-height: 1.6; }
 
 .terminal {
   background: #0d161f; border: 1px solid #1a242d; border-radius: 14px;
   padding: 1.25rem 1.5rem; text-align: left;
-  box-shadow: 0 2px 6px -1px rgba(2,6,11,.6), 0 1px 2px rgba(2,6,11,.5);
-  margin-bottom: 2rem;
+  box-shadow: 0 4px 12px -2px rgba(2,6,11,.7), 0 1px 2px rgba(2,6,11,.5);
+  margin-bottom: 2.25rem;
   font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .8125rem;
-  line-height: 1.7; color: #667381;
+  line-height: 1.8; color: #667381;
 }
-.terminal .prompt { color: #c6ff00; }
-.terminal .err { color: #e0705f; }
-.terminal .ok  { color: #5eead4; }
+.terminal .dots { display: flex; gap: 6px; margin-bottom: .875rem; }
+.terminal .dot { width: 10px; height: 10px; border-radius: 50%; }
+.terminal .dot.r { background: #e0705f; }
+.terminal .dot.y { background: #f5c542; }
+.terminal .dot.g { background: #5eead4; }
+.terminal .p { color: #c6ff00; }
+.terminal .e { color: #e0705f; }
+.terminal .w { color: #f5c542; }
+.terminal .s { color: #5eead4; }
+.terminal .d { color: #8a949d; }
+
+.actions { display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; }
 
 .btn {
   display: inline-flex; align-items: center; gap: .5rem;
@@ -116,37 +123,74 @@ h1 {
   box-shadow: 0 2px 6px -1px rgba(2,6,11,.6), inset 0 1px 0 rgba(255,255,255,.35), 0 6px 22px -8px rgba(198,255,0,.3);
 }
 .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 20px -6px rgba(2,6,11,.7), 0 6px 22px -8px rgba(198,255,0,.5); }
+.btn-ghost {
+  color: #e1e7ec; background: #121d28; border: 1px solid #27343f;
+}
+.btn-ghost:hover { text-decoration: none; border-color: rgba(198,255,0,.38); background: #17232f; transform: translateY(-1px); }
 
-.cursor { display: inline-block; width: 7px; height: 14px; background: #c6ff00; margin-left: 2px; animation: blink 1s step-end infinite; vertical-align: text-bottom; }
+.cursor { display: inline-block; width: 7px; height: 15px; background: #c6ff00; margin-left: 2px; animation: blink 1s step-end infinite; vertical-align: text-bottom; }
 @keyframes blink { 50% { opacity: 0; } }
+
+.hex { position: fixed; z-index: 0; font: 400 .625rem/1.8 "JetBrains Mono", monospace; color: rgba(198,255,0,.04); white-space: pre; pointer-events: none; user-select: none; }
+.hex-l { left: 1rem; top: 10%; }
+.hex-r { right: 1rem; top: 15%; text-align: right; }
 
 @media (max-width: 40rem) {
   .code { font-size: 5rem; }
   h1 { font-size: 1.25rem; }
   .terminal { padding: 1rem; font-size: .75rem; }
+  .hex { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .glitch::before, .glitch::after { animation: none; }
   .cursor { animation: none; opacity: 1; }
-  .btn-primary:hover { transform: none; }
+  .btn-primary:hover, .btn-ghost:hover { transform: none; }
 }
 </style>
 </head>
 <body>
 <div class="grid-bg" aria-hidden="true"></div>
 <div class="scanline" aria-hidden="true"></div>
+
+<div class="hex hex-l" aria-hidden="true">4e 6f 74 68 69
+6e 67 20 74 6f
+20 73 65 65 20
+68 65 72 65 2e
+2e 2e 0a 4b 65
+65 70 20 6d 6f
+76 69 6e 67 2e</div>
+<div class="hex hex-r" aria-hidden="true">63 74 66 2e 63
+79 62 65 72 68
+78 2e 63 6f 6d
+0a 34 30 34 20
+6e 6f 74 20 66
+6f 75 6e 64 0a</div>
+
 <div class="wrap">
   <div class="code glitch" aria-hidden="true">404</div>
-  <div class="tag">access denied</div>
-  <h1>This path leads nowhere</h1>
-  <p class="sub">The page you're looking for doesn't exist, was moved, or you don't have clearance.</p>
+  <div class="tag">target not found</div>
+  <h1>You hit a dead end, hacker.</h1>
+  <p class="sub">This endpoint doesn't exist. Either the route was patched, your recon is off, or you're poking at something that was never here.</p>
+
   <div class="terminal" role="presentation">
-    <div><span class="prompt">$</span> curl -s ctf.cyberhx.com<span id="path"></span></div>
-    <div><span class="err">Error:</span> route not found in target scope</div>
-    <div><span class="prompt">$</span> cd /home<span class="cursor"></span></div>
+    <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+    <div><span class="p">root@cyberhx</span><span class="d">:</span><span class="s">~</span><span class="d">$</span> nmap -sV ctf.cyberhx.com<span id="path"></span></div>
+    <div><span class="w">Starting recon on target...</span></div>
+    <div><span class="e">PORT   STATE    SERVICE</span></div>
+    <div><span class="e">404    filtered unknown</span></div>
+    <div>&nbsp;</div>
+    <div><span class="e">[!]</span> No open services detected on this route.</div>
+    <div><span class="s">[*]</span> Recommendation: fall back to known entry point.</div>
+    <div>&nbsp;</div>
+    <div><span class="p">root@cyberhx</span><span class="d">:</span><span class="s">~</span><span class="d">$</span> <span class="cursor"></span></div>
   </div>
-  <a class="btn btn-primary" href="/">Return to Base</a>
+
+  <div class="actions">
+    <a class="btn btn-primary" href="/">Return to HQ</a>
+    <a class="btn btn-ghost" onclick="history.back()">Go Back</a>
+  </div>
 </div>
+
 <script>
 try { document.getElementById('path').textContent = location.pathname; } catch(e) {}
 </script>
