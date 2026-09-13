@@ -114,10 +114,22 @@ export function recordSuccess() {
   stopProbe();
 }
 
+const REQUEST_TIMEOUT_MS = 15_000;
+
 /** Drop-in for fetch that keeps the uplink store informed. */
 export const uplinkFetch: typeof fetch = async (input, init) => {
+  // If the caller already attached a signal, respect it; otherwise cap the
+  // request at 15 seconds so a saturated connection pool shows a retry prompt
+  // instead of a frozen page.
+  let ac: AbortController | undefined;
+  let signal = init?.signal;
+  if (!signal) {
+    ac = new AbortController();
+    signal = ac.signal;
+    setTimeout(() => ac!.abort(), REQUEST_TIMEOUT_MS);
+  }
   try {
-    const r = await fetch(input, init);
+    const r = await fetch(input, { ...init, signal });
     // Only the gateway saying the project is unreachable counts. A 500 from
     // one query is that query's problem, not evidence the backend is gone,
     // and treating it as such is how a busy minute becomes a reconnect storm.
