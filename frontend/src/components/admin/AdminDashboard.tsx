@@ -1,5 +1,5 @@
 // src/components/admin/AdminDashboard.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase, DBChallenge } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import OwnerFlagVault from './OwnerFlagVault';
@@ -9,7 +9,7 @@ import {
   Plus, Eye, EyeOff, Trash2, Edit3, Shield, Users, Flag, Activity, RotateCcw, KeyRound,
   X, AlertTriangle, Megaphone, Zap, Lightbulb, Link2, Save, Inbox, Lock,
   Settings2, ListChecks, Hash, Send, CalendarClock, Radio, Paperclip, Upload, FileDown, Download,
-  Clock, Play, Pause,
+  Clock, Play, Pause, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { resetEventScores } from '../../api/submitFlag';
@@ -1119,10 +1119,31 @@ function AdminDashboardInner() {
 // ─────────────────────────────────────────
 // USERS TAB
 // ─────────────────────────────────────────
+const USERS_PER_PAGE = 20;
+
 function UsersTab() {
   const [users, setUsers] = useState<any[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(0);
   const { profile } = useAuth();
+
+  // Search narrows the list; pagination then chops the result into pages so a
+  // 500-row roster never becomes an endless scroll.
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter(u =>
+      (u.username ?? '').toLowerCase().includes(q) ||
+      (u.email ?? '').toLowerCase().includes(q)
+    );
+  }, [users, query]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / USERS_PER_PAGE));
+  const clampedPage = Math.min(page, pageCount - 1);
+  useEffect(() => { if (page !== clampedPage) setPage(clampedPage); }, [clampedPage, page]);
+  const start = clampedPage * USERS_PER_PAGE;
+  const pageUsers = filtered.slice(start, start + USERS_PER_PAGE);
 
   // Ownership is a property of a row, so "am I the owner" is read off my own
   // row rather than tracked separately -- one source of truth, and it stays
@@ -1207,6 +1228,25 @@ function UsersTab() {
         </p>
       </div>
 
+      <div className="mb-4 relative max-w-sm">
+        <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+        <input
+          type="text"
+          value={query}
+          onChange={e => { setQuery(e.target.value); setPage(0); }}
+          placeholder="Search by username or email…"
+          aria-label="Search players"
+          className="input w-full pl-9"
+        />
+        {query && (
+          <button type="button" onClick={() => { setQuery(''); setPage(0); }}
+            aria-label="Clear search" title="Clear"
+            className="absolute right-2 top-1/2 -translate-y-1/2 btn btn-ghost btn-sm btn-icon">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+
       {/* Desktop / tablet: table */}
       <TableFrame className="hidden md:block">
         <table className="w-full text-left min-w-[880px]">
@@ -1223,9 +1263,9 @@ function UsersTab() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border-subtle">
-            {users.map((u, i) => (
+            {pageUsers.map((u, i) => (
               <tr key={u.id} className={`transition-colors duration-[var(--duration-fast)] hover:bg-surface-raised ${busy === u.id ? 'opacity-60' : ''}`}>
-                <td className="px-5 py-4 text-small font-mono text-text-muted">{i + 1}</td>
+                <td className="px-5 py-4 text-small font-mono text-text-muted">{start + i + 1}</td>
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-2">
                     <span className={`text-body font-semibold ${u.is_banned ? 'line-through text-diff-hard' : 'text-cyber-text'}`}>
@@ -1295,9 +1335,9 @@ function UsersTab() {
                 </td>
               </tr>
             ))}
-            {users.length === 0 && (
+            {filtered.length === 0 && (
               <tr><td colSpan={8} className="p-0">
-                <EmptyState icon={<Users className="w-5 h-5" />} title="No players listed" hint="Registered accounts appear here as soon as they sign up." />
+                <EmptyState icon={<Users className="w-5 h-5" />} title={query ? 'No matches' : 'No players listed'} hint={query ? 'No player matches your search.' : 'Registered accounts appear here as soon as they sign up.'} />
               </td></tr>
             )}
           </tbody>
@@ -1306,12 +1346,12 @@ function UsersTab() {
 
       {/* Mobile: card list */}
       <div className="md:hidden space-y-3">
-        {users.map((u, i) => (
+        {pageUsers.map((u, i) => (
           <div key={u.id} className={`surface p-4 ${busy === u.id ? 'opacity-60' : ''}`}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-mono text-small text-text-muted shrink-0">{i + 1}</span>
+                  <span className="font-mono text-small text-text-muted shrink-0">{start + i + 1}</span>
                   <p className={`text-body font-semibold truncate ${u.is_banned ? 'line-through text-diff-hard' : 'text-cyber-text'}`}>
                     {u.username}
                   </p>
@@ -1378,12 +1418,44 @@ function UsersTab() {
             </div>
           </div>
         ))}
-        {users.length === 0 && (
+        {filtered.length === 0 && (
           <div className="surface">
-            <EmptyState icon={<Users className="w-5 h-5" />} title="No players listed" hint="Registered accounts appear here as soon as they sign up." />
+            <EmptyState icon={<Users className="w-5 h-5" />} title={query ? 'No matches' : 'No players listed'} hint={query ? 'No player matches your search.' : 'Registered accounts appear here as soon as they sign up.'} />
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {filtered.length > 0 && (
+        <div className="mt-5 flex flex-col-reverse sm:flex-row items-center justify-between gap-3">
+          <p className="text-small text-text-muted">
+            Showing <span className="font-mono text-text-secondary">{start + 1}–{Math.min(start + USERS_PER_PAGE, filtered.length)}</span> of{' '}
+            <span className="font-mono text-text-secondary">{filtered.length}</span>
+            {query && <span className="text-text-muted"> (filtered)</span>}
+          </p>
+          <div className="flex items-center gap-1.5">
+            <button type="button" onClick={() => setPage(0)} disabled={clampedPage === 0}
+              className="btn btn-ghost btn-sm btn-icon" aria-label="First page" title="First page">
+              <ChevronsLeft className="w-4 h-4" />
+            </button>
+            <button type="button" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={clampedPage === 0}
+              className="btn btn-secondary btn-sm btn-icon" aria-label="Previous page" title="Previous page">
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="px-3 text-small font-mono text-text-secondary tabular-nums whitespace-nowrap">
+              Page {clampedPage + 1} / {pageCount}
+            </span>
+            <button type="button" onClick={() => setPage(p => Math.min(pageCount - 1, p + 1))} disabled={clampedPage >= pageCount - 1}
+              className="btn btn-secondary btn-sm btn-icon" aria-label="Next page" title="Next page">
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            <button type="button" onClick={() => setPage(pageCount - 1)} disabled={clampedPage >= pageCount - 1}
+              className="btn btn-ghost btn-sm btn-icon" aria-label="Last page" title="Last page">
+              <ChevronsRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
