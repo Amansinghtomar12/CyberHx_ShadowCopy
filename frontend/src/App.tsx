@@ -2118,12 +2118,19 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
                           href={safeHttpUrl(file.url) || undefined}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="btn btn-secondary btn-md btn-block justify-start gap-3"
+                          className="group flex items-center gap-3 rounded-control border border-border-base bg-surface-card px-4 py-3 transition-colors duration-[var(--duration-base)] hover:border-border-neon hover:bg-surface-raised"
                         >
-                          <Download className="w-4 h-4 shrink-0" />
-                          <span className="truncate">{file.name}</span>
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-inset bg-neon-wash text-cyber-neon">
+                            <Download className="w-4 h-4" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-body font-semibold text-cyber-text">
+                              {files.length > 1 ? `Download Attachment ${i + 1}` : 'Download Attachment'}
+                            </span>
+                            <span className="block text-small text-text-muted">Click to download</span>
+                          </span>
                           {file.size ? (
-                            <span className="ml-auto font-mono text-small text-text-muted tabular-nums normal-case tracking-normal">
+                            <span className="shrink-0 font-mono text-small text-text-muted tabular-nums">
                               {(file.size / 1048576).toFixed(file.size >= 10485760 ? 0 : 1)} MB
                             </span>
                           ) : null}

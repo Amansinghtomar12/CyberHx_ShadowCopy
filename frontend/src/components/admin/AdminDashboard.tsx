@@ -1,5 +1,5 @@
 // src/components/admin/AdminDashboard.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase, DBChallenge } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import OwnerFlagVault from './OwnerFlagVault';
@@ -9,7 +9,7 @@ import {
   Plus, Eye, EyeOff, Trash2, Edit3, Shield, Users, Flag, Activity, RotateCcw, KeyRound,
   X, AlertTriangle, Megaphone, Zap, Lightbulb, Link2, Save, Inbox, Lock,
   Settings2, ListChecks, Hash, Send, CalendarClock, Radio, Paperclip, Upload, FileDown, Download,
-  Clock, Play, Pause,
+  Clock, Play, Pause, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { resetEventScores } from '../../api/submitFlag';
@@ -1119,10 +1119,31 @@ function AdminDashboardInner() {
 // ─────────────────────────────────────────
 // USERS TAB
 // ─────────────────────────────────────────
+const USERS_PER_PAGE = 50;
+
 function UsersTab() {
   const [users, setUsers] = useState<any[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(0);
   const { profile } = useAuth();
+
+  // Search narrows the list; pagination then chops the result into pages so a
+  // 500-row roster never becomes an endless scroll.
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter(u =>
+      (u.username ?? '').toLowerCase().includes(q) ||
+      (u.email ?? '').toLowerCase().includes(q)
+    );
+  }, [users, query]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / USERS_PER_PAGE));
+  const clampedPage = Math.min(page, pageCount - 1);
+  useEffect(() => { if (page !== clampedPage) setPage(clampedPage); }, [clampedPage, page]);
+  const start = clampedPage * USERS_PER_PAGE;
+  const pageUsers = filtered.slice(start, start + USERS_PER_PAGE);
 
   // Ownership is a property of a row, so "am I the owner" is read off my own
   // row rather than tracked separately -- one source of truth, and it stays
@@ -1207,6 +1228,25 @@ function UsersTab() {
         </p>
       </div>
 
+      <div className="mb-4 relative max-w-sm">
+        <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+        <input
+          type="text"
+          value={query}
+          onChange={e => { setQuery(e.target.value); setPage(0); }}
+          placeholder="Search by username or email…"
+          aria-label="Search players"
+          className="input w-full pl-9"
+        />
+        {query && (
+          <button type="button" onClick={() => { setQuery(''); setPage(0); }}
+            aria-label="Clear search" title="Clear"
+            className="absolute right-2 top-1/2 -translate-y-1/2 btn btn-ghost btn-sm btn-icon">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+
       {/* Desktop / tablet: table */}
       <TableFrame className="hidden md:block">
         <table className="w-full text-left min-w-[880px]">
@@ -1223,9 +1263,9 @@ function UsersTab() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border-subtle">
-            {users.map((u, i) => (
+            {pageUsers.map((u, i) => (
               <tr key={u.id} className={`transition-colors duration-[var(--duration-fast)] hover:bg-surface-raised ${busy === u.id ? 'opacity-60' : ''}`}>
-                <td className="px-5 py-4 text-small font-mono text-text-muted">{i + 1}</td>
+                <td className="px-5 py-4 text-small font-mono text-text-muted">{start + i + 1}</td>
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-2">
                     <span className={`text-body font-semibold ${u.is_banned ? 'line-through text-diff-hard' : 'text-cyber-text'}`}>
@@ -1295,9 +1335,9 @@ function UsersTab() {
                 </td>
               </tr>
             ))}
-            {users.length === 0 && (
+            {filtered.length === 0 && (
               <tr><td colSpan={8} className="p-0">
-                <EmptyState icon={<Users className="w-5 h-5" />} title="No players listed" hint="Registered accounts appear here as soon as they sign up." />
+                <EmptyState icon={<Users className="w-5 h-5" />} title={query ? 'No matches' : 'No players listed'} hint={query ? 'No player matches your search.' : 'Registered accounts appear here as soon as they sign up.'} />
               </td></tr>
             )}
           </tbody>
@@ -1306,12 +1346,12 @@ function UsersTab() {
 
       {/* Mobile: card list */}
       <div className="md:hidden space-y-3">
-        {users.map((u, i) => (
+        {pageUsers.map((u, i) => (
           <div key={u.id} className={`surface p-4 ${busy === u.id ? 'opacity-60' : ''}`}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-mono text-small text-text-muted shrink-0">{i + 1}</span>
+                  <span className="font-mono text-small text-text-muted shrink-0">{start + i + 1}</span>
                   <p className={`text-body font-semibold truncate ${u.is_banned ? 'line-through text-diff-hard' : 'text-cyber-text'}`}>
                     {u.username}
                   </p>
@@ -1378,12 +1418,44 @@ function UsersTab() {
             </div>
           </div>
         ))}
-        {users.length === 0 && (
+        {filtered.length === 0 && (
           <div className="surface">
-            <EmptyState icon={<Users className="w-5 h-5" />} title="No players listed" hint="Registered accounts appear here as soon as they sign up." />
+            <EmptyState icon={<Users className="w-5 h-5" />} title={query ? 'No matches' : 'No players listed'} hint={query ? 'No player matches your search.' : 'Registered accounts appear here as soon as they sign up.'} />
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {filtered.length > 0 && (
+        <div className="mt-5 flex flex-col-reverse sm:flex-row items-center justify-between gap-3">
+          <p className="text-small text-text-muted">
+            Showing <span className="font-mono text-text-secondary">{start + 1}–{Math.min(start + USERS_PER_PAGE, filtered.length)}</span> of{' '}
+            <span className="font-mono text-text-secondary">{filtered.length}</span>
+            {query && <span className="text-text-muted"> (filtered)</span>}
+          </p>
+          <div className="flex items-center gap-1.5">
+            <button type="button" onClick={() => setPage(0)} disabled={clampedPage === 0}
+              className="btn btn-ghost btn-sm btn-icon" aria-label="First page" title="First page">
+              <ChevronsLeft className="w-4 h-4" />
+            </button>
+            <button type="button" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={clampedPage === 0}
+              className="btn btn-secondary btn-sm btn-icon" aria-label="Previous page" title="Previous page">
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="px-3 text-small font-mono text-text-secondary tabular-nums whitespace-nowrap">
+              Page {clampedPage + 1} / {pageCount}
+            </span>
+            <button type="button" onClick={() => setPage(p => Math.min(pageCount - 1, p + 1))} disabled={clampedPage >= pageCount - 1}
+              className="btn btn-secondary btn-sm btn-icon" aria-label="Next page" title="Next page">
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            <button type="button" onClick={() => setPage(pageCount - 1)} disabled={clampedPage >= pageCount - 1}
+              className="btn btn-ghost btn-sm btn-icon" aria-label="Last page" title="Last page">
+              <ChevronsRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2206,6 +2278,8 @@ function EventTab() {
 // ─────────────────────────────────────────
 // TEAMS TAB
 // ─────────────────────────────────────────
+const TEAMS_PER_PAGE = 50;
+
 function TeamsTab() {
   const [teams, setTeams] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
@@ -2213,10 +2287,26 @@ function TeamsTab() {
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(0);
 
   // Teams that include an admin. Their ban and delete controls lock, the way
   // the admin's own row locks in the Users tab; the server refuses too.
   const [protectedTeams, setProtectedTeams] = useState<Record<string, 'owner' | 'admin'>>({});
+
+  // Search narrows by team name; pagination then chops the result into pages
+  // so a few hundred teams never become an endless scroll.
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return teams;
+    return teams.filter(t => (t.name ?? '').toLowerCase().includes(q));
+  }, [teams, query]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / TEAMS_PER_PAGE));
+  const clampedPage = Math.min(page, pageCount - 1);
+  useEffect(() => { if (page !== clampedPage) setPage(clampedPage); }, [clampedPage, page]);
+  const start = clampedPage * TEAMS_PER_PAGE;
+  const pageTeams = filtered.slice(start, start + TEAMS_PER_PAGE);
 
   const loadTeams = async () => {
     const { data: teamsData } = await supabase
@@ -2314,6 +2404,25 @@ function TeamsTab() {
           <p className="text-small text-text-muted">Select a team to inspect members and its invite code.</p>
         </div>
 
+        <div className="mb-4 relative max-w-sm">
+          <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+          <input
+            type="text"
+            value={query}
+            onChange={e => { setQuery(e.target.value); setPage(0); }}
+            placeholder="Search by team name…"
+            aria-label="Search teams"
+            className="input w-full pl-9"
+          />
+          {query && (
+            <button type="button" onClick={() => { setQuery(''); setPage(0); }}
+              aria-label="Clear search" title="Clear"
+              className="absolute right-2 top-1/2 -translate-y-1/2 btn btn-ghost btn-sm btn-icon">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
         {/* Desktop / tablet: table */}
         <TableFrame className="hidden md:block">
           <table className="w-full text-left min-w-[720px]">
@@ -2328,11 +2437,11 @@ function TeamsTab() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border-subtle">
-              {teams.map((t, i) => (
+              {pageTeams.map((t, i) => (
                 <tr key={t.id} onClick={() => setSelected(t)}
                   title={`Inspect ${t.name}`}
                   className={`cursor-pointer transition-colors duration-[var(--duration-fast)] hover:bg-surface-raised ${selected?.id === t.id ? 'bg-surface-raised' : ''}`}>
-                  <td className="px-5 py-4 text-small font-mono text-text-muted">{i + 1}</td>
+                  <td className="px-5 py-4 text-small font-mono text-text-muted">{start + i + 1}</td>
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className={`text-body font-semibold ${t.is_banned ? 'line-through text-diff-hard' : 'text-cyber-text'}`}>{t.name}</span>
@@ -2360,9 +2469,9 @@ function TeamsTab() {
                   </td>
                 </tr>
               ))}
-              {teams.length === 0 && (
+              {filtered.length === 0 && (
                 <tr><td colSpan={6} className="p-0">
-                  <EmptyState icon={<Shield className="w-5 h-5" />} title="No teams yet" hint="Teams appear here as soon as a player creates one." />
+                  <EmptyState icon={<Shield className="w-5 h-5" />} title={query ? 'No matches' : 'No teams yet'} hint={query ? 'No team matches your search.' : 'Teams appear here as soon as a player creates one.'} />
                 </td></tr>
               )}
             </tbody>
@@ -2371,13 +2480,13 @@ function TeamsTab() {
 
         {/* Mobile: card list */}
         <div className="md:hidden space-y-3">
-          {teams.map((t, i) => (
+          {pageTeams.map((t, i) => (
             <div key={t.id} className={`surface p-4 ${selected?.id === t.id ? 'border-border-neon' : ''}`}>
               <button type="button" onClick={() => setSelected(t)} className="w-full text-left focus-ring rounded-inset">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-mono text-small text-text-muted shrink-0">{i + 1}</span>
+                      <span className="font-mono text-small text-text-muted shrink-0">{start + i + 1}</span>
                       <p className={`text-body font-semibold truncate ${t.is_banned ? 'line-through text-diff-hard' : 'text-cyber-text'}`}>{t.name}</p>
                     </div>
                     <p className="text-small text-text-muted mt-1">
@@ -2394,12 +2503,44 @@ function TeamsTab() {
               </div>
             </div>
           ))}
-          {teams.length === 0 && (
+          {filtered.length === 0 && (
             <div className="surface">
-              <EmptyState icon={<Shield className="w-5 h-5" />} title="No teams yet" hint="Teams appear here as soon as a player creates one." />
+              <EmptyState icon={<Shield className="w-5 h-5" />} title={query ? 'No matches' : 'No teams yet'} hint={query ? 'No team matches your search.' : 'Teams appear here as soon as a player creates one.'} />
             </div>
           )}
         </div>
+
+        {/* Pagination */}
+        {filtered.length > 0 && (
+          <div className="mt-5 flex flex-col-reverse sm:flex-row items-center justify-between gap-3">
+            <p className="text-small text-text-muted">
+              Showing <span className="font-mono text-text-secondary">{start + 1}–{Math.min(start + TEAMS_PER_PAGE, filtered.length)}</span> of{' '}
+              <span className="font-mono text-text-secondary">{filtered.length}</span>
+              {query && <span className="text-text-muted"> (filtered)</span>}
+            </p>
+            <div className="flex items-center gap-1.5">
+              <button type="button" onClick={() => setPage(0)} disabled={clampedPage === 0}
+                className="btn btn-ghost btn-sm btn-icon" aria-label="First page" title="First page">
+                <ChevronsLeft className="w-4 h-4" />
+              </button>
+              <button type="button" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={clampedPage === 0}
+                className="btn btn-secondary btn-sm btn-icon" aria-label="Previous page" title="Previous page">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="px-3 text-small font-mono text-text-secondary tabular-nums whitespace-nowrap">
+                Page {clampedPage + 1} / {pageCount}
+              </span>
+              <button type="button" onClick={() => setPage(p => Math.min(pageCount - 1, p + 1))} disabled={clampedPage >= pageCount - 1}
+                className="btn btn-secondary btn-sm btn-icon" aria-label="Next page" title="Next page">
+                <ChevronRight className="w-4 h-4" />
+              </button>
+              <button type="button" onClick={() => setPage(pageCount - 1)} disabled={clampedPage >= pageCount - 1}
+                className="btn btn-ghost btn-sm btn-icon" aria-label="Last page" title="Last page">
+                <ChevronsRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {selected && (
@@ -2442,12 +2583,18 @@ function TeamsTab() {
               ) : members.map(m => (
                 <div key={m.id} className="flex items-center justify-between gap-2 rounded-inset bg-surface-inset border border-border-subtle px-2.5 py-2">
                   <div className="min-w-0">
-                    <p className="text-small font-semibold text-cyber-text truncate">{m.username}</p>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <p className="text-small font-semibold text-cyber-text truncate">{m.username}</p>
+                      {m.id === selected.captain_id && (
+                        <span className="badge badge-neon shrink-0">Captain</span>
+                      )}
+                    </div>
                     <p className="text-small font-mono text-text-muted truncate">{m.email}</p>
                   </div>
-                  {m.id === selected.captain_id && (
-                    <span className="badge badge-neon shrink-0">Captain</span>
-                  )}
+                  <div className="shrink-0 text-right">
+                    <p className="text-body font-mono font-semibold text-cyber-neon tabular-nums">{m.score ?? 0}</p>
+                    <p className="text-small text-text-muted whitespace-nowrap">{m.solved_count ?? 0} solved</p>
+                  </div>
                 </div>
               ))}
             </div>
