@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Users, Trophy, SearchX, EyeOff } from 'lucide-react';
+import { Search, Users, Trophy, SearchX, EyeOff, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { supabase } from './lib/supabase';
 
@@ -47,12 +47,16 @@ export default function TeamsList() {
   const [loading, setLoading] = useState(true);
   const [hidden, setHidden] = useState(false);
   const [total, setTotal] = useState<number | null>(null);
+  const [matchCount, setMatchCount] = useState<number | null>(null);
+  const [page, setPage] = useState(0);
 
-  // Bounded page. This list used to fetch every team and filter in the
-  // browser; search moves server-side so the payload does not grow with the
-  // event.
-  const PAGE = 100;
+  // Server-side pagination: rows are fetched a page at a time with .range(),
+  // ordered by score, so the payload never grows with the event no matter how
+  // many teams register.
+  const PAGE_SIZE = 50;
+  const esc = (s: string) => s.replace(/[\\%_*]/g, m => '\\' + m);
 
+  // Full registered count for the header badge (unfiltered).
   useEffect(() => {
     supabase
       .from('team_scores')
@@ -60,31 +64,45 @@ export default function TeamsList() {
       .then(({ count }) => setTotal(count ?? null));
   }, []);
 
+  // Back to page one whenever the search changes.
+  useEffect(() => { setPage(0); }, [searchTerm]);
+
+  // Count for the current filter — drives how many pages there are.
+  useEffect(() => {
+    const term = searchTerm.trim();
+    let cq = supabase.from('team_scores').select('id', { count: 'exact', head: true });
+    if (term) cq = cq.ilike('name', `${esc(term)}%`);
+    cq.then(({ count }) => setMatchCount(count ?? 0));
+  }, [searchTerm]);
+
   // team_scores returns no rows at all while the organisers have the board
   // hidden, so ask first -- otherwise a blackout is indistinguishable from
   // "no teams have registered", which reads as a broken page.
   useEffect(() => {
     const term = searchTerm.trim();
     const t = setTimeout(async () => {
+      setLoading(true);
       const { data: state } = await supabase.rpc('scoreboard_state');
       if (state?.scores_hidden) { setHidden(true); setLoading(false); return; }
       setHidden(false);
 
       let q = supabase.from('team_scores').select('*');
-      if (term) q = q.ilike('name', `${term.replace(/[\\%_*]/g, m => '\\' + m)}%`);
+      if (term) q = q.ilike('name', `${esc(term)}%`);
 
+      const from = page * PAGE_SIZE;
       const { data } = await q
         .order('total_points', { ascending: false })
-        .limit(PAGE);
+        .range(from, from + PAGE_SIZE - 1);
 
       setTeams((data ?? []) as TeamRow[]);
       setLoading(false);
     }, term ? 300 : 0);
     return () => clearTimeout(t);
-  }, [searchTerm]);
+  }, [searchTerm, page]);
 
   const filtered = teams;
-  const capped = !searchTerm.trim() && total !== null && total > PAGE;
+  const pageCount = Math.max(1, Math.ceil((matchCount ?? 0) / PAGE_SIZE));
+  const start = page * PAGE_SIZE;
 
   const reduceMotion = useReducedMotion();
 
@@ -125,12 +143,6 @@ export default function TeamsList() {
         </section>
       ) : (
       <>
-
-      {capped && (
-        <p className="mb-3 text-small text-text-muted">
-          Showing the top {PAGE} of {total} teams — search by name to find anyone else.
-        </p>
-      )}
 
       {/* ── Toolbar ───────────────────────────────────────────── */}
       <div className="mb-6 flex items-center gap-2 sm:gap-3">
@@ -232,6 +244,40 @@ export default function TeamsList() {
           </table>
         </div>
       </div>
+
+      {/* ── Pagination ────────────────────────────────────────── */}
+      {!loading && (matchCount ?? 0) > 0 && (
+        <div className="mt-4 flex flex-col-reverse sm:flex-row items-center justify-between gap-3">
+          <p className="text-small text-text-muted">
+            Showing <span className="font-mono text-text-secondary tabular-nums">{start + 1}–{Math.min(start + PAGE_SIZE, matchCount ?? 0)}</span> of{' '}
+            <span className="font-mono text-text-secondary tabular-nums">{matchCount}</span>
+            {searchTerm.trim() && <span className="text-text-muted"> matching</span>}
+          </p>
+          {pageCount > 1 && (
+            <div className="flex items-center gap-1.5">
+              <button type="button" onClick={() => setPage(0)} disabled={page === 0}
+                className="btn btn-ghost btn-sm btn-icon" aria-label="First page" title="First page">
+                <ChevronsLeft className="w-4 h-4" />
+              </button>
+              <button type="button" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
+                className="btn btn-secondary btn-sm btn-icon" aria-label="Previous page" title="Previous page">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="px-3 text-small font-mono text-text-secondary tabular-nums whitespace-nowrap">
+                Page {page + 1} / {pageCount}
+              </span>
+              <button type="button" onClick={() => setPage(p => Math.min(pageCount - 1, p + 1))} disabled={page >= pageCount - 1}
+                className="btn btn-secondary btn-sm btn-icon" aria-label="Next page" title="Next page">
+                <ChevronRight className="w-4 h-4" />
+              </button>
+              <button type="button" onClick={() => setPage(pageCount - 1)} disabled={page >= pageCount - 1}
+                className="btn btn-ghost btn-sm btn-icon" aria-label="Last page" title="Last page">
+                <ChevronsRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       <p className="mt-3 flex items-center justify-end gap-1.5 label-micro">
         <Trophy aria-hidden="true" className="w-3 h-3" />
