@@ -2442,12 +2442,18 @@ function TeamsTab() {
               ) : members.map(m => (
                 <div key={m.id} className="flex items-center justify-between gap-2 rounded-inset bg-surface-inset border border-border-subtle px-2.5 py-2">
                   <div className="min-w-0">
-                    <p className="text-small font-semibold text-cyber-text truncate">{m.username}</p>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <p className="text-small font-semibold text-cyber-text truncate">{m.username}</p>
+                      {m.id === selected.captain_id && (
+                        <span className="badge badge-neon shrink-0">Captain</span>
+                      )}
+                    </div>
                     <p className="text-small font-mono text-text-muted truncate">{m.email}</p>
                   </div>
-                  {m.id === selected.captain_id && (
-                    <span className="badge badge-neon shrink-0">Captain</span>
-                  )}
+                  <div className="shrink-0 text-right">
+                    <p className="text-body font-mono font-semibold text-cyber-neon tabular-nums">{m.score ?? 0}</p>
+                    <p className="text-small text-text-muted whitespace-nowrap">{m.solved_count ?? 0} solved</p>
+                  </div>
                 </div>
               ))}
             </div>
