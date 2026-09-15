@@ -29,15 +29,15 @@ export interface Chain2DOptions {
 
 // Layout — a horizontal progression. Cards sit at node centres; the chain runs
 // continuously behind them and is visible in the gaps.
-export const NODE_SPACING = 280;
-export const NODE_MARGIN = 110;
-export const STAGE_HEIGHT = 250;
-const CHAIN_H = 78;        // chain band height on screen
+export const NODE_SPACING = 320;   // longer chain runs between cards
+export const NODE_MARGIN = 120;
+export const STAGE_HEIGHT = 210;
+const CHAIN_H = 46;        // thinner band — zoomed out, longer chain
 
 const IGNITE_MS = 1400;    // premium ignition ramp
-const FIRE_DISP_H = 124;   // fire band display height (px)
-const FIRE_BASE = 0.70;    // fraction of the fire below its dest-top (flames rise)
-const FIRE_PAD = 22;       // horizontal padding around each burning segment
+const FIRE_DISP_H = 96;    // fire band display height (px)
+const FIRE_BASE = 0.68;    // fraction of the fire below its dest-top (flames rise)
+const FIRE_PAD = 20;       // horizontal padding around each burning segment
 
 export function chainContentWidth(nodeCount: number): number {
   const n = Math.max(1, nodeCount);
