@@ -1,24 +1,22 @@
-// Chained-challenges chain renderer — pure 2D.
+// Chained-challenges chain renderer — pure 2D, real photographic assets.
 //
-// The chain itself is a REAL rendered steel asset: a seamless, transparent,
-// high-resolution PNG strip of interlocked oval links (generated offline with a
-// per-pixel metallic tube shader — chrome environment reflection, speculars,
-// contact-shadow AO). At runtime we simply tile that strip horizontally in the
-// thin band between challenge cards — no WebGL, no 3D camera, no drawn "cartoon"
-// links. A second heated (incandescent) strip is cross-faded in on segments
-// whose two adjacent challenges are both solved, and a procedural 2D fire is
-// layered on top so the metal looks genuinely engulfed while staying visible.
+// The chain is a REAL galvanized-steel-chain PHOTOGRAPH (chroma-keyed off its
+// green background and cropped to one repeat period so it tiles seamlessly).
+// At runtime we tile that strip horizontally in the thin band between cards —
+// no WebGL, no 3D camera, no drawn links. A heated (incandescent) recolour of
+// the same photo cross-fades in on segments whose two adjacent challenges are
+// both solved, and a REAL FIRE photograph is windowed, animated and feathered
+// on top so the metal looks genuinely engulfed while staying visible beneath.
 //
 // Clickable challenge cards are HTML, positioned each frame from the node
 // centres reported via onNodes.
 
 const COLD_URL = new URL('../../assets/chain/chain-strip.png', import.meta.url).href;
 const HOT_URL = new URL('../../assets/chain/chain-strip-hot.png', import.meta.url).href;
+const FIRE_URL = new URL('../../assets/chain/fire.jpg', import.meta.url).href;
 
-// Asset tile geometry. The PNG is a REAL galvanized-steel-chain photograph
-// (chroma-keyed off its green background), mirror-tiled so it repeats seamlessly.
-// These are the tile's logical (aspect) units; the file itself is higher-res.
-const STRIP_UNITS_W = 1134;
+// Chain tile geometry (one seamless repeat period of the photo, logical units).
+const STRIP_UNITS_W = 540;
 const STRIP_UNITS_H = 51;
 
 export interface Chain2DNode { x: number; y: number; }
@@ -46,9 +44,9 @@ const CHAIN_INSET = 70;    // chain tucks just under each card edge
 const TILE_W = STRIP_UNITS_W * (CHAIN_H / STRIP_UNITS_H); // display tile width
 
 const IGNITE_MS = 1400;    // premium ignition ramp
-const FIRE_SCALE = 0.34;   // low-res factor for the procedural fire buffer
-const FLAME_H = 78;        // flame height (px) at full heat
-const FIRE_MS = 33;        // rebuild fire buffer at ~30fps
+const FIRE_DISP_H = 148;   // fire band display height (px)
+const FIRE_BASE = 0.80;    // fraction of the fire below its dest-top (flames rise)
+const FIRE_PAD = 24;       // horizontal padding around each burning segment
 
 export function chainContentWidth(nodeCount: number): number {
   const n = Math.max(1, nodeCount);
@@ -60,18 +58,6 @@ function vnoise(x: number): number {
   const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f);
   return hash(i) * (1 - u) + hash(i + 1) * u;
 }
-function hash2(x: number, y: number): number { const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return s - Math.floor(s); }
-function noise2(x: number, y: number): number {
-  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
-  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
-  const a = hash2(xi, yi), b = hash2(xi + 1, yi), c = hash2(xi, yi + 1), d = hash2(xi + 1, yi + 1);
-  return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v;
-}
-function fbm2(x: number, y: number): number {
-  let s = 0, amp = 0.5, f = 1;
-  for (let o = 0; o < 3; o++) { s += amp * noise2(x * f, y * f); f *= 2; amp *= 0.5; }
-  return s;
-}
 
 export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): Chain2DHandle {
   const ctx = canvas.getContext('2d')!;
@@ -80,19 +66,20 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
 
   const cold = new Image(); cold.src = COLD_URL;
   const hot = new Image(); hot.src = HOT_URL;
-  let coldOk = false, hotOk = false;
+  const fireImg = new Image(); fireImg.src = FIRE_URL;
+  let coldOk = false, hotOk = false, fireOk = false;
   cold.onload = () => { coldOk = true; };
   hot.onload = () => { hotOk = true; };
+  fireImg.onload = () => { fireOk = true; };
 
   const nodeSolved = new Array<boolean>(n).fill(false);
   const segHeat = new Float32Array(segCount);
   const segTarget = new Float32Array(segCount);
   const segIgniteAt = new Float32Array(segCount).fill(-1);
 
-  // Low-res offscreen buffer for the procedural fire (rebuilt at ~30fps).
-  let fireBuf: HTMLCanvasElement | null = null;
-  let fireCtx: CanvasRenderingContext2D | null = null;
-  let lastFire = -1;
+  // Offscreen buffers for the real-fire compositing (fire layers + feather mask).
+  let fbuf: HTMLCanvasElement | null = null, fbx: CanvasRenderingContext2D | null = null;
+  let mbuf: HTMLCanvasElement | null = null, mbx: CanvasRenderingContext2D | null = null;
 
   let cssW = 1, cssH = STAGE_HEIGHT, dpr = 1;
   let raf = 0, disposed = false;
@@ -115,108 +102,73 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
     ctx.restore();
   }
 
-  function rebuildFireBuffer(t: number, bandCY: number) {
-    const w = Math.max(1, Math.round(cssW * FIRE_SCALE));
-    const h = Math.max(1, Math.round(cssH * FIRE_SCALE));
-    if (!fireBuf) { fireBuf = document.createElement('canvas'); fireCtx = fireBuf.getContext('2d'); }
-    if (fireBuf.width !== w || fireBuf.height !== h) { fireBuf.width = w; fireBuf.height = h; }
-    const fc = fireCtx!;
-    const img = fc.createImageData(w, h);
-    const d = img.data;
-    const ft = opts.reducedMotion ? 1.7 : t;
-    const baseY = bandCY + CHAIN_H * 0.12;
+  // Real fire: window a different slice of the fire photograph per burning
+  // segment, animate it in place (drift + bob + flicker), composite two layers
+  // additively into an offscreen buffer, then feather every edge with a single
+  // UNIONED soft-ellipse mask so it reads as flame — never a rectangle. The
+  // heated-steel strip underneath stays visible through the flames.
+  function drawFire(now: number, t: number, bandCY: number) {
+    if (!fireOk) return;
+    let anyHot = false;
+    for (let s = 0; s < segCount; s++) if (segHeat[s] >= 0.02) { anyHot = true; break; }
+    if (!anyHot) return;
 
+    if (!fbuf) { fbuf = document.createElement('canvas'); fbx = fbuf.getContext('2d'); }
+    if (fbuf.width !== cssW || fbuf.height !== cssH) { fbuf.width = cssW; fbuf.height = cssH; }
+    if (!mbuf) { mbuf = document.createElement('canvas'); mbx = mbuf.getContext('2d'); }
+    if (mbuf.width !== cssW || mbuf.height !== cssH) { mbuf.width = cssW; mbuf.height = cssH; }
+    const fc = fbx!, mc = mbx!;
+    const IW = fireImg.naturalWidth || 1286, IH = fireImg.naturalHeight || 720;
+    const ft = opts.reducedMotion ? 1.7 : t;
+
+    fc.setTransform(1, 0, 0, 1, 0, 0);
+    fc.clearRect(0, 0, cssW, cssH);
+    fc.globalCompositeOperation = 'lighter';
+    fc.imageSmoothingEnabled = true;
     for (let s = 0; s < segCount; s++) {
       const heat = segHeat[s];
       if (heat < 0.02) continue;
       const x0 = nodeX(s) + CHAIN_INSET, x1 = nodeX(s + 1) - CHAIN_INSET;
       if (x1 <= x0) continue;
-      const seed = s * 37.7;
-      const flameH = FLAME_H * heat;
-      const bx0 = Math.max(0, Math.floor((x0 - 6) * FIRE_SCALE));
-      const bx1 = Math.min(w - 1, Math.ceil((x1 + 6) * FIRE_SCALE));
-      const by0 = Math.max(0, Math.floor((baseY - flameH - 12) * FIRE_SCALE));
-      const by1 = Math.min(h - 1, Math.ceil((baseY + 10) * FIRE_SCALE));
-      for (let ly = by0; ly <= by1; ly++) {
-        const py = ly / FIRE_SCALE;
-        for (let lx = bx0; lx <= bx1; lx++) {
-          const px = lx / FIRE_SCALE;
-          const fx = (px - x0) / ((x1 - x0) || 1);
-          if (fx < -0.06 || fx > 1.06) continue;
-          const above = baseY - py;
-          if (above < -9) continue;
-          const nh = above / flameH;
-          if (nh > 1.08) continue;
-          const nn = fbm2(px * 0.02 + seed, py * 0.032 - ft * 1.5);
-          const warp = fbm2(px * 0.055 + seed * 2, py * 0.07 - ft * 2.2);
-          let v = (nn * 0.72 + warp * 0.28) * 1.55 - nh;
-          if (above < 0) v -= (-above) * 0.06;
-          const eo = Math.abs(fx - 0.5) * 2;
-          const edge = eo < 0.86 ? 1 : 1 - (eo - 0.86) / 0.2;
-          v *= Math.max(0, Math.min(1, edge)) * heat;
-          if (v <= 0.02) continue;
-          const i = Math.min(1, v);
-          let r: number, gg: number, b: number;
-          if (i < 0.34) { const k = i / 0.34; r = 110 + 130 * k; gg = 6 + 40 * k; b = 0; }
-          else if (i < 0.68) { const k = (i - 0.34) / 0.34; r = 255; gg = 46 + 140 * k; b = 8 + 34 * k; }
-          else { const k = (i - 0.68) / 0.32; r = 255; gg = 186 + 64 * k; b = 42 + 180 * k; }
-          const a = Math.min(255, i * 210); // keep the real heated metal visible under the flames
-          const idx = (ly * w + lx) * 4;
-          d[idx] = Math.min(255, d[idx] + r);
-          d[idx + 1] = Math.min(255, d[idx + 1] + gg);
-          d[idx + 2] = Math.min(255, d[idx + 2] + b);
-          d[idx + 3] = Math.min(255, d[idx + 3] + a);
-        }
-      }
+      const destW = (x1 - x0) + FIRE_PAD * 2, fh = FIRE_DISP_H, scale = fh / IH;
+      const srcW = Math.min(IW, destW / scale), range = Math.max(0, IW - srcW);
+      const drift = Math.sin(ft * 0.5 + s * 1.7) * 0.5 + 0.5;
+      const bob = opts.reducedMotion ? 0 : Math.sin(ft * 2.1 + s) * 3;
+      const srcX = Math.max(0, Math.min(range, range * (((s * 0.37 + 0.12 * drift) % 1))));
+      const top = bandCY - fh * FIRE_BASE + bob;
+      fc.globalAlpha = Math.min(1, heat * (1.05 + 0.2 * vnoise(ft * 3 + s * 2.1)));
+      fc.drawImage(fireImg, srcX, 0, srcW, IH, x0 - FIRE_PAD, top, destW, fh);
+      const fh2 = fh * 1.14, top2 = bandCY - fh2 * FIRE_BASE + bob * 0.6;
+      const srcX2 = Math.max(0, Math.min(range, range * (((s * 0.61 + 0.5 + 0.1 * drift) % 1))));
+      fc.globalAlpha = Math.min(1, heat * (0.62 + 0.24 * vnoise(ft * 4.3 + s * 3.7)));
+      fc.save(); fc.translate(x0 - FIRE_PAD + destW / 2, top2); fc.scale(-1, 1);
+      fc.drawImage(fireImg, srcX2, 0, srcW, IH, -destW / 2, 0, destW, fh2); fc.restore();
     }
-    fc.putImageData(img, 0, 0);
-  }
+    fc.globalAlpha = 1;
 
-  function drawFire(now: number, t: number, bandCY: number) {
-    let anyHot = false;
-    for (let s = 0; s < segCount; s++) if (segHeat[s] >= 0.02) { anyHot = true; break; }
-    if (!anyHot) return;
-
-    if (lastFire < 0 || now - lastFire >= FIRE_MS) { rebuildFireBuffer(t, bandCY); lastFire = now; }
-    if (fireBuf) {
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.imageSmoothingEnabled = true;
-      ctx.drawImage(fireBuf, 0, 0, cssW, cssH);
-      ctx.restore();
-    }
-
-    // ambient glow + rising embers per burning segment
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    const baseY = bandCY + CHAIN_H * 0.12;
+    // unioned soft-ellipse mask (source-over so segments add, not intersect)
+    mc.setTransform(1, 0, 0, 1, 0, 0);
+    mc.clearRect(0, 0, cssW, cssH);
+    mc.globalCompositeOperation = 'source-over';
     for (let s = 0; s < segCount; s++) {
       const heat = segHeat[s];
       if (heat < 0.02) continue;
       const x0 = nodeX(s) + CHAIN_INSET, x1 = nodeX(s + 1) - CHAIN_INSET;
-      const span = x1 - x0;
-      if (span <= 0) continue;
-      const gl = ctx.createLinearGradient(x0, baseY - CHAIN_H, x0, baseY + CHAIN_H * 0.5);
-      gl.addColorStop(0, 'rgba(255,110,30,0)');
-      gl.addColorStop(0.5, `rgba(255,120,35,${0.12 * heat})`);
-      gl.addColorStop(1, 'rgba(255,70,10,0)');
-      ctx.fillStyle = gl;
-      ctx.fillRect(x0, baseY - CHAIN_H, span, CHAIN_H * 1.5);
-      if (!opts.reducedMotion) {
-        const embers = Math.max(2, Math.round(span / 34));
-        for (let e = 0; e < embers; e++) {
-          const seed = s * 17 + e * 3.3;
-          const rise = (t * 0.5 + seed * 0.37) % 1;
-          const ea = (1 - rise) * heat * 0.85;
-          if (ea < 0.05) continue;
-          const ex = x0 + ((e + 0.5) / embers) * span + (vnoise(seed + Math.floor(t * 0.5 + seed)) - 0.5) * 22;
-          ctx.fillStyle = `rgba(255,205,130,${ea})`;
-          ctx.beginPath();
-          ctx.arc(ex, baseY - rise * FLAME_H * 1.1, 1.5 * (1 - rise) + 0.4, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
+      const cx = (x0 + x1) / 2, cy = bandCY - FIRE_DISP_H * 0.38, rx = (x1 - x0) / 2 + 20, ry = FIRE_DISP_H * 0.90;
+      mc.save(); mc.translate(cx, cy); mc.scale(1, ry / rx);
+      const rg = mc.createRadialGradient(0, 0, 0, 0, 0, rx);
+      rg.addColorStop(0, 'rgba(0,0,0,1)');
+      rg.addColorStop(0.52, 'rgba(0,0,0,1)');
+      rg.addColorStop(1, 'rgba(0,0,0,0)');
+      mc.fillStyle = rg; mc.beginPath(); mc.arc(0, 0, rx, 0, Math.PI * 2); mc.fill(); mc.restore();
     }
+    fc.globalCompositeOperation = 'destination-in';
+    fc.drawImage(mbuf, 0, 0);
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(fbuf, 0, 0, cssW, cssH);
     ctx.restore();
   }
 
