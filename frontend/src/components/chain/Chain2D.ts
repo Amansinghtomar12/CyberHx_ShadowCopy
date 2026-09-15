@@ -30,13 +30,13 @@ export interface Chain2DOptions {
 // continuously behind them and is visible in the gaps.
 export const NODE_SPACING = 320;   // longer chain runs between cards
 export const NODE_MARGIN = 120;
-export const STAGE_HEIGHT = 210;
+export const STAGE_HEIGHT = 230;   // headroom for the tall flames
 const CHAIN_H = 46;        // thinner band — zoomed out, longer chain
 
 const IGNITE_MS = 1400;    // premium ignition ramp
-const FIRE_DISP_H = 54;    // fire band display height (px) — real burning flame
-const FIRE_BASE = 0.60;    // fraction of the fire below its dest-top (flames rise)
-const FIRE_PAD = 22;       // horizontal padding around each burning segment
+const FIRE_DISP_H = 92;    // fire band display height (px) — tall realistic flames
+const FIRE_BASE = 0.74;    // fraction of the fire below its dest-top (flames rise high)
+const FIRE_PAD = 26;       // horizontal padding around each burning segment
 
 export function chainContentWidth(nodeCount: number): number {
   const n = Math.max(1, nodeCount);
@@ -98,6 +98,24 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
     ctx.restore();
   }
 
+  // Red-hot glow that makes the metal in a burning segment look heated — a soft
+  // ellipse along the chain line, additive, fading out in every direction (no
+  // hard edges). Scaled by heat so it ramps in with the ignition.
+  function hotChain(x0: number, x1: number, cy: number, t: number, s: number, heat: number) {
+    if (x1 <= x0) return;
+    const flick = 0.82 + 0.18 * vnoise(t * 2.4 + s * 1.3);
+    const cx = (x0 + x1) / 2, rx = (x1 - x0) / 2 + 16, ry = CHAIN_H * 0.66;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.translate(cx, cy); ctx.scale(1, ry / rx);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+    g.addColorStop(0, `rgba(255,95,22,${0.55 * flick * heat})`);
+    g.addColorStop(0.55, `rgba(255,120,30,${0.26 * flick * heat})`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, rx, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
   // Animated fire from the GIF: window a slice per burning segment, animate in
   // place (drift + bob + flicker) as two additive layers into an offscreen
   // buffer, then feather every edge with a single UNIONED soft-ellipse mask so
@@ -131,32 +149,39 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
       const bob = opts.reducedMotion ? 0 : Math.sin(ft * 2.1 + s) * 3;
       const srcX = Math.max(0, Math.min(range, range * (((s * 0.37 + 0.12 * drift) % 1))));
       const top = bandCY - fh * FIRE_BASE + bob;
-      fc.globalAlpha = Math.min(1, heat * (0.42 + 0.12 * vnoise(ft * 3 + s * 2.1)));
+      fc.globalAlpha = Math.min(1, heat * (0.62 + 0.16 * vnoise(ft * 3 + s * 2.1)));
       fc.drawImage(fireEl, srcX, 0, srcW, IH, x0 - FIRE_PAD, top, destW, fh);
-      const fh2 = fh * 1.14, top2 = bandCY - fh2 * FIRE_BASE + bob * 0.6;
+      const fh2 = fh * 1.16, top2 = bandCY - fh2 * FIRE_BASE + bob * 0.6;
       const srcX2 = Math.max(0, Math.min(range, range * (((s * 0.61 + 0.5) % 1))));
-      fc.globalAlpha = Math.min(1, heat * (0.24 + 0.09 * vnoise(ft * 4.3 + s * 3.7)));
+      fc.globalAlpha = Math.min(1, heat * (0.4 + 0.12 * vnoise(ft * 4.3 + s * 3.7)));
       fc.save(); fc.translate(x0 - FIRE_PAD + destW / 2, top2); fc.scale(-1, 1);
       fc.drawImage(fireEl, srcX2, 0, srcW, IH, -destW / 2, 0, destW, fh2); fc.restore();
     }
     fc.globalAlpha = 1;
 
-    // unioned soft-ellipse mask (source-over so segments add, not intersect)
+    // Feather only the edges — a horizontal fade at each segment's ends and a
+    // vertical fade at the flame tips — so the gif keeps its own flame
+    // silhouette and there are no hard rectangle borders.
     mc.setTransform(1, 0, 0, 1, 0, 0);
     mc.clearRect(0, 0, cssW, cssH);
     mc.globalCompositeOperation = 'source-over';
     for (let s = 0; s < segCount; s++) {
-      const heat = segHeat[s];
-      if (heat < 0.02) continue;
-      const x0 = nodeX(s), x1 = nodeX(s + 1);
-      const cx = (x0 + x1) / 2, cy = bandCY - FIRE_DISP_H * 0.34, rx = (x1 - x0) / 2 + 22, ry = FIRE_DISP_H * 0.90;
-      mc.save(); mc.translate(cx, cy); mc.scale(1, ry / rx);
-      const rg = mc.createRadialGradient(0, 0, 0, 0, 0, rx);
-      rg.addColorStop(0, 'rgba(0,0,0,1)');
-      rg.addColorStop(0.5, 'rgba(0,0,0,1)');
-      rg.addColorStop(1, 'rgba(0,0,0,0)');
-      mc.fillStyle = rg; mc.beginPath(); mc.arc(0, 0, rx, 0, Math.PI * 2); mc.fill(); mc.restore();
+      if (segHeat[s] < 0.02) continue;
+      const x0 = nodeX(s) - FIRE_PAD, x1 = nodeX(s + 1) + FIRE_PAD;
+      const g = mc.createLinearGradient(x0, 0, x1, 0), fw = 34 / (x1 - x0);
+      g.addColorStop(0, 'rgba(0,0,0,0)');
+      g.addColorStop(fw, 'rgba(0,0,0,1)');
+      g.addColorStop(1 - fw, 'rgba(0,0,0,1)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      mc.fillStyle = g; mc.fillRect(x0, 0, x1 - x0, cssH);
     }
+    // vertical top-fade so flame tips dissipate instead of hard-cutting
+    const vg = mc.createLinearGradient(0, bandCY - FIRE_DISP_H * 0.9, 0, bandCY - FIRE_DISP_H * 0.48);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,0,0,1)');
+    mc.globalCompositeOperation = 'destination-in';
+    mc.fillStyle = vg; mc.fillRect(0, 0, cssW, cssH);
+    mc.globalCompositeOperation = 'source-over';
     fc.globalCompositeOperation = 'destination-in';
     fc.drawImage(mbuf, 0, 0);
 
@@ -194,6 +219,9 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
     // itself stays fully readable underneath it (no red-hot swap).
     if (steelOk && n > 1) {
       drawChain(steel, nodeX(0), nodeX(n - 1), bandCY, 1);
+      for (let s = 0; s < segCount; s++) {
+        if (segHeat[s] > 0.02) hotChain(nodeX(s), nodeX(s + 1), bandCY, t, s, segHeat[s]);
+      }
     }
 
     drawFire(t, bandCY);
