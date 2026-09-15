@@ -34,6 +34,7 @@ import {
   Boxes,
   Droplet,
   Clock,
+  Link2,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
@@ -41,7 +42,7 @@ import remarkGfm from 'remark-gfm';
 import { Category, Challenge } from './types';
 import { safeHttpUrl } from './lib/url';
 import { DBChallenge, supabase } from './lib/supabase';
-import { useChallenges, usePolling, useThrottled } from './hooks/useData';
+import { useChallenges, useChains, usePolling, useThrottled } from './hooks/useData';
 import { submitFlag, getUnlockedHints, unlockHint } from './api/submitFlag';
 import { useAuth } from './hooks/useAuth';
 import Scoreboard from './Scoreboard';
@@ -75,6 +76,12 @@ import EventClock from './components/EventClock';
 import MilestoneBanner from './components/MilestoneBanner';
 import { pendingInvite, clearInvite, type InvitePreview } from './lib/invite';
 import { detectMilestones, type Milestone } from './lib/milestones';
+import { buildChainSeriesVM } from './components/chain/chainModel';
+
+// The entire Chained Challenges subsystem (series board + heavy WebGL engine)
+// is a lazy chunk: nothing here is downloaded, parsed, or run unless the master
+// Chain Experience flag is on AND the player opens the CHAINED tab.
+const ChainedBoard = React.lazy(() => import('./components/chain/ChainedBoard'));
 
 function dbToChallenge(c: DBChallenge, solveCount = 0): Challenge {
   return {
@@ -371,11 +378,30 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
+  // ── Chained Challenges (optional experience layer) ───────
+  // FREE = the normal difficulty grid (unchanged). CHAINED = the series
+  // selector and 3D chain experience. Only ever reachable when the master
+  // Chain Experience flag is on (derived below from event_settings).
+  const [boardMode, setBoardMode] = useState<'free' | 'chained'>('free');
+  const [activeSeriesId, setActiveSeriesId] = useState<string | null>(null);
+
   // ── Event ────────────────────────────────────────────────
   const [eventSettings, setEventSettings] = useState<any>(null);
   const [eventStatus, setEventStatus] = useState<'waiting' | 'live' | 'ended' | 'inactive'>('live');
 
   const { challenges: dbChallenges, loading: challengesLoading, refetch: refetchChallenges } = useChallenges();
+
+  // Master feature flag, server-authoritative (event_settings, admin-only UPDATE).
+  // The client reads it for rendering only; every chain read is independently
+  // gated in the DB views, so flipping this in the browser exposes nothing.
+  const chainEnabled = !!eventSettings?.chain_experience_enabled;
+  const { series: chainSeries, members: chainMembers, loading: chainsLoading } = useChains(chainEnabled);
+
+  // If an admin disables the experience mid-session, everyone falls straight
+  // back to the normal board — no challenge becomes unreachable, nothing is lost.
+  useEffect(() => {
+    if (!chainEnabled) { setBoardMode('free'); setActiveSeriesId(null); }
+  }, [chainEnabled]);
 
   const reduce = useReducedMotion();
 
@@ -401,6 +427,19 @@ export default function App() {
     () => dbChallenges.map(c => dbToChallenge(c, solveCounts[c.id] ?? 0)),
     [dbChallenges, solveCounts]
   );
+
+  // Chain view-models, derived purely from the existing trusted solve arrays.
+  // A segment ignites iff both its challenges are solved (own OR teammate).
+  const chainVMs = useMemo(() => {
+    if (!chainEnabled || chainSeries.length === 0) return [];
+    const byId = new Map<string, Challenge>();
+    challenges.forEach(c => byId.set(c.id, c));
+    const solvedSet = new Set<string>([...solvedIds, ...teamSolvedIds]);
+    const mineSet = new Set<string>(solvedIds);
+    return chainSeries.map(s =>
+      buildChainSeriesVM(s, chainMembers, byId, id => solvedSet.has(id), id => mineSet.has(id))
+    );
+  }, [chainEnabled, chainSeries, chainMembers, challenges, solvedIds, teamSolvedIds]);
 
   // ── Fetch everything on mount ────────────────────────────
   const fetchAllSolveData = useCallback(async () => {
@@ -731,6 +770,13 @@ export default function App() {
   const isChallengeSolved = (id: string) =>
     solvedIds.includes(id) || teamSolvedIds.includes(id);
 
+  // Opening a challenge from a chain node reuses the existing ChallengeModal —
+  // the solve/submit flow is completely unchanged.
+  const openChainChallenge = useCallback((challengeId: string) => {
+    const ch = challenges.find(c => c.id === challengeId);
+    if (ch) { setSelectedOrigin(null); setSelectedChallenge(ch); }
+  }, [challenges]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.reload();
@@ -1055,6 +1101,30 @@ export default function App() {
                     the rail: it is a mode; these are a flick of the eye. */}
                 {challenges.length > 0 && canSeeChallenges && !needsTeam && (
                   <div className="board-tools mb-6 flex flex-col gap-3 lg:flex-row lg:items-center">
+                    {chainEnabled && (
+                      <div
+                        role="tablist"
+                        aria-label="Challenge mode"
+                        className="inline-flex shrink-0 rounded-md border border-border-subtle bg-surface-sunken p-0.5"
+                      >
+                        <button
+                          role="tab"
+                          aria-selected={boardMode === 'free'}
+                          onClick={() => setBoardMode('free')}
+                          className={`btn btn-sm ${boardMode === 'free' ? 'btn-secondary' : 'btn-ghost'}`}
+                        >
+                          Free
+                        </button>
+                        <button
+                          role="tab"
+                          aria-selected={boardMode === 'chained'}
+                          onClick={() => { if (boardMode !== 'chained') play('open'); setBoardMode('chained'); }}
+                          className={`btn btn-sm inline-flex items-center gap-1.5 ${boardMode === 'chained' ? 'btn-secondary' : 'btn-ghost'}`}
+                        >
+                          <Link2 className="h-3.5 w-3.5" aria-hidden="true" /> Chained
+                        </button>
+                      </div>
+                    )}
                     <div className="relative min-w-0 shrink-0 lg:w-72 xl:w-80">
                       <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-faint" />
                       <label htmlFor="board-search" className="sr-only">Search operations</label>
@@ -1221,6 +1291,16 @@ export default function App() {
                     <h3 className="text-h3 text-cyber-text mb-2">No challenges yet</h3>
                     <p className="text-body text-text-muted max-w-sm">Add some from the Admin panel and they will appear here.</p>
                   </div>
+                ) : boardMode === 'chained' ? (
+                  <React.Suspense
+                    fallback={
+                      <div className="flex h-[50vh] items-center justify-center text-text-tertiary">
+                        <span className="sr-only" role="status">Loading chains…</span>
+                      </div>
+                    }
+                  >
+                    <ChainedBoard vms={chainVMs} category={selectedCat} onOpenChallenge={openChainChallenge} />
+                  </React.Suspense>
                 ) : filteredChallenges.length === 0 ? (
                   <div className="surface flex flex-col items-center text-center px-6 py-16" role="status">
                     <span

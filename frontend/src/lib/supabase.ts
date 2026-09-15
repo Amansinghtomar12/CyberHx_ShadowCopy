@@ -73,6 +73,26 @@ export interface DBHint {
   content: string;
 }
 
+// ── Chained Challenges (optional experience layer) ──────────────────────
+// Shapes returned by the gated public_chain_series / public_chain_members
+// views. Structure only — never flags, scores, or hidden-challenge data.
+export interface DBChainSeries {
+  id: string;
+  title: string;
+  category: string;
+  description: string;
+  readme: string;
+  difficulty: 'Easy' | 'Medium' | 'Hard' | 'Insane' | null;
+  display_order: number;
+  challenge_count: number;
+}
+
+export interface DBChainMember {
+  series_id: string;
+  challenge_id: string;
+  position: number;
+}
+
 export interface UserScore {
   id: string;
   username: string;

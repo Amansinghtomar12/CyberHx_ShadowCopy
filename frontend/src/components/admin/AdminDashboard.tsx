@@ -14,6 +14,7 @@ import {
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { resetEventScores } from '../../api/submitFlag';
 import DateTimeField from '../DateTimeField';
+import ChainManager from './ChainManager';
 // HARDENED: Challenge CRUD via admin_upsert_challenge RPC
 // HARDENED: Reset via admin_reset_event RPC (no client-side DELETE)
 
@@ -810,7 +811,7 @@ function AdminDashboardInner() {
   const [challenges, setChallenges] = useState<DBChallenge[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editChallenge, setEditChallenge] = useState<DBChallenge | null>(null);
-  const [activeTab, setActiveTab] = useState<'challenges' | 'users' | 'teams' | 'submissions' | 'notifications' | 'event'>('challenges');
+  const [activeTab, setActiveTab] = useState<'challenges' | 'chains' | 'users' | 'teams' | 'submissions' | 'notifications' | 'event'>('challenges');
   const [resetting, setResetting] = useState(false);
 
   const loadChallenges = async () => {
@@ -880,6 +881,7 @@ function AdminDashboardInner() {
 
   const tabs = [
     { id: 'challenges', label: 'Challenges', icon: <Flag className="w-3.5 h-3.5" /> },
+    { id: 'chains', label: 'Chains', icon: <Link2 className="w-3.5 h-3.5" /> },
     { id: 'users', label: 'Users', icon: <Users className="w-3.5 h-3.5" /> },
     { id: 'teams', label: 'Teams', icon: <Shield className="w-3.5 h-3.5" /> },
     { id: 'submissions', label: 'Submissions', icon: <Activity className="w-3.5 h-3.5" /> },
@@ -1092,6 +1094,7 @@ function AdminDashboardInner() {
       )}
 
       {/* Users Tab */}
+      {activeTab === 'chains' && <ChainManager challenges={challenges} />}
       {activeTab === 'users' && <UsersTab />}
       {activeTab === 'teams' && <TeamsTab />}
 

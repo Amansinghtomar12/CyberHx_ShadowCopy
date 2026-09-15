@@ -20,7 +20,10 @@
 //   adopts it, give it that same split rather than one interval for both.
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase, DBChallenge, UserScore, TeamScore } from '../lib/supabase';
+import {
+  supabase, DBChallenge, UserScore, TeamScore,
+  DBChainSeries, DBChainMember,
+} from '../lib/supabase';
 
 // ── Shared polling helper ────────────────────────────────────────────
 // Runs `fn` immediately, then on a repeating interval. Pauses when the
@@ -123,6 +126,48 @@ export function useChallenges() {
   usePolling(fetchChallenges, CHALLENGE_INTERVAL);
 
   return { challenges, loading, error, refetch: fetchChallenges };
+}
+
+// ─────────────────────────────────────────
+// CHAIN SERIES  (Chained Challenges — optional experience layer)
+// ─────────────────────────────────────────
+// Reads the gated public_chain_series / public_chain_members views on the same
+// low cadence as challenges. When `enabled` is false (the master Chain
+// Experience flag is off, or the user hasn't entered a chained view), NO
+// request is ever made — usePolling short-circuits — so the feature has zero
+// network/rendering cost in normal mode. Solve/fire state is NOT fetched here;
+// it is derived in App from the existing trusted solve arrays.
+
+export function useChains(enabled: boolean) {
+  const [series, setSeries] = useState<DBChainSeries[]>([]);
+  const [members, setMembers] = useState<DBChainMember[]>([]);
+  const [loading, setLoading] = useState(enabled);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchChains = useCallback(async () => {
+    const [sRes, mRes] = await Promise.all([
+      supabase
+        .from('public_chain_series')
+        .select('id, title, category, description, readme, difficulty, display_order, challenge_count')
+        .order('display_order', { ascending: true }),
+      supabase
+        .from('public_chain_members')
+        .select('series_id, challenge_id, position')
+        .order('position', { ascending: true }),
+    ]);
+
+    if (sRes.error) setError(sRes.error.message);
+    else { setSeries((sRes.data as DBChainSeries[]) ?? []); setError(null); }
+    if (mRes.data) setMembers(mRes.data as DBChainMember[]);
+    setLoading(false);
+  }, []);
+
+  // Show a loading state the moment the experience is switched on.
+  useEffect(() => { if (enabled) setLoading((l) => (series.length === 0 ? true : l)); }, [enabled, series.length]);
+
+  usePolling(fetchChains, CHALLENGE_INTERVAL, enabled);
+
+  return { series, members, loading, error, refetch: fetchChains };
 }
 
 // ─────────────────────────────────────────
