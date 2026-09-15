@@ -10,7 +10,6 @@
 // positioned each frame from the node centres reported via onNodes.
 
 const STEEL_URL = new URL('../../assets/chain/chain-strip.png', import.meta.url).href;
-const BURN_URL = new URL('../../assets/chain/chain-strip-hot.png', import.meta.url).href;
 const FIRE_URL = new URL('../../assets/chain/fire.gif', import.meta.url).href;
 
 export interface Chain2DNode { x: number; y: number; }
@@ -35,9 +34,9 @@ export const STAGE_HEIGHT = 210;
 const CHAIN_H = 46;        // thinner band — zoomed out, longer chain
 
 const IGNITE_MS = 1400;    // premium ignition ramp
-const FIRE_DISP_H = 42;    // fire band display height (px) — very low flames
-const FIRE_BASE = 0.55;    // fraction of the fire below its dest-top (flames rise)
-const FIRE_PAD = 20;       // horizontal padding around each burning segment
+const FIRE_DISP_H = 30;    // fire band display height (px) — tiny licking flame
+const FIRE_BASE = 0.62;    // fraction of the fire below its dest-top (flames rise)
+const FIRE_PAD = 18;       // horizontal padding around each burning segment
 
 export function chainContentWidth(nodeCount: number): number {
   const n = Math.max(1, nodeCount);
@@ -56,10 +55,8 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
   const segCount = Math.max(0, n - 1);
 
   const steel = new Image(); steel.src = STEEL_URL;
-  const burn = new Image(); burn.src = BURN_URL;
-  let steelOk = false, burnOk = false, fireOk = false;
+  let steelOk = false, fireOk = false;
   steel.onload = () => { steelOk = true; };
-  burn.onload = () => { burnOk = true; };
 
   // The fire is an animated GIF. It has to live in the DOM to keep animating;
   // we park it off-screen and sample its current frame with drawImage.
@@ -134,11 +131,11 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
       const bob = opts.reducedMotion ? 0 : Math.sin(ft * 2.1 + s) * 3;
       const srcX = Math.max(0, Math.min(range, range * (((s * 0.37 + 0.12 * drift) % 1))));
       const top = bandCY - fh * FIRE_BASE + bob;
-      fc.globalAlpha = Math.min(1, heat * (0.28 + 0.08 * vnoise(ft * 3 + s * 2.1)));
+      fc.globalAlpha = Math.min(1, heat * (0.16 + 0.07 * vnoise(ft * 3 + s * 2.1)));
       fc.drawImage(fireEl, srcX, 0, srcW, IH, x0 - FIRE_PAD, top, destW, fh);
-      const fh2 = fh * 1.14, top2 = bandCY - fh2 * FIRE_BASE + bob * 0.6;
+      const fh2 = fh * 1.12, top2 = bandCY - fh2 * FIRE_BASE + bob * 0.6;
       const srcX2 = Math.max(0, Math.min(range, range * (((s * 0.61 + 0.5) % 1))));
-      fc.globalAlpha = Math.min(1, heat * (0.13 + 0.07 * vnoise(ft * 4.3 + s * 3.7)));
+      fc.globalAlpha = Math.min(1, heat * (0.09 + 0.05 * vnoise(ft * 4.3 + s * 3.7)));
       fc.save(); fc.translate(x0 - FIRE_PAD + destW / 2, top2); fc.scale(-1, 1);
       fc.drawImage(fireEl, srcX2, 0, srcW, IH, -destW / 2, 0, destW, fh2); fc.restore();
     }
@@ -152,11 +149,11 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
       const heat = segHeat[s];
       if (heat < 0.02) continue;
       const x0 = nodeX(s), x1 = nodeX(s + 1);
-      const cx = (x0 + x1) / 2, cy = bandCY - FIRE_DISP_H * 0.34, rx = (x1 - x0) / 2 + 22, ry = FIRE_DISP_H * 0.88;
+      const cx = (x0 + x1) / 2, cy = bandCY - FIRE_DISP_H * 0.40, rx = (x1 - x0) / 2 + 20, ry = FIRE_DISP_H * 0.92;
       mc.save(); mc.translate(cx, cy); mc.scale(1, ry / rx);
       const rg = mc.createRadialGradient(0, 0, 0, 0, 0, rx);
       rg.addColorStop(0, 'rgba(0,0,0,1)');
-      rg.addColorStop(0.55, 'rgba(0,0,0,1)');
+      rg.addColorStop(0.5, 'rgba(0,0,0,1)');
       rg.addColorStop(1, 'rgba(0,0,0,0)');
       mc.fillStyle = rg; mc.beginPath(); mc.arc(0, 0, rx, 0, Math.PI * 2); mc.fill(); mc.restore();
     }
@@ -192,15 +189,11 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
 
     const bandCY = bandCenter(t);
 
-    // steel chain runs continuously behind every card; the burning chain
-    // cross-fades in over segments whose two challenges are both solved.
+    // The SAME steel chain runs through every segment, solved or not — the
+    // small flame is the only thing that marks a solved pair, so the chain
+    // itself stays fully readable underneath it (no red-hot swap).
     if (steelOk && n > 1) {
       drawChain(steel, nodeX(0), nodeX(n - 1), bandCY, 1);
-      if (burnOk) {
-        for (let s = 0; s < segCount; s++) {
-          if (segHeat[s] > 0.02) drawChain(burn, nodeX(s), nodeX(s + 1), bandCY, segHeat[s]);
-        }
-      }
     }
 
     drawFire(t, bandCY);
