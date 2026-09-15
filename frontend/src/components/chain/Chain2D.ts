@@ -46,8 +46,8 @@ const CHAIN_INSET = 70;    // chain tucks just under each card edge
 const TILE_W = STRIP_UNITS_W * (CHAIN_H / STRIP_UNITS_H); // display tile width
 
 const IGNITE_MS = 1400;    // premium ignition ramp
-const FIRE_DISP_H = 148;   // fire band display height (px)
-const FIRE_BASE = 0.80;    // fraction of the fire below its dest-top (flames rise)
+const FIRE_DISP_H = 115;   // fire band display height (px)
+const FIRE_BASE = 0.52;    // fraction of the fire below its dest-top (flames rise)
 const FIRE_PAD = 24;       // horizontal padding around each burning segment
 
 export function chainContentWidth(nodeCount: number): number {
