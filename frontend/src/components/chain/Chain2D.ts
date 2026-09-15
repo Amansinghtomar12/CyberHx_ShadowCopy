@@ -15,9 +15,11 @@
 const COLD_URL = new URL('../../assets/chain/chain-strip.png', import.meta.url).href;
 const HOT_URL = new URL('../../assets/chain/chain-strip-hot.png', import.meta.url).href;
 
-// Asset tile geometry (the PNG is @3x of these display units, seamless).
-const STRIP_UNITS_W = 368;
-const STRIP_UNITS_H = 60;
+// Asset tile geometry. The PNG is a REAL galvanized-steel-chain photograph
+// (chroma-keyed off its green background), mirror-tiled so it repeats seamlessly.
+// These are the tile's logical (aspect) units; the file itself is higher-res.
+const STRIP_UNITS_W = 1134;
+const STRIP_UNITS_H = 51;
 
 export interface Chain2DNode { x: number; y: number; }
 
@@ -158,7 +160,7 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
           if (i < 0.34) { const k = i / 0.34; r = 110 + 130 * k; gg = 6 + 40 * k; b = 0; }
           else if (i < 0.68) { const k = (i - 0.34) / 0.34; r = 255; gg = 46 + 140 * k; b = 8 + 34 * k; }
           else { const k = (i - 0.68) / 0.32; r = 255; gg = 186 + 64 * k; b = 42 + 180 * k; }
-          const a = Math.min(255, i * 300);
+          const a = Math.min(255, i * 210); // keep the real heated metal visible under the flames
           const idx = (ly * w + lx) * 4;
           d[idx] = Math.min(255, d[idx] + r);
           d[idx + 1] = Math.min(255, d[idx + 1] + gg);
@@ -240,17 +242,6 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
 
     const bandCY = bandCenter(t);
     const top = bandCY - CHAIN_H / 2;
-
-    // subtle green accent glow under solved nodes (metal stays realistic)
-    for (let i = 0; i < n; i++) {
-      if (!nodeSolved[i]) continue;
-      const x = nodeX(i);
-      const glow = ctx.createRadialGradient(x, bandCY, 0, x, bandCY, 48);
-      glow.addColorStop(0, 'rgba(198,255,0,0.10)');
-      glow.addColorStop(1, 'rgba(198,255,0,0)');
-      ctx.fillStyle = glow;
-      ctx.beginPath(); ctx.arc(x, bandCY, 48, 0, Math.PI * 2); ctx.fill();
-    }
 
     // the chain: cold steel everywhere, heated steel cross-faded on hot segments
     if (coldOk) {
