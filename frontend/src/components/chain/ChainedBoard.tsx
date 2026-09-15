@@ -3,8 +3,8 @@ import { Flame, ChevronRight, Layers, Loader2, Download } from 'lucide-react';
 import { safeHttpUrl } from '../../lib/url';
 import type { ChainSeriesVM } from './chainModel';
 
-// The heavy WebGL experience is a separate chunk, loaded only when a player
-// actually enters a series (not when they open the CHAINED tab).
+// The chain experience (canvas renderer + steel/fire image assets) is a
+// separate chunk, loaded only when a player actually enters a series.
 const ChainExperience = React.lazy(() => import('./ChainExperience'));
 
 interface Props {
