@@ -35,8 +35,8 @@ export const STAGE_HEIGHT = 210;
 const CHAIN_H = 46;        // thinner band — zoomed out, longer chain
 
 const IGNITE_MS = 1400;    // premium ignition ramp
-const FIRE_DISP_H = 96;    // fire band display height (px)
-const FIRE_BASE = 0.68;    // fraction of the fire below its dest-top (flames rise)
+const FIRE_DISP_H = 58;    // fire band display height (px) — low flames
+const FIRE_BASE = 0.60;    // fraction of the fire below its dest-top (flames rise)
 const FIRE_PAD = 20;       // horizontal padding around each burning segment
 
 export function chainContentWidth(nodeCount: number): number {
@@ -134,11 +134,11 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
       const bob = opts.reducedMotion ? 0 : Math.sin(ft * 2.1 + s) * 3;
       const srcX = Math.max(0, Math.min(range, range * (((s * 0.37 + 0.12 * drift) % 1))));
       const top = bandCY - fh * FIRE_BASE + bob;
-      fc.globalAlpha = Math.min(1, heat * (0.95 + 0.1 * vnoise(ft * 3 + s * 2.1)));
+      fc.globalAlpha = Math.min(1, heat * (0.42 + 0.1 * vnoise(ft * 3 + s * 2.1)));
       fc.drawImage(fireEl, srcX, 0, srcW, IH, x0 - FIRE_PAD, top, destW, fh);
       const fh2 = fh * 1.14, top2 = bandCY - fh2 * FIRE_BASE + bob * 0.6;
       const srcX2 = Math.max(0, Math.min(range, range * (((s * 0.61 + 0.5) % 1))));
-      fc.globalAlpha = Math.min(1, heat * (0.5 + 0.2 * vnoise(ft * 4.3 + s * 3.7)));
+      fc.globalAlpha = Math.min(1, heat * (0.20 + 0.1 * vnoise(ft * 4.3 + s * 3.7)));
       fc.save(); fc.translate(x0 - FIRE_PAD + destW / 2, top2); fc.scale(-1, 1);
       fc.drawImage(fireEl, srcX2, 0, srcW, IH, -destW / 2, 0, destW, fh2); fc.restore();
     }
