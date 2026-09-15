@@ -20,6 +20,7 @@ interface AdminSeries {
   category: string;
   description: string;
   readme: string;
+  readme_url: string | null;
   difficulty: string | null;
   display_order: number;
   is_published: boolean;
@@ -27,7 +28,7 @@ interface AdminSeries {
 }
 
 const blankDraft = (): AdminSeries => ({
-  id: '', title: '', category: 'web', description: '', readme: '',
+  id: '', title: '', category: 'web', description: '', readme: '', readme_url: '',
   difficulty: null, display_order: 0, is_published: false, members: [],
 });
 
@@ -130,6 +131,7 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
         p_difficulty: draft.difficulty,
         p_display_order: draft.display_order,
         p_is_published: draft.id ? false : null,
+        p_readme_url: draft.readme_url ?? '',
       });
       if (up.error || up.data?.error) throw new Error(up.data?.error ?? up.error?.message);
       const seriesId = draft.id || up.data.series_id;
@@ -180,7 +182,7 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
     challenges.forEach((c) => byId.set(c.id, dbToPreviewChallenge(c)));
     const dbSeries: DBChainSeries = {
       id: draft.id || 'preview', title: draft.title || 'Untitled chain', category: draft.category,
-      description: draft.description, readme: draft.readme,
+      description: draft.description, readme: draft.readme, readme_url: draft.readme_url ?? null,
       difficulty: (draft.difficulty as DBChainSeries['difficulty']) ?? null,
       display_order: draft.display_order, challenge_count: draft.members.length,
     };
@@ -202,9 +204,9 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
           <div>
             <h3 className="text-h3 font-bold text-cyber-text">Chain Experience Engine</h3>
             <p className="max-w-xl text-small text-text-muted">
-              Enables the advanced chained-challenge experience: 3D chain visualization, chain progression,
-              and dynamic fire activation. When OFF, the platform behaves exactly as the normal CTF — no chain
-              UI, no 3D engine, and no chain data is shown to players. Turning it off never deletes chains or solves.
+              Enables the advanced chained-challenge experience: the animated chain visualization, chain
+              progression, and green fire activation. When OFF, the platform behaves exactly as the normal CTF —
+              no chain UI is loaded and no chain data is shown to players. Turning it off never deletes chains or solves.
             </p>
           </div>
         </div>
@@ -304,7 +306,13 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
             </label>
 
             <label className="block">
-              <span className="label-micro">Briefing / README (Markdown — no HTML is rendered)</span>
+              <span className="label-micro">Briefing file URL (players see a "Download briefing" button at the top of the chain)</span>
+              <input className="input mt-1" type="url" value={draft.readme_url ?? ''} onChange={(e) => setDraft({ ...draft, readme_url: e.target.value })} maxLength={2048} placeholder="https://files.cyberhx.com/… (upload the file yourself, paste the link)" />
+              <span className="mt-1 block text-micro text-text-muted">Upload your briefing/story/strategy file to your own storage and paste the direct download link here. Leave blank for none.</span>
+            </label>
+
+            <label className="block">
+              <span className="label-micro">Inline briefing text (optional, Markdown — no HTML is rendered)</span>
               <textarea className="textarea mt-1 min-h-[120px] font-mono text-small" value={draft.readme} onChange={(e) => setDraft({ ...draft, readme: e.target.value })} maxLength={20000} placeholder="# Mission&#10;Explain the story, objectives, rules…" />
             </label>
 
@@ -354,7 +362,7 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
                 <Eye className="h-4 w-4" /> Save &amp; publish
               </button>
               <button onClick={() => { setPreview(true); setSimulate(0); }} disabled={draft.members.length < 1} className="btn btn-ghost btn-md inline-flex items-center gap-1.5">
-                <PlayCircle className="h-4 w-4" /> Preview 3D
+                <PlayCircle className="h-4 w-4" /> Preview chain
               </button>
             </div>
           </div>

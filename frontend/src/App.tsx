@@ -441,6 +441,18 @@ export default function App() {
     );
   }, [chainEnabled, chainSeries, chainMembers, challenges, solvedIds, teamSolvedIds]);
 
+  // Challenges that belong to a published chain are shown ONLY under CHAINED —
+  // they are removed from the FREE board. When the experience is off, nothing
+  // is chained, so FREE shows everything exactly as before.
+  const chainedChallengeIds = useMemo(
+    () => new Set(chainEnabled ? chainMembers.map(m => m.challenge_id) : []),
+    [chainEnabled, chainMembers],
+  );
+  const freeChallenges = useMemo(
+    () => (chainedChallengeIds.size ? challenges.filter(c => !chainedChallengeIds.has(c.id)) : challenges),
+    [challenges, chainedChallengeIds],
+  );
+
   // ── Fetch everything on mount ────────────────────────────
   const fetchAllSolveData = useCallback(async () => {
     if (!user) return;
@@ -685,22 +697,23 @@ export default function App() {
   /** Categories actually present, in the palette's own order, with counts. */
   const categories = useMemo(() => {
     const counts: Record<string, number> = {};
-    challenges.forEach(c => { counts[c.category] = (counts[c.category] || 0) + 1; });
+    const src = boardMode === 'chained' ? chainVMs.map(v => v.category) : freeChallenges.map(c => c.category);
+    src.forEach(cat => { counts[cat] = (counts[cat] || 0) + 1; });
     const order = Object.keys(CATEGORY_ICON);
     const rank = (id: string) => { const i = order.indexOf(id); return i === -1 ? 99 : i; };
     return Object.keys(counts).sort((a, b) => rank(a) - rank(b)).map(id => ({ id, count: counts[id] }));
-  }, [challenges]);
+  }, [boardMode, chainVMs, freeChallenges]);
 
   const filteredChallenges = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return challenges.filter(c =>
+    return freeChallenges.filter(c =>
       (selectedCat === 'all' || c.category === selectedCat) &&
       (!q
         || c.title.toLowerCase().includes(q)
         || c.category.toLowerCase().includes(q)
         || ((c as any).tags ?? []).some((t: string) => String(t).toLowerCase().includes(q)))
     );
-  }, [challenges, selectedCat, query]);
+  }, [freeChallenges, selectedCat, query]);
   const isFiltering = selectedCat !== 'all' || query.trim() !== '';
   const clearFilters = () => { setSelectedCat('all'); setQuery(''); };
 
@@ -1164,7 +1177,7 @@ export default function App() {
                         aria-pressed={selectedCat === 'all'}
                         className={`chip shrink-0 ${selectedCat === 'all' ? 'is-active' : ''}`}
                       >
-                        All <span className="font-mono opacity-70">{challenges.length}</span>
+                        All <span className="font-mono opacity-70">{boardMode === 'chained' ? chainVMs.length : freeChallenges.length}</span>
                       </button>
                       {categories.map(cat => {
                         const Icon = CATEGORY_ICON[cat.id] ?? Boxes;

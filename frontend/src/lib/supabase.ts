@@ -82,6 +82,7 @@ export interface DBChainSeries {
   category: string;
   description: string;
   readme: string;
+  readme_url: string | null;
   difficulty: 'Easy' | 'Medium' | 'Hard' | 'Insane' | null;
   display_order: number;
   challenge_count: number;

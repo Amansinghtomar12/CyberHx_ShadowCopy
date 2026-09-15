@@ -30,6 +30,7 @@ export interface ChainSeriesVM {
   category: string;
   description: string;
   readme: string;
+  readmeUrl: string | null;
   difficulty: string | null;
   nodes: ChainNodeVM[];
   segments: ChainSegmentVM[];
@@ -79,6 +80,7 @@ export function buildChainSeriesVM(
     category: series.category,
     description: series.description,
     readme: series.readme,
+    readmeUrl: series.readme_url ?? null,
     difficulty: series.difficulty,
     nodes,
     segments,

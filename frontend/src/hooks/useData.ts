@@ -148,7 +148,7 @@ export function useChains(enabled: boolean) {
     const [sRes, mRes] = await Promise.all([
       supabase
         .from('public_chain_series')
-        .select('id, title, category, description, readme, difficulty, display_order, challenge_count')
+        .select('id, title, category, description, readme, readme_url, difficulty, display_order, challenge_count')
         .order('display_order', { ascending: true }),
       supabase
         .from('public_chain_members')
