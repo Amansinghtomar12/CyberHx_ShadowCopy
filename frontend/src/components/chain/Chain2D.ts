@@ -15,9 +15,11 @@ const COLD_URL = new URL('../../assets/chain/chain-strip.png', import.meta.url).
 const HOT_URL = new URL('../../assets/chain/chain-strip-hot.png', import.meta.url).href;
 const FIRE_URL = new URL('../../assets/chain/fire.jpg', import.meta.url).href;
 
-// Chain tile geometry (one seamless repeat period of the photo, logical units).
-const STRIP_UNITS_W = 540;
-const STRIP_UNITS_H = 51;
+// Chain tile geometry — extracted from the supplied hi-res chain render
+// (silver cold + golden heated), green-keyed and cropped to whole repeat
+// periods so it tiles seamlessly. Logical (aspect) units.
+const STRIP_UNITS_W = 495;
+const STRIP_UNITS_H = 303;
 
 export interface Chain2DNode { x: number; y: number; }
 
@@ -39,7 +41,7 @@ export interface Chain2DOptions {
 export const NODE_SPACING = 280;
 export const NODE_MARGIN = 110;
 export const STAGE_HEIGHT = 240;
-const CHAIN_H = 46;        // chain band height on screen (thin vs ~92px cards)
+const CHAIN_H = 54;        // chain band height on screen (thin vs ~92px cards)
 const CHAIN_INSET = 70;    // chain tucks just under each card edge
 const TILE_W = STRIP_UNITS_W * (CHAIN_H / STRIP_UNITS_H); // display tile width
 
