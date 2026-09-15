@@ -10,19 +10,22 @@ ALTER TABLE public.chain_series
   CHECK (readme_url IS NULL OR length(readme_url) <= 2048);
 
 -- ── Restate public_chain_series to expose readme_url ────────────────────
--- Must re-state the whole view (CREATE OR REPLACE cannot just add a column).
--- Identical gate to 20260915000000, incl. the "hide empty published chains"
--- EXISTS clause; only the SELECT list gains readme_url.
+-- CREATE OR REPLACE VIEW may only APPEND columns (existing columns must keep
+-- the same names/types/order), so readme_url is added at the END of the SELECT
+-- list, after challenge_count. The client selects by name, so order is
+-- irrelevant to it. Gate is identical to 20260915000000, incl. the
+-- "hide empty published chains" EXISTS clause.
 CREATE OR REPLACE VIEW public.public_chain_series
 WITH (security_invoker = false) AS
 SELECT
-  s.id, s.title, s.category, s.description, s.readme, s.readme_url, s.difficulty,
+  s.id, s.title, s.category, s.description, s.readme, s.difficulty,
   s.display_order,
   (SELECT count(*)::int
      FROM public.chain_series_members m
      JOIN public.challenges c ON c.id = m.challenge_id
     WHERE m.series_id = s.id
-      AND (public.is_admin() OR c.is_visible = true)) AS challenge_count
+      AND (public.is_admin() OR c.is_visible = true)) AS challenge_count,
+  s.readme_url
 FROM public.chain_series s
 WHERE s.is_published = true
   AND (
