@@ -28,13 +28,16 @@ export const NODE_MARGIN = 130;
 export const STAGE_HEIGHT = 300;
 const BOX_HALF = 78;
 
-const LINK_L = 58;   // link length (long axis)
-const LINK_H = 32;   // link height (short axis)
-const ROD = 8.5;     // metal rod thickness
-const PAD = 8;       // sprite padding
+const LINK_L = 60;   // link length (long axis)
+const LINK_H = 34;   // link height (short axis)
+const ROD = 10;      // metal rod thickness
+const PAD = 9;       // sprite padding
 const STEP = LINK_L * 0.5; // centre spacing (~50% overlap → interlock)
 const SS = 3;        // supersample for crisp sprites
 const IGNITE_MS = 1300;
+const FIRE_SCALE = 0.32; // low-res factor for the procedural fire buffer
+const FLAME_H = 108;     // flame height in CSS px at full heat
+const FIRE_MS = 33;      // rebuild the fire buffer at ~30fps (cheap on mobile)
 
 export function chainContentWidth(nodeCount: number): number {
   const n = Math.max(1, nodeCount);
@@ -45,6 +48,18 @@ function hash(n: number): number { const s = Math.sin(n * 127.1) * 43758.5453; r
 function vnoise(x: number): number {
   const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f);
   return hash(i) * (1 - u) + hash(i + 1) * u;
+}
+function hash2(x: number, y: number): number { const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return s - Math.floor(s); }
+function noise2(x: number, y: number): number {
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const a = hash2(xi, yi), b = hash2(xi + 1, yi), c = hash2(xi, yi + 1), d = hash2(xi + 1, yi + 1);
+  return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v;
+}
+function fbm2(x: number, y: number): number {
+  let s = 0, amp = 0.5, f = 1;
+  for (let o = 0; o < 3; o++) { s += amp * noise2(x * f, y * f); f *= 2; amp *= 0.5; }
+  return s;
 }
 
 // Render one polished link into an offscreen canvas. `hot` gives the orange
@@ -62,48 +77,68 @@ function makeLinkSprite(hot: boolean) {
   const outer = () => g.roundRect(cx - LINK_L / 2, cy - LINK_H / 2, LINK_L, LINK_H, LINK_H / 2);
   const inner = () => g.roundRect(cx - LINK_L / 2 + ROD, cy - LINK_H / 2 + ROD, LINK_L - 2 * ROD, LINK_H - 2 * ROD, (LINK_H - 2 * ROD) / 2);
 
-  // Ring body — vertical chrome gradient (bright top, specular band, dark base,
-  // cool bottom bounce).
+  // Ring body — a chrome-horizon vertical gradient: bright "sky" highlight up
+  // top, a dark horizon band through the middle, a second bright "ground"
+  // reflection lower down. That double-bright ramp is what makes each rod read
+  // as a rounded polished tube instead of a flat band.
   const grad = g.createLinearGradient(0, cy - LINK_H / 2, 0, cy + LINK_H / 2);
   if (hot) {
-    grad.addColorStop(0.00, '#ffe8bd');
-    grad.addColorStop(0.16, '#fff1d6');
-    grad.addColorStop(0.34, '#f0a85a');
-    grad.addColorStop(0.56, '#c46a24');
-    grad.addColorStop(0.78, '#6f3410');
-    grad.addColorStop(1.00, '#3a1c0a');
+    grad.addColorStop(0.00, '#ffdca0');
+    grad.addColorStop(0.14, '#fff0d0');
+    grad.addColorStop(0.30, '#f5a24e');
+    grad.addColorStop(0.46, '#7a3410');
+    grad.addColorStop(0.56, '#93481a');
+    grad.addColorStop(0.72, '#ffcf85');
+    grad.addColorStop(0.86, '#c06a26');
+    grad.addColorStop(1.00, '#5a2a0c');
   } else {
-    grad.addColorStop(0.00, '#dfe6ec');
-    grad.addColorStop(0.16, '#ffffff');
-    grad.addColorStop(0.34, '#b3bcc5');
-    grad.addColorStop(0.56, '#6a747f');
-    grad.addColorStop(0.78, '#2b333b');
-    grad.addColorStop(1.00, '#465562');
+    grad.addColorStop(0.00, '#e8eef3');
+    grad.addColorStop(0.13, '#ffffff');
+    grad.addColorStop(0.30, '#9aa6b0');
+    grad.addColorStop(0.46, '#3f4852');
+    grad.addColorStop(0.55, '#59636d');
+    grad.addColorStop(0.72, '#f1f5f8');
+    grad.addColorStop(0.86, '#aeb8c0');
+    grad.addColorStop(1.00, '#58626b');
   }
   g.beginPath(); outer(); inner(); g.fillStyle = grad; g.fill('evenodd');
 
-  // Clip to the ring for the highlights.
+  // Inner-hole shadow so the opening reads as a real pierced ring.
+  g.save();
+  g.beginPath(); inner(); g.clip();
+  g.shadowColor = 'rgba(0,0,0,0.55)'; g.shadowBlur = 4; g.lineWidth = 3;
+  g.strokeStyle = 'rgba(0,0,0,0.5)'; g.beginPath(); inner(); g.stroke();
+  g.restore();
+
+  // Clip to the ring for the speculars.
   g.save();
   g.beginPath(); outer(); inner(); g.clip('evenodd');
 
-  // Crisp specular line along the upper part of the rod.
-  const spec = g.createLinearGradient(0, cy - LINK_H / 2 + ROD * 0.2, 0, cy - LINK_H / 2 + ROD * 1.1);
-  spec.addColorStop(0, hot ? 'rgba(255,255,230,0.0)' : 'rgba(255,255,255,0.0)');
-  spec.addColorStop(0.5, hot ? 'rgba(255,250,225,0.95)' : 'rgba(255,255,255,0.95)');
-  spec.addColorStop(1, 'rgba(255,255,255,0.0)');
-  g.fillStyle = spec;
-  g.fillRect(cx - LINK_L / 2, cy - LINK_H / 2 + ROD * 0.1, LINK_L, ROD * 1.2);
+  // Crisp specular on the TOP rod.
+  const topY = cy - LINK_H / 2;
+  const s1 = g.createLinearGradient(0, topY + ROD * 0.15, 0, topY + ROD * 1.0);
+  s1.addColorStop(0, 'rgba(255,255,255,0)');
+  s1.addColorStop(0.5, hot ? 'rgba(255,248,225,0.95)' : 'rgba(255,255,255,0.98)');
+  s1.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = s1;
+  g.fillRect(cx - LINK_L / 2, topY + ROD * 0.05, LINK_L, ROD * 1.1);
 
-  // Soft lower reflection.
-  g.fillStyle = hot ? 'rgba(255,150,60,0.18)' : 'rgba(150,175,200,0.18)';
-  g.fillRect(cx - LINK_L / 2, cy + LINK_H / 2 - ROD * 1.1, LINK_L, ROD);
+  // Secondary specular on the BOTTOM rod (ground bounce).
+  const botY = cy + LINK_H / 2;
+  const s2 = g.createLinearGradient(0, botY - ROD * 1.0, 0, botY - ROD * 0.15);
+  s2.addColorStop(0, 'rgba(255,255,255,0)');
+  s2.addColorStop(0.5, hot ? 'rgba(255,210,150,0.7)' : 'rgba(240,248,255,0.75)');
+  s2.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = s2;
+  g.fillRect(cx - LINK_L / 2, botY - ROD * 1.1, LINK_L, ROD * 1.0);
   g.restore();
 
   // Edge definition.
-  g.lineWidth = 1;
-  g.strokeStyle = 'rgba(6,9,12,0.85)';
+  g.lineWidth = 1.1;
+  g.strokeStyle = 'rgba(4,7,10,0.9)';
   g.beginPath(); outer(); g.stroke();
-  g.strokeStyle = 'rgba(6,9,12,0.6)';
+  g.lineWidth = 0.9;
+  g.strokeStyle = 'rgba(4,7,10,0.55)';
   g.beginPath(); inner(); g.stroke();
 
   return { canvas: c, w, h };
@@ -121,6 +156,11 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
   const segHeat = new Float32Array(segCount);
   const segTarget = new Float32Array(segCount);
   const segIgniteAt = new Float32Array(segCount).fill(-1);
+
+  // Low-res offscreen buffer for the procedural fire (rebuilt at ~30fps).
+  let fireBuf: HTMLCanvasElement | null = null;
+  let fireCtx: CanvasRenderingContext2D | null = null;
+  let lastFire = -1;
 
   let cssW = 1, cssH = STAGE_HEIGHT, dpr = 1;
   let raf = 0, disposed = false;
@@ -173,58 +213,111 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
     return out;
   }
 
-  // Soft, rounded fire: an ember-glow band low over the links, then per-link
-  // flame tongues built from a few overlapping radial puffs (hot base → white
-  // core, tapering as they rise). No hard triangles — reads like real flame.
-  function drawFire(links: { x: number; y: number }[], heat: number, t: number, sIdx: number) {
-    if (links.length === 0) return;
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
+  // Procedural turbulent fire. A scrolling multi-octave value-noise field is
+  // thresholded against a vertical falloff and colour-ramped (dark red → orange
+  // → yellow → near-white), rendered into a small buffer and up-scaled with
+  // smoothing so it blurs into soft, realistic flame — not cartoon shapes.
+  // The per-pixel pass is throttled to ~30fps; the glow/embers run every frame.
+  function rebuildFireBuffer(t: number) {
+    const w = Math.max(1, Math.round(cssW * FIRE_SCALE));
+    const h = Math.max(1, Math.round(cssH * FIRE_SCALE));
+    if (!fireBuf) { fireBuf = document.createElement('canvas'); fireCtx = fireBuf.getContext('2d'); }
+    if (fireBuf.width !== w || fireBuf.height !== h) { fireBuf.width = w; fireBuf.height = h; }
+    const fc = fireCtx!;
+    const img = fc.createImageData(w, h);
+    const d = img.data;
+    const ft = opts.reducedMotion ? 1.7 : t; // freeze the scroll under reduced motion
 
-    // Warm ambient glow hugging the burning links.
-    for (let k = 0; k < links.length; k++) {
-      const p = links[k];
-      const r = LINK_H * 1.9;
-      const gl = ctx.createRadialGradient(p.x, p.y - LINK_H * 0.15, 0, p.x, p.y - LINK_H * 0.15, r);
-      gl.addColorStop(0, `rgba(255,120,35,${0.16 * heat})`);
-      gl.addColorStop(1, 'rgba(255,70,10,0)');
-      ctx.fillStyle = gl;
-      ctx.beginPath(); ctx.arc(p.x, p.y - LINK_H * 0.15, r, 0, Math.PI * 2); ctx.fill();
+    for (let s = 0; s < segCount; s++) {
+      const heat = segHeat[s];
+      if (heat < 0.02) continue;
+      const links = segLinks(s, t);
+      if (links.length === 0) continue;
+      const xL = links[0].x, xR = links[links.length - 1].x;
+      const yL = links[0].y, yR = links[links.length - 1].y;
+      const seed = s * 37.7;
+      const flameH = FLAME_H * heat;
+      const bx0 = Math.max(0, Math.floor((xL - LINK_H) * FIRE_SCALE));
+      const bx1 = Math.min(w - 1, Math.ceil((xR + LINK_H) * FIRE_SCALE));
+      const by0 = Math.max(0, Math.floor((Math.min(yL, yR) - flameH - 12) * FIRE_SCALE));
+      const by1 = Math.min(h - 1, Math.ceil((Math.max(yL, yR) + 12) * FIRE_SCALE));
+      for (let ly = by0; ly <= by1; ly++) {
+        const py = ly / FIRE_SCALE;
+        for (let lx = bx0; lx <= bx1; lx++) {
+          const px = lx / FIRE_SCALE;
+          const fx = (px - xL) / ((xR - xL) || 1);
+          if (fx < -0.1 || fx > 1.1) continue;
+          const baseY = yL + (yR - yL) * Math.min(1, Math.max(0, fx));
+          const above = baseY - py;
+          if (above < -9) continue;
+          const nh = above / flameH;
+          if (nh > 1.08) continue;
+          const nn = fbm2(px * 0.02 + seed, py * 0.032 - ft * 1.5);
+          const warp = fbm2(px * 0.055 + seed * 2, py * 0.07 - ft * 2.2);
+          let v = (nn * 0.72 + warp * 0.28) * 1.55 - nh;
+          if (above < 0) v -= (-above) * 0.06;
+          const eo = Math.abs(fx - 0.5) * 2;
+          const edge = eo < 0.9 ? 1 : 1 - (eo - 0.9) / 0.2;
+          v *= Math.max(0, Math.min(1, edge)) * heat;
+          if (v <= 0.02) continue;
+          const i = Math.min(1, v);
+          let r: number, gg: number, b: number;
+          if (i < 0.34) { const k = i / 0.34; r = 110 + 130 * k; gg = 6 + 40 * k; b = 0; }
+          else if (i < 0.68) { const k = (i - 0.34) / 0.34; r = 255; gg = 46 + 140 * k; b = 8 + 34 * k; }
+          else { const k = (i - 0.68) / 0.32; r = 255; gg = 186 + 64 * k; b = 42 + 180 * k; }
+          const a = Math.min(255, i * 300);
+          const idx = (ly * w + lx) * 4;
+          d[idx] = Math.min(255, d[idx] + r);
+          d[idx + 1] = Math.min(255, d[idx + 1] + gg);
+          d[idx + 2] = Math.min(255, d[idx + 2] + b);
+          d[idx + 3] = Math.min(255, d[idx + 3] + a);
+        }
+      }
+    }
+    fc.putImageData(img, 0, 0);
+  }
+
+  function drawFire(now: number, t: number) {
+    let anyHot = false;
+    for (let s = 0; s < segCount; s++) if (segHeat[s] >= 0.02) { anyHot = true; break; }
+    if (!anyHot) return;
+
+    if (lastFire < 0 || now - lastFire >= FIRE_MS) { rebuildFireBuffer(t); lastFire = now; }
+    if (fireBuf) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(fireBuf, 0, 0, cssW, cssH);
+      ctx.restore();
     }
 
-    const PUFFS = 5;
-    for (let k = 0; k < links.length; k++) {
-      const p = links[k];
-      const seed = sIdx * 13 + k;
-      const flick = vnoise(t * 6 + seed * 3.1);
-      const flick2 = vnoise(t * 9 + seed * 1.7);
-      const hgt = LINK_H * (1.3 + 0.7 * flick) * heat;
-      const baseY = p.y - LINK_H * 0.2;
-      for (let j = 0; j < PUFFS; j++) {
-        const fr = j / (PUFFS - 1);            // 0 base → 1 tip
-        const sway = opts.reducedMotion ? 0 : Math.sin(t * 4 + seed + j * 1.3) * LINK_H * 0.18 * fr;
-        const jx = p.x + sway + (flick2 - 0.5) * LINK_H * 0.3 * fr;
-        const py = baseY - hgt * fr;
-        const rad = LINK_H * (0.62 - 0.42 * fr) * (0.9 + 0.3 * flick);
-        // hot orange low, yellow mid, near-white tip
-        const cr = 255;
-        const cg = fr < 0.45 ? 110 + 90 * (fr / 0.45) : 200 + 45 * ((fr - 0.45) / 0.55);
-        const cb = fr < 0.45 ? 35 : 60 + 150 * ((fr - 0.45) / 0.55);
-        const a = (0.5 - 0.28 * fr) * heat;
-        const g = ctx.createRadialGradient(jx, py, 0, jx, py, rad);
-        g.addColorStop(0, `rgba(${cr},${Math.round(cg)},${Math.round(cb)},${a})`);
-        g.addColorStop(1, `rgba(${cr},${Math.round(cg)},${Math.round(cb)},0)`);
-        ctx.fillStyle = g;
-        ctx.beginPath(); ctx.arc(jx, py, rad, 0, Math.PI * 2); ctx.fill();
-      }
-      if (!opts.reducedMotion) {
-        const rise = (t * 0.6 + seed * 0.37) % 1;
-        const ea = (1 - rise) * heat * 0.9;
-        if (ea > 0.03) {
-          ctx.fillStyle = `rgba(255,200,120,${ea})`;
-          ctx.beginPath();
-          ctx.arc(p.x + (flick - 0.5) * LINK_H * 1.1, baseY - rise * LINK_H * 2.6, 1.5 * (1 - rise) + 0.5, 0, Math.PI * 2);
-          ctx.fill();
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let s = 0; s < segCount; s++) {
+      const heat = segHeat[s];
+      if (heat < 0.02) continue;
+      const links = segLinks(s, t);
+      for (let k = 0; k < links.length; k++) {
+        const p = links[k];
+        // warm ambient glow hugging each burning link
+        const r = LINK_H * 1.7;
+        const gl = ctx.createRadialGradient(p.x, p.y - LINK_H * 0.2, 0, p.x, p.y - LINK_H * 0.2, r);
+        gl.addColorStop(0, `rgba(255,120,35,${0.14 * heat})`);
+        gl.addColorStop(1, 'rgba(255,70,10,0)');
+        ctx.fillStyle = gl;
+        ctx.beginPath(); ctx.arc(p.x, p.y - LINK_H * 0.2, r, 0, Math.PI * 2); ctx.fill();
+        // rising embers
+        if (!opts.reducedMotion) {
+          const seed = s * 13 + k;
+          const rise = (t * 0.5 + seed * 0.37) % 1;
+          const ea = (1 - rise) * heat * 0.9;
+          if (ea > 0.04) {
+            ctx.fillStyle = `rgba(255,205,130,${ea})`;
+            ctx.beginPath();
+            ctx.arc(p.x + (vnoise(seed + Math.floor(t * 0.5 + seed * 0.37)) - 0.5) * LINK_H * 1.4,
+              p.y - LINK_H * 0.2 - rise * FLAME_H * 1.15, 1.5 * (1 - rise) + 0.4, 0, Math.PI * 2);
+            ctx.fill();
+          }
         }
       }
     }
@@ -254,11 +347,11 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
     for (let i = 0; i < n; i++) {
       if (!nodeSolved[i]) continue;
       const p = nodeAt(i, t);
-      const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, LINK_L * 0.8);
-      glow.addColorStop(0, 'rgba(198,255,0,0.18)');
+      const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, LINK_L * 0.7);
+      glow.addColorStop(0, 'rgba(198,255,0,0.12)');
       glow.addColorStop(1, 'rgba(198,255,0,0)');
       ctx.fillStyle = glow;
-      ctx.beginPath(); ctx.arc(p.x, p.y, LINK_L * 0.8, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x, p.y, LINK_L * 0.7, 0, Math.PI * 2); ctx.fill();
     }
 
     // Chain — two-pass weave: edge links behind, flat links in front.
@@ -267,8 +360,10 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
       const heat = segHeat[s];
       for (let k = 0; k < links.length; k++) if (k % 2 === 1) stampLink(links[k].x, links[k].y, links[k].angle, true, heat);
       for (let k = 0; k < links.length; k++) if (k % 2 === 0) stampLink(links[k].x, links[k].y, links[k].angle, false, heat);
-      if (heat > 0.02) drawFire(links, heat, t, s);
     }
+
+    // Fire is drawn over the whole chain in one pass (procedural noise buffer).
+    drawFire(now, t);
 
     if (opts.onNodes) {
       const nodes: Chain2DNode[] = [];
