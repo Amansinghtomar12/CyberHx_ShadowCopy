@@ -105,6 +105,9 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
   const swayAmp = opts.reducedMotion ? 0 : 2.4;
 
   const nodeX = (i: number) => NODE_MARGIN + i * NODE_SPACING;
+  // Each segment's heat colour is fixed by its POSITION along the chain:
+  // segment 0 is green, and it grows redder toward the last segment.
+  const segColorT = (s: number) => (segCount > 1 ? s / (segCount - 1) : 0);
   const bandCenter = (t: number) => cssH / 2 + Math.sin(t * 0.6) * swayAmp;
   const tileW = (img: HTMLImageElement) => CHAIN_H * ((img.naturalWidth || 1) / (img.naturalHeight || 1));
 
@@ -144,7 +147,7 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
   // place (drift + bob + flicker) as two additive layers into an offscreen
   // buffer, then feather every edge with a single UNIONED soft-ellipse mask so
   // it reads as flame, never a rectangle. The burning chain stays visible under.
-  function drawFire(t: number, bandCY: number, hueDeg: number) {
+  function drawFire(t: number, bandCY: number) {
     if (!fireOk) return;
     let anyHot = false;
     for (let s = 0; s < segCount; s++) if (segHeat[s] >= 0.02) { anyHot = true; break; }
@@ -173,6 +176,8 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
       const bob = opts.reducedMotion ? 0 : Math.sin(ft * 2.1 + s) * 3;
       const srcX = Math.max(0, Math.min(range, range * (((s * 0.37 + 0.12 * drift) % 1))));
       const top = bandCY - fh * FIRE_BASE + bob;
+      // recolour the orange gif to this segment's position heat (green→red)
+      fc.filter = `hue-rotate(${heatColor(segColorT(s)).deg}deg) saturate(1.18)`;
       fc.globalAlpha = Math.min(1, heat * (0.56 + 0.15 * vnoise(ft * 3 + s * 2.1)));
       fc.drawImage(fireEl, srcX, 0, srcW, IH, x0 - FIRE_PAD, top, destW, fh);
       const fh2 = fh * 1.16, top2 = bandCY - fh2 * FIRE_BASE + bob * 0.6;
@@ -182,6 +187,7 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
       fc.drawImage(fireEl, srcX2, 0, srcW, IH, -destW / 2, 0, destW, fh2); fc.restore();
     }
     fc.globalAlpha = 1;
+    fc.filter = 'none';
 
     // Feather only the edges — a horizontal fade at each segment's ends and a
     // vertical fade at the flame tips — so the gif keeps its own flame
@@ -212,8 +218,6 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     ctx.imageSmoothingEnabled = true;
-    // recolour the orange gif to the current progress heat (green→red)
-    ctx.filter = `hue-rotate(${hueDeg}deg) saturate(1.18)`;
     ctx.drawImage(fbuf, 0, 0, cssW, cssH);
     ctx.restore();
   }
@@ -240,24 +244,17 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
 
     const bandCY = bandCenter(t);
 
-    // Progress heat — the more challenges are solved, the hotter the fire runs:
-    // green (first solve) → yellow → orange → red (all solved).
-    let solvedCount = 0;
-    for (let i = 0; i < n; i++) if (nodeSolved[i]) solvedCount++;
-    const progress = n > 1 ? (solvedCount - 1) / (n - 1) : 0;
-    const hc = heatColor(progress);
-
     // The SAME steel chain runs through every segment, solved or not — the
-    // flame (and its heat colour) is what marks a solved pair, so the chain
-    // itself stays fully readable underneath it (no red-hot swap).
+    // flame (coloured by the segment's position) is what marks a solved pair,
+    // so the chain itself stays fully readable underneath it (no red-hot swap).
     if (steelOk && n > 1) {
       drawChain(steel, nodeX(0), nodeX(n - 1), bandCY, 1);
       for (let s = 0; s < segCount; s++) {
-        if (segHeat[s] > 0.02) hotChain(nodeX(s), nodeX(s + 1), bandCY, t, s, segHeat[s], hc.glow);
+        if (segHeat[s] > 0.02) hotChain(nodeX(s), nodeX(s + 1), bandCY, t, s, segHeat[s], heatColor(segColorT(s)).glow);
       }
     }
 
-    drawFire(t, bandCY, hc.deg);
+    drawFire(t, bandCY);
 
     if (opts.onNodes) {
       const nodes: Chain2DNode[] = [];
