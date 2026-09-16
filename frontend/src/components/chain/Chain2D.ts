@@ -1,10 +1,9 @@
 // Chained-challenges chain renderer — pure 2D, using the user-supplied images.
 //
-// Three real assets, used as-is:
-//   • chain-strip.png     — the STEEL chain (unsolved), tiled along the band.
-//   • chain-strip-hot.png — the RED-HOT BURNING chain (solved), tiled over
-//                           segments whose two adjacent challenges are solved.
-//   • fire.gif            — the animated fire, composited over burning segments.
+// Two real assets, used as-is:
+//   • chain-strip.png — the STEEL chain, tiled along the whole band.
+//   • fire.gif        — the animated fire, composited over solved segments and
+//                       recoloured (green→yellow→orange→red) by overall progress.
 //
 // No WebGL, no 3D camera, no drawn links. Clickable challenge cards are HTML,
 // positioned each frame from the node centres reported via onNodes.
@@ -30,13 +29,13 @@ export interface Chain2DOptions {
 // continuously behind them and is visible in the gaps.
 export const NODE_SPACING = 320;   // longer chain runs between cards
 export const NODE_MARGIN = 120;
-export const STAGE_HEIGHT = 230;   // headroom for the tall flames
-const CHAIN_H = 46;        // thinner band — zoomed out, longer chain
+export const STAGE_HEIGHT = 200;
+const CHAIN_H = 34;        // smaller links — zoomed out, more sockets visible
 
 const IGNITE_MS = 1400;    // premium ignition ramp
-const FIRE_DISP_H = 92;    // fire band display height (px) — tall realistic flames
-const FIRE_BASE = 0.74;    // fraction of the fire below its dest-top (flames rise high)
-const FIRE_PAD = 26;       // horizontal padding around each burning segment
+const FIRE_DISP_H = 56;    // fire band display height (px) — low flame for the small chain
+const FIRE_BASE = 0.72;    // fraction of the fire below its dest-top (flames rise)
+const FIRE_PAD = 22;       // horizontal padding around each burning segment
 
 export function chainContentWidth(nodeCount: number): number {
   const n = Math.max(1, nodeCount);
@@ -47,6 +46,30 @@ function hash(n: number): number { const s = Math.sin(n * 127.1) * 43758.5453; r
 function vnoise(x: number): number {
   const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f);
   return hash(i) * (1 - u) + hash(i + 1) * u;
+}
+
+// Progress heat: the fire heats up as more of the chain is solved.
+//   green (just started) → yellow → orange → red (fully solved).
+// Returns a hue-rotate offset from the gif's orange base + a matching glow rgb.
+interface HeatColor { deg: number; glow: [number, number, number]; }
+function heatColor(t: number): HeatColor {
+  const stops: { t: number; deg: number; glow: [number, number, number] }[] = [
+    { t: 0,     deg: 92,  glow: [70, 230, 90] },   // green
+    { t: 1 / 3, deg: 24,  glow: [210, 220, 40] },  // yellow
+    { t: 2 / 3, deg: 0,   glow: [255, 120, 30] },  // orange
+    { t: 1,     deg: -24, glow: [255, 55, 25] },   // red
+  ];
+  t = Math.max(0, Math.min(1, t));
+  let a = stops[0], b = stops[stops.length - 1];
+  for (let i = 0; i < stops.length - 1; i++) {
+    if (t >= stops[i].t && t <= stops[i + 1].t) { a = stops[i]; b = stops[i + 1]; break; }
+  }
+  const k = b.t === a.t ? 0 : (t - a.t) / (b.t - a.t);
+  const lerp = (x: number, y: number) => x + (y - x) * k;
+  return {
+    deg: lerp(a.deg, b.deg),
+    glow: [Math.round(lerp(a.glow[0], b.glow[0])), Math.round(lerp(a.glow[1], b.glow[1])), Math.round(lerp(a.glow[2], b.glow[2]))],
+  };
 }
 
 export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): Chain2DHandle {
@@ -101,16 +124,17 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
   // Red-hot glow that makes the metal in a burning segment look heated — a soft
   // ellipse along the chain line, additive, fading out in every direction (no
   // hard edges). Scaled by heat so it ramps in with the ignition.
-  function hotChain(x0: number, x1: number, cy: number, t: number, s: number, heat: number) {
+  function hotChain(x0: number, x1: number, cy: number, t: number, s: number, heat: number, glow: [number, number, number]) {
     if (x1 <= x0) return;
     const flick = 0.82 + 0.18 * vnoise(t * 2.4 + s * 1.3);
-    const cx = (x0 + x1) / 2, rx = (x1 - x0) / 2 + 16, ry = CHAIN_H * 0.66;
+    const cx = (x0 + x1) / 2, rx = (x1 - x0) / 2 + 14, ry = CHAIN_H * 0.72;
+    const [r, gr, b] = glow;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     ctx.translate(cx, cy); ctx.scale(1, ry / rx);
     const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
-    g.addColorStop(0, `rgba(255,95,22,${0.55 * flick * heat})`);
-    g.addColorStop(0.55, `rgba(255,120,30,${0.26 * flick * heat})`);
+    g.addColorStop(0, `rgba(${r},${gr},${b},${0.55 * flick * heat})`);
+    g.addColorStop(0.55, `rgba(${r},${gr},${b},${0.26 * flick * heat})`);
     g.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, rx, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
@@ -120,7 +144,7 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
   // place (drift + bob + flicker) as two additive layers into an offscreen
   // buffer, then feather every edge with a single UNIONED soft-ellipse mask so
   // it reads as flame, never a rectangle. The burning chain stays visible under.
-  function drawFire(t: number, bandCY: number) {
+  function drawFire(t: number, bandCY: number, hueDeg: number) {
     if (!fireOk) return;
     let anyHot = false;
     for (let s = 0; s < segCount; s++) if (segHeat[s] >= 0.02) { anyHot = true; break; }
@@ -149,11 +173,11 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
       const bob = opts.reducedMotion ? 0 : Math.sin(ft * 2.1 + s) * 3;
       const srcX = Math.max(0, Math.min(range, range * (((s * 0.37 + 0.12 * drift) % 1))));
       const top = bandCY - fh * FIRE_BASE + bob;
-      fc.globalAlpha = Math.min(1, heat * (0.62 + 0.16 * vnoise(ft * 3 + s * 2.1)));
+      fc.globalAlpha = Math.min(1, heat * (0.56 + 0.15 * vnoise(ft * 3 + s * 2.1)));
       fc.drawImage(fireEl, srcX, 0, srcW, IH, x0 - FIRE_PAD, top, destW, fh);
       const fh2 = fh * 1.16, top2 = bandCY - fh2 * FIRE_BASE + bob * 0.6;
       const srcX2 = Math.max(0, Math.min(range, range * (((s * 0.61 + 0.5) % 1))));
-      fc.globalAlpha = Math.min(1, heat * (0.4 + 0.12 * vnoise(ft * 4.3 + s * 3.7)));
+      fc.globalAlpha = Math.min(1, heat * (0.34 + 0.11 * vnoise(ft * 4.3 + s * 3.7)));
       fc.save(); fc.translate(x0 - FIRE_PAD + destW / 2, top2); fc.scale(-1, 1);
       fc.drawImage(fireEl, srcX2, 0, srcW, IH, -destW / 2, 0, destW, fh2); fc.restore();
     }
@@ -168,7 +192,7 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
     for (let s = 0; s < segCount; s++) {
       if (segHeat[s] < 0.02) continue;
       const x0 = nodeX(s) - FIRE_PAD, x1 = nodeX(s + 1) + FIRE_PAD;
-      const g = mc.createLinearGradient(x0, 0, x1, 0), fw = 34 / (x1 - x0);
+      const g = mc.createLinearGradient(x0, 0, x1, 0), fw = 30 / (x1 - x0);
       g.addColorStop(0, 'rgba(0,0,0,0)');
       g.addColorStop(fw, 'rgba(0,0,0,1)');
       g.addColorStop(1 - fw, 'rgba(0,0,0,1)');
@@ -176,7 +200,7 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
       mc.fillStyle = g; mc.fillRect(x0, 0, x1 - x0, cssH);
     }
     // vertical top-fade so flame tips dissipate instead of hard-cutting
-    const vg = mc.createLinearGradient(0, bandCY - FIRE_DISP_H * 0.9, 0, bandCY - FIRE_DISP_H * 0.48);
+    const vg = mc.createLinearGradient(0, bandCY - FIRE_DISP_H * 0.9, 0, bandCY - FIRE_DISP_H * 0.46);
     vg.addColorStop(0, 'rgba(0,0,0,0)');
     vg.addColorStop(1, 'rgba(0,0,0,1)');
     mc.globalCompositeOperation = 'destination-in';
@@ -188,6 +212,8 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     ctx.imageSmoothingEnabled = true;
+    // recolour the orange gif to the current progress heat (green→red)
+    ctx.filter = `hue-rotate(${hueDeg}deg) saturate(1.18)`;
     ctx.drawImage(fbuf, 0, 0, cssW, cssH);
     ctx.restore();
   }
@@ -214,17 +240,24 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
 
     const bandCY = bandCenter(t);
 
+    // Progress heat — the more challenges are solved, the hotter the fire runs:
+    // green (first solve) → yellow → orange → red (all solved).
+    let solvedCount = 0;
+    for (let i = 0; i < n; i++) if (nodeSolved[i]) solvedCount++;
+    const progress = n > 1 ? (solvedCount - 1) / (n - 1) : 0;
+    const hc = heatColor(progress);
+
     // The SAME steel chain runs through every segment, solved or not — the
-    // small flame is the only thing that marks a solved pair, so the chain
+    // flame (and its heat colour) is what marks a solved pair, so the chain
     // itself stays fully readable underneath it (no red-hot swap).
     if (steelOk && n > 1) {
       drawChain(steel, nodeX(0), nodeX(n - 1), bandCY, 1);
       for (let s = 0; s < segCount; s++) {
-        if (segHeat[s] > 0.02) hotChain(nodeX(s), nodeX(s + 1), bandCY, t, s, segHeat[s]);
+        if (segHeat[s] > 0.02) hotChain(nodeX(s), nodeX(s + 1), bandCY, t, s, segHeat[s], hc.glow);
       }
     }
 
-    drawFire(t, bandCY);
+    drawFire(t, bandCY, hc.deg);
 
     if (opts.onNodes) {
       const nodes: Chain2DNode[] = [];
