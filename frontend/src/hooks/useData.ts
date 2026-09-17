@@ -23,6 +23,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   supabase, DBChallenge, UserScore, TeamScore,
   DBChainSeries, DBChainMember,
+  DBB2RBox, DBB2RSeries, DBB2RMember,
 } from '../lib/supabase';
 
 // ── Shared polling helper ────────────────────────────────────────────
@@ -168,6 +169,53 @@ export function useChains(enabled: boolean) {
   usePolling(fetchChains, CHALLENGE_INTERVAL, enabled);
 
   return { series, members, loading, error, refetch: fetchChains };
+}
+
+// ─────────────────────────────────────────
+// B2R BOXES  (Boot-to-Root — optional experience layer)
+// ─────────────────────────────────────────
+// Reads the gated public_b2r_boxes / public_b2r_series / public_b2r_members
+// views on the same low cadence as challenges. When `enabled` is false (the
+// master B2R flag is off) NO request is ever made — usePolling short-circuits
+// — so the feature has zero cost in normal mode. Which flags are captured is
+// NOT fetched here; it is derived in App from the existing trusted solve
+// arrays, because each flag is an ordinary challenge underneath.
+
+export function useB2R(enabled: boolean) {
+  const [boxes, setBoxes] = useState<DBB2RBox[]>([]);
+  const [series, setSeries] = useState<DBB2RSeries[]>([]);
+  const [members, setMembers] = useState<DBB2RMember[]>([]);
+  const [loading, setLoading] = useState(enabled);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchB2R = useCallback(async () => {
+    const [bRes, sRes, mRes] = await Promise.all([
+      supabase
+        .from('public_b2r_boxes')
+        .select('id, title, category, description, difficulty, display_order, readme_url, user_challenge_id, root_challenge_id, series_id, position')
+        .order('display_order', { ascending: true }),
+      supabase
+        .from('public_b2r_series')
+        .select('id, title, category, description, readme, readme_url, difficulty, display_order, box_count')
+        .order('display_order', { ascending: true }),
+      supabase
+        .from('public_b2r_members')
+        .select('series_id, box_id, position')
+        .order('position', { ascending: true }),
+    ]);
+
+    if (bRes.error) setError(bRes.error.message);
+    else { setBoxes((bRes.data as DBB2RBox[]) ?? []); setError(null); }
+    if (sRes.data) setSeries(sRes.data as DBB2RSeries[]);
+    if (mRes.data) setMembers(mRes.data as DBB2RMember[]);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { if (enabled) setLoading((l) => (boxes.length === 0 ? true : l)); }, [enabled, boxes.length]);
+
+  usePolling(fetchB2R, CHALLENGE_INTERVAL, enabled);
+
+  return { boxes, series, members, loading, error, refetch: fetchB2R };
 }
 
 // ─────────────────────────────────────────

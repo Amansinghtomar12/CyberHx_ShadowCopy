@@ -94,6 +94,43 @@ export interface DBChainMember {
   position: number;
 }
 
+// ── B2R / Boot-to-Root boxes (optional experience layer) ────────────────
+// Shapes returned by the gated public_b2r_boxes / public_b2r_series /
+// public_b2r_members views. Structure only — never flags, scores, or
+// hidden-challenge data. A box's two flags are ordinary challenge rows
+// (user_challenge_id / root_challenge_id) that live in the normal catalog.
+export interface DBB2RBox {
+  id: string;
+  title: string;
+  category: string;
+  description: string;
+  difficulty: 'Easy' | 'Medium' | 'Hard' | 'Insane' | null;
+  display_order: number;
+  readme_url: string | null;
+  user_challenge_id: string;
+  root_challenge_id: string;
+  series_id: string | null;   // the PUBLISHED series it belongs to; null => B2R-FREE
+  position: number | null;
+}
+
+export interface DBB2RSeries {
+  id: string;
+  title: string;
+  category: string;
+  description: string;
+  readme: string;
+  readme_url: string | null;
+  difficulty: 'Easy' | 'Medium' | 'Hard' | 'Insane' | null;
+  display_order: number;
+  box_count: number;
+}
+
+export interface DBB2RMember {
+  series_id: string;
+  box_id: string;
+  position: number;
+}
+
 export interface UserScore {
   id: string;
   username: string;

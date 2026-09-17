@@ -10,11 +10,13 @@ import {
   X, AlertTriangle, Megaphone, Zap, Lightbulb, Link2, Save, Inbox, Lock,
   Settings2, ListChecks, Hash, Send, CalendarClock, Radio, Paperclip, Upload, FileDown, Download,
   Clock, Play, Pause, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search,
+  Server, Crown, User,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { resetEventScores } from '../../api/submitFlag';
 import DateTimeField from '../DateTimeField';
 import ChainManager from './ChainManager';
+import B2RManager from './B2RManager';
 // HARDENED: Challenge CRUD via admin_upsert_challenge RPC
 // HARDENED: Reset via admin_reset_event RPC (no client-side DELETE)
 
@@ -192,6 +194,32 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
     is_visible: initial?.is_visible ?? false,
   });
 
+  // PLACEMENT — decided once, at creation, and the challenge then lives ONLY
+  // there. FREE / CHAIN save an ordinary challenge (CHAIN also appends it to
+  // a chain series). B2R FREE / B2R CHAIN create a boot-to-root BOX with TWO
+  // flags — user + root — through admin_upsert_b2r_box, which itself calls
+  // admin_upsert_challenge twice, so hashing and scoring are the normal path.
+  type Placement = 'free' | 'chain' | 'b2r_free' | 'b2r_chain';
+  const [placement, setPlacement] = useState<Placement>('free');
+  const isB2R = !isEdit && (placement === 'b2r_free' || placement === 'b2r_chain');
+  const [rootFlag, setRootFlag] = useState('');
+  const [rootPoints, setRootPoints] = useState(150);
+  const [chainSeriesId, setChainSeriesId] = useState('');
+  const [b2rSeriesId, setB2rSeriesId] = useState('');
+  const [chainSeriesList, setChainSeriesList] = useState<{ id: string; title: string; members: { challenge_id: string }[] }[]>([]);
+  const [b2rSeriesList, setB2rSeriesList] = useState<{ id: string; title: string; members: { box_id: string }[] }[]>([]);
+  useEffect(() => {
+    if (isEdit) return;
+    supabase.rpc('admin_list_chain_series').then(({ data }) => { if (data && !data.error) setChainSeriesList(data.series ?? []); });
+    supabase.rpc('admin_list_b2r_series').then(({ data }) => { if (data && !data.error) setB2rSeriesList(data.series ?? []); });
+  }, [isEdit]);
+  const PLACEMENTS: { id: Placement; label: string; hint: string; icon: React.ReactNode }[] = [
+    { id: 'free', label: 'Free', hint: 'Normal challenge on the main board.', icon: <Flag className="w-3.5 h-3.5" /> },
+    { id: 'chain', label: 'Chain', hint: 'One link in an ordered chain of challenges.', icon: <Link2 className="w-3.5 h-3.5" /> },
+    { id: 'b2r_free', label: 'B2R Free', hint: 'Boot-to-root machine: user flag + root flag.', icon: <Server className="w-3.5 h-3.5" /> },
+    { id: 'b2r_chain', label: 'B2R Chain', hint: 'A machine inside an ordered B2R chain.', icon: <Crown className="w-3.5 h-3.5" /> },
+  ];
+
   // The flag is stored only as a hash, so there is nothing to prefill here.
   // An empty field on edit means "keep the existing flag" -- see handleSave.
 
@@ -321,7 +349,15 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
       return;
     }
     if (!isEdit && !form.flag.trim()) {
-      setError('A flag is required for a new challenge.');
+      setError(isB2R ? 'A user flag is required for a new B2R box.' : 'A flag is required for a new challenge.');
+      return;
+    }
+    if (isB2R && !rootFlag.trim()) {
+      setError('A root flag is required for a new B2R box.');
+      return;
+    }
+    if (isB2R && rootFlag.trim() === form.flag.trim()) {
+      setError('The user flag and the root flag must be different.');
       return;
     }
     setSaving(true);
@@ -343,25 +379,73 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
 
     let challengeId = initial?.id;
 
-    // HARDENED: Use admin_upsert_challenge RPC — handles flag hashing server-side
-    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_upsert_challenge', {
-      p_id: initial?.id ?? null,
-      p_title: payload.title,
-      p_category: payload.category,
-      p_difficulty: payload.difficulty,
-      p_description: payload.description,
-      p_flag: payload.flag || null,
-      p_points: payload.points,
-      p_max_attempts: payload.max_attempts,
-      p_author: payload.author,
-      p_tags: payload.tags,
-      p_is_visible: payload.is_visible,
-      p_connection_info: payload.connection_info,
-    });
+    if (isB2R) {
+      // B2R: one box, two flags. The RPC creates the user-flag and root-flag
+      // challenge rows via admin_upsert_challenge (same hashing, same scoring)
+      // and links them. Hints/attachments below attach to the USER flag, the
+      // player's entry point to the machine.
+      const { data: boxRes, error: boxErr } = await supabase.rpc('admin_upsert_b2r_box', {
+        p_id: null,
+        p_title: payload.title,
+        p_category: payload.category,
+        p_difficulty: payload.difficulty,
+        p_description: payload.description,
+        p_user_flag: payload.flag,
+        p_user_points: payload.points,
+        p_root_flag: rootFlag.trim(),
+        p_root_points: Number(rootPoints) || 100,
+        p_max_attempts: payload.max_attempts,
+        p_connection_info: payload.connection_info,
+        p_is_published: payload.is_visible,
+      });
+      if (boxErr) { setError(boxErr.message); setSaving(false); return; }
+      if (boxRes?.error) { setError(boxRes.error); setSaving(false); return; }
+      challengeId = boxRes?.user_challenge_id ?? challengeId;
 
-    if (rpcError) { setError(rpcError.message); setSaving(false); return; }
-    if (rpcResult?.error) { setError(rpcResult.error); setSaving(false); return; }
-    challengeId = rpcResult?.challenge_id ?? challengeId;
+      // B2R CHAIN: append the new box as the last link of the chosen chain.
+      if (placement === 'b2r_chain' && b2rSeriesId && boxRes?.box_id) {
+        const s = b2rSeriesList.find(x => x.id === b2rSeriesId);
+        const ids = [...(s?.members ?? []).map(m => m.box_id), boxRes.box_id];
+        const { data: mRes, error: mErr } = await supabase.rpc('admin_set_b2r_members', { p_series_id: b2rSeriesId, p_box_ids: ids });
+        if (mErr || mRes?.error) {
+          setSaving(false);
+          setError('B2R box saved, but it could not be added to the chain: ' + (mRes?.error ?? mErr?.message) + '. Add it in the B2R tab.');
+          return;
+        }
+      }
+    } else {
+      // HARDENED: Use admin_upsert_challenge RPC — handles flag hashing server-side
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_upsert_challenge', {
+        p_id: initial?.id ?? null,
+        p_title: payload.title,
+        p_category: payload.category,
+        p_difficulty: payload.difficulty,
+        p_description: payload.description,
+        p_flag: payload.flag || null,
+        p_points: payload.points,
+        p_max_attempts: payload.max_attempts,
+        p_author: payload.author,
+        p_tags: payload.tags,
+        p_is_visible: payload.is_visible,
+        p_connection_info: payload.connection_info,
+      });
+
+      if (rpcError) { setError(rpcError.message); setSaving(false); return; }
+      if (rpcResult?.error) { setError(rpcResult.error); setSaving(false); return; }
+      challengeId = rpcResult?.challenge_id ?? challengeId;
+
+      // CHAIN: append the new challenge as the last link of the chosen chain.
+      if (!isEdit && placement === 'chain' && chainSeriesId && challengeId) {
+        const s = chainSeriesList.find(x => x.id === chainSeriesId);
+        const ids = [...(s?.members ?? []).map(m => m.challenge_id), challengeId];
+        const { data: mRes, error: mErr } = await supabase.rpc('admin_set_chain_members', { p_series_id: chainSeriesId, p_challenge_ids: ids });
+        if (mErr || mRes?.error) {
+          setSaving(false);
+          setError('Challenge saved, but it could not be added to the chain: ' + (mRes?.error ?? mErr?.message) + '. Add it in the Chains tab.');
+          return;
+        }
+      }
+    }
 
     // Save hints in place. Deleting and re-inserting them gave every hint a
     // new id and cascaded away each player's paid hint_unlocks while their
@@ -459,7 +543,70 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
       </div>
 
       <div className="mt-7">
-        <FormSection first icon={<ListChecks className="w-4 h-4" />} title="Identity">
+        <FormSection
+          first
+          icon={<Settings2 className="w-4 h-4" />}
+          title="Placement"
+          description="Where this challenge lives. Decided once, when it is created — it then appears only there."
+        >
+          {isEdit ? (
+            <p className="text-small text-text-muted leading-relaxed">
+              Placement is chosen when a challenge is created. Chains are managed in the <strong>Chains</strong> tab;
+              boot-to-root boxes (user + root flags) in the <strong>B2R</strong> tab.
+            </p>
+          ) : (
+            <>
+              <div role="radiogroup" aria-label="Placement" className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                {PLACEMENTS.map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={placement === p.id}
+                    onClick={() => setPlacement(p.id)}
+                    className={`rounded-control border px-3 py-2.5 text-left transition-colors ${
+                      placement === p.id ? 'border-border-neon bg-neon-wash' : 'border-border-subtle bg-surface-inset hover:border-border-strong'
+                    }`}
+                  >
+                    <span className={`flex items-center gap-1.5 text-label uppercase ${placement === p.id ? 'text-cyber-neon' : 'text-cyber-text'}`}>
+                      {p.icon} {p.label}
+                    </span>
+                    <span className="mt-1 block text-small text-text-muted leading-snug">{p.hint}</span>
+                  </button>
+                ))}
+              </div>
+              {placement === 'chain' && (
+                <div className="mt-3 min-w-0 md:max-w-md">
+                  <label className="field-label" htmlFor="chal-chain-series">Add to chain</label>
+                  <select id="chal-chain-series" className="select" value={chainSeriesId} onChange={e => setChainSeriesId(e.target.value)}>
+                    <option value="">— none yet (add it later in the Chains tab) —</option>
+                    {chainSeriesList.map(s => <option key={s.id} value={s.id}>{s.title} ({s.members.length} links)</option>)}
+                  </select>
+                  <p className="mt-1.5 text-small text-text-muted">Appended as the last link. Reorder in the Chains tab.</p>
+                </div>
+              )}
+              {placement === 'b2r_chain' && (
+                <div className="mt-3 min-w-0 md:max-w-md">
+                  <label className="field-label" htmlFor="chal-b2r-series">Add to B2R chain</label>
+                  <select id="chal-b2r-series" className="select" value={b2rSeriesId} onChange={e => setB2rSeriesId(e.target.value)}>
+                    <option value="">— none yet (add it later in the B2R tab) —</option>
+                    {b2rSeriesList.map(s => <option key={s.id} value={s.id}>{s.title} ({s.members.length} boxes)</option>)}
+                  </select>
+                  <p className="mt-1.5 text-small text-text-muted">Appended as the last machine. Reorder in the B2R tab.</p>
+                </div>
+              )}
+              {isB2R && (
+                <p className="mt-3 rounded-control border border-border-subtle bg-surface-inset px-3 py-2 text-small text-text-muted leading-relaxed">
+                  A B2R box has <strong>two flags</strong>: the <User className="inline w-3.5 h-3.5" /> <strong>user</strong> flag (foothold) and the{' '}
+                  <Crown className="inline w-3.5 h-3.5" /> <strong>root</strong> flag (privilege escalation), each with its own points. Both are
+                  hashed server-side exactly like any other flag.
+                </p>
+              )}
+            </>
+          )}
+        </FormSection>
+
+        <FormSection icon={<ListChecks className="w-4 h-4" />} title="Identity">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {field('Title', 'title', 'text', undefined, true)}
             {field('Author', 'author', 'text', 'Blank falls back to “Cyberhx Team”.')}
@@ -482,8 +629,15 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
 
         <FormSection icon={<Hash className="w-4 h-4" />} title="Scoring & limits">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {field('Points', 'points', 'number')}
-            {field('Max Attempts', 'max_attempts', 'number', 'Wrong submissions allowed per player.')}
+            {field(isB2R ? 'User flag points' : 'Points', 'points', 'number')}
+            {isB2R && (
+              <div className="min-w-0">
+                <label className="field-label" htmlFor="chal-root-points">Root flag points</label>
+                <input id="chal-root-points" type="number" min={1} value={rootPoints}
+                  onChange={e => setRootPoints(Number(e.target.value) || 0)} className="input" />
+              </div>
+            )}
+            {field('Max Attempts', 'max_attempts', 'number', isB2R ? 'Wrong submissions allowed per player, per flag.' : 'Wrong submissions allowed per player.')}
             {field('Tags (comma separated)', 'tags')}
           </div>
         </FormSection>
@@ -505,7 +659,7 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
               <AlertTriangle aria-hidden className="w-4 h-4 shrink-0 mt-px" style={{ color: 'var(--color-diff-hard)' }} />
               <span>
                 <span className="block text-label uppercase" style={{ color: 'var(--color-diff-hard)' }}>
-                  Flag {!isEdit && <span className="text-cyber-neon" aria-hidden>*</span>}
+                  {isB2R ? 'User flag' : 'Flag'} {!isEdit && <span className="text-cyber-neon" aria-hidden>*</span>}
                 </span>
                 <span className="block text-small text-text-muted mt-1 leading-relaxed">
                   {isEdit
@@ -530,10 +684,25 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
               </p>
             )}
             <input id="chal-flag" type="text" value={form.flag} onChange={e => setForm(p => ({ ...p, flag: e.target.value }))}
-              placeholder={isEdit ? 'Unchanged — type a new flag to replace it' : 'FLAG{...}'}
+              placeholder={isEdit ? 'Unchanged — type a new flag to replace it' : isB2R ? 'user flag — e.g. FLAG{user_...}' : 'FLAG{...}'}
               aria-invalid={(!isEdit && !!error && !form.flag) || undefined}
               className="input"
               style={{ borderColor: 'var(--color-border-danger)' }} />
+            {isB2R && (
+              <div className="mt-4">
+                <label className="flex items-start gap-2 mb-2" htmlFor="chal-root-flag">
+                  <Crown aria-hidden className="w-4 h-4 shrink-0 mt-px" style={{ color: 'var(--color-diff-hard)' }} />
+                  <span className="block text-label uppercase" style={{ color: 'var(--color-diff-hard)' }}>
+                    Root flag <span className="text-cyber-neon" aria-hidden>*</span>
+                  </span>
+                </label>
+                <input id="chal-root-flag" type="text" value={rootFlag} onChange={e => setRootFlag(e.target.value)}
+                  placeholder="root flag — e.g. FLAG{root_...}"
+                  aria-invalid={(!!error && !rootFlag) || undefined}
+                  className="input"
+                  style={{ borderColor: 'var(--color-border-danger)' }} />
+              </div>
+            )}
           </div>
 
           <div className="mt-4 flex items-center gap-3 rounded-control border border-border-subtle bg-surface-inset px-4 py-3">
@@ -811,7 +980,7 @@ function AdminDashboardInner() {
   const [challenges, setChallenges] = useState<DBChallenge[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editChallenge, setEditChallenge] = useState<DBChallenge | null>(null);
-  const [activeTab, setActiveTab] = useState<'challenges' | 'chains' | 'users' | 'teams' | 'submissions' | 'notifications' | 'event'>('challenges');
+  const [activeTab, setActiveTab] = useState<'challenges' | 'chains' | 'b2r' | 'users' | 'teams' | 'submissions' | 'notifications' | 'event'>('challenges');
   const [resetting, setResetting] = useState(false);
 
   const loadChallenges = async () => {
@@ -882,6 +1051,7 @@ function AdminDashboardInner() {
   const tabs = [
     { id: 'challenges', label: 'Challenges', icon: <Flag className="w-3.5 h-3.5" /> },
     { id: 'chains', label: 'Chains', icon: <Link2 className="w-3.5 h-3.5" /> },
+    { id: 'b2r', label: 'B2R', icon: <Server className="w-3.5 h-3.5" /> },
     { id: 'users', label: 'Users', icon: <Users className="w-3.5 h-3.5" /> },
     { id: 'teams', label: 'Teams', icon: <Shield className="w-3.5 h-3.5" /> },
     { id: 'submissions', label: 'Submissions', icon: <Activity className="w-3.5 h-3.5" /> },
@@ -1095,6 +1265,7 @@ function AdminDashboardInner() {
 
       {/* Users Tab */}
       {activeTab === 'chains' && <ChainManager challenges={challenges} />}
+      {activeTab === 'b2r' && <B2RManager challenges={challenges} onChanged={loadChallenges} />}
       {activeTab === 'users' && <UsersTab />}
       {activeTab === 'teams' && <TeamsTab />}
 

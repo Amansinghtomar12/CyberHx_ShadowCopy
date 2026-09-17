@@ -35,6 +35,7 @@ import {
   Droplet,
   Clock,
   Link2,
+  Server,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
@@ -42,7 +43,7 @@ import remarkGfm from 'remark-gfm';
 import { Category, Challenge } from './types';
 import { safeHttpUrl } from './lib/url';
 import { DBChallenge, supabase } from './lib/supabase';
-import { useChallenges, useChains, usePolling, useThrottled } from './hooks/useData';
+import { useChallenges, useChains, useB2R, usePolling, useThrottled } from './hooks/useData';
 import { submitFlag, getUnlockedHints, unlockHint } from './api/submitFlag';
 import { useAuth } from './hooks/useAuth';
 import Scoreboard from './Scoreboard';
@@ -77,11 +78,15 @@ import MilestoneBanner from './components/MilestoneBanner';
 import { pendingInvite, clearInvite, type InvitePreview } from './lib/invite';
 import { detectMilestones, type Milestone } from './lib/milestones';
 import { buildChainSeriesVM } from './components/chain/chainModel';
+import { buildB2RBoxVM, buildB2RSeriesVM } from './components/b2r/b2rModel';
 
 // The entire Chained Challenges subsystem (series board + heavy WebGL engine)
 // is a lazy chunk: nothing here is downloaded, parsed, or run unless the master
 // Chain Experience flag is on AND the player opens the CHAINED tab.
 const ChainedBoard = React.lazy(() => import('./components/chain/ChainedBoard'));
+// B2R (Boot-to-Root) board — same lazy posture: never downloaded unless the
+// master B2R flag is on AND the player opens the B2R tab.
+const B2RBoard = React.lazy(() => import('./components/b2r/B2RBoard'));
 
 function dbToChallenge(c: DBChallenge, solveCount = 0): Challenge {
   return {
@@ -382,8 +387,11 @@ export default function App() {
   // FREE = the normal difficulty grid (unchanged). CHAINED = the series
   // selector and 3D chain experience. Only ever reachable when the master
   // Chain Experience flag is on (derived below from event_settings).
-  const [boardMode, setBoardMode] = useState<'free' | 'chained'>('free');
+  const [boardMode, setBoardMode] = useState<'free' | 'chained' | 'b2r'>('free');
   const [activeSeriesId, setActiveSeriesId] = useState<string | null>(null);
+  // B2R (Boot-to-Root) is a third top-level mode with its own FREE / CHAINED
+  // sub-modes. Only reachable when the master B2R flag is on.
+  const [b2rSubMode, setB2rSubMode] = useState<'free' | 'chained'>('free');
 
   // ── Event ────────────────────────────────────────────────
   const [eventSettings, setEventSettings] = useState<any>(null);
@@ -397,11 +405,20 @@ export default function App() {
   const chainEnabled = !!eventSettings?.chain_experience_enabled;
   const { series: chainSeries, members: chainMembers, loading: chainsLoading } = useChains(chainEnabled);
 
+  // B2R master flag — same server-authoritative posture; every B2R read is
+  // independently gated in the DB views, so flipping this in the browser
+  // exposes nothing.
+  const b2rEnabled = !!eventSettings?.b2r_enabled;
+  const { boxes: b2rBoxes, series: b2rSeries, members: b2rMembers } = useB2R(b2rEnabled);
+
   // If an admin disables the experience mid-session, everyone falls straight
   // back to the normal board — no challenge becomes unreachable, nothing is lost.
   useEffect(() => {
-    if (!chainEnabled) { setBoardMode('free'); setActiveSeriesId(null); }
+    if (!chainEnabled) { setBoardMode(m => (m === 'chained' ? 'free' : m)); setActiveSeriesId(null); }
   }, [chainEnabled]);
+  useEffect(() => {
+    if (!b2rEnabled) { setBoardMode(m => (m === 'b2r' ? 'free' : m)); setB2rSubMode('free'); }
+  }, [b2rEnabled]);
 
   const reduce = useReducedMotion();
 
@@ -441,16 +458,40 @@ export default function App() {
     );
   }, [chainEnabled, chainSeries, chainMembers, challenges, solvedIds, teamSolvedIds]);
 
-  // Challenges that belong to a published chain are shown ONLY under CHAINED —
-  // they are removed from the FREE board. When the experience is off, nothing
-  // is chained, so FREE shows everything exactly as before.
+  // B2R view-models. Each flag is an ordinary challenge underneath, so
+  // "captured" comes straight from the same trusted solve arrays; a box is
+  // ROOTED when both its user and root flags are solved.
+  const b2rBoxVMs = useMemo(() => {
+    if (!b2rEnabled || b2rBoxes.length === 0) return [];
+    const byId = new Map<string, Challenge>();
+    challenges.forEach(c => byId.set(c.id, c));
+    const solvedSet = new Set<string>([...solvedIds, ...teamSolvedIds]);
+    const mineSet = new Set<string>(solvedIds);
+    return b2rBoxes.map(b => buildB2RBoxVM(b, byId, id => solvedSet.has(id), id => mineSet.has(id)));
+  }, [b2rEnabled, b2rBoxes, challenges, solvedIds, teamSolvedIds]);
+  const b2rSeriesVMs = useMemo(() => {
+    if (!b2rEnabled || b2rSeries.length === 0) return [];
+    const boxById = new Map(b2rBoxVMs.map(b => [b.id, b] as const));
+    return b2rSeries.map(s => buildB2RSeriesVM(s, b2rMembers, boxById));
+  }, [b2rEnabled, b2rSeries, b2rMembers, b2rBoxVMs]);
+
+  // Challenges that belong to a published chain are shown ONLY under CHAINED,
+  // and a B2R box's two flag challenges ONLY under B2R — both are removed from
+  // the FREE board. When those experiences are off, FREE shows everything
+  // exactly as before.
   const chainedChallengeIds = useMemo(
     () => new Set(chainEnabled ? chainMembers.map(m => m.challenge_id) : []),
     [chainEnabled, chainMembers],
   );
+  const b2rChallengeIds = useMemo(
+    () => new Set(b2rEnabled ? b2rBoxes.flatMap(b => [b.user_challenge_id, b.root_challenge_id]) : []),
+    [b2rEnabled, b2rBoxes],
+  );
   const freeChallenges = useMemo(
-    () => (chainedChallengeIds.size ? challenges.filter(c => !chainedChallengeIds.has(c.id)) : challenges),
-    [challenges, chainedChallengeIds],
+    () => (chainedChallengeIds.size || b2rChallengeIds.size
+      ? challenges.filter(c => !chainedChallengeIds.has(c.id) && !b2rChallengeIds.has(c.id))
+      : challenges),
+    [challenges, chainedChallengeIds, b2rChallengeIds],
   );
 
   // ── Fetch everything on mount ────────────────────────────
@@ -697,12 +738,17 @@ export default function App() {
   /** Categories actually present, in the palette's own order, with counts. */
   const categories = useMemo(() => {
     const counts: Record<string, number> = {};
-    const src = boardMode === 'chained' ? chainVMs.map(v => v.category) : freeChallenges.map(c => c.category);
+    const src = boardMode === 'chained' ? chainVMs.map(v => v.category)
+      : boardMode === 'b2r'
+        ? (b2rSubMode === 'chained'
+            ? b2rSeriesVMs.map(v => v.category)
+            : b2rBoxVMs.filter(b => b.seriesId == null).map(b => b.category))
+        : freeChallenges.map(c => c.category);
     src.forEach(cat => { counts[cat] = (counts[cat] || 0) + 1; });
     const order = Object.keys(CATEGORY_ICON);
     const rank = (id: string) => { const i = order.indexOf(id); return i === -1 ? 99 : i; };
     return Object.keys(counts).sort((a, b) => rank(a) - rank(b)).map(id => ({ id, count: counts[id] }));
-  }, [boardMode, chainVMs, freeChallenges]);
+  }, [boardMode, b2rSubMode, chainVMs, b2rSeriesVMs, b2rBoxVMs, freeChallenges]);
 
   const filteredChallenges = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -1114,7 +1160,7 @@ export default function App() {
                     the rail: it is a mode; these are a flick of the eye. */}
                 {challenges.length > 0 && canSeeChallenges && !needsTeam && (
                   <div className="board-tools mb-6 flex flex-col gap-3 lg:flex-row lg:items-center">
-                    {chainEnabled && (
+                    {(chainEnabled || b2rEnabled) && (
                       <div
                         role="tablist"
                         aria-label="Challenge mode"
@@ -1128,11 +1174,47 @@ export default function App() {
                         >
                           Free
                         </button>
+                        {chainEnabled && (
+                          <button
+                            role="tab"
+                            aria-selected={boardMode === 'chained'}
+                            onClick={() => { if (boardMode !== 'chained') play('open'); setBoardMode('chained'); }}
+                            className={`btn btn-sm inline-flex items-center gap-1.5 ${boardMode === 'chained' ? 'btn-secondary' : 'btn-ghost'}`}
+                          >
+                            <Link2 className="h-3.5 w-3.5" aria-hidden="true" /> Chained
+                          </button>
+                        )}
+                        {b2rEnabled && (
+                          <button
+                            role="tab"
+                            aria-selected={boardMode === 'b2r'}
+                            onClick={() => { if (boardMode !== 'b2r') play('open'); setBoardMode('b2r'); }}
+                            className={`btn btn-sm inline-flex items-center gap-1.5 ${boardMode === 'b2r' ? 'btn-secondary' : 'btn-ghost'}`}
+                          >
+                            <Server className="h-3.5 w-3.5" aria-hidden="true" /> B2R
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {boardMode === 'b2r' && (
+                      <div
+                        role="tablist"
+                        aria-label="B2R mode"
+                        className="inline-flex shrink-0 rounded-md border border-border-subtle bg-surface-sunken p-0.5"
+                      >
                         <button
                           role="tab"
-                          aria-selected={boardMode === 'chained'}
-                          onClick={() => { if (boardMode !== 'chained') play('open'); setBoardMode('chained'); }}
-                          className={`btn btn-sm inline-flex items-center gap-1.5 ${boardMode === 'chained' ? 'btn-secondary' : 'btn-ghost'}`}
+                          aria-selected={b2rSubMode === 'free'}
+                          onClick={() => setB2rSubMode('free')}
+                          className={`btn btn-sm ${b2rSubMode === 'free' ? 'btn-secondary' : 'btn-ghost'}`}
+                        >
+                          Free
+                        </button>
+                        <button
+                          role="tab"
+                          aria-selected={b2rSubMode === 'chained'}
+                          onClick={() => { if (b2rSubMode !== 'chained') play('open'); setB2rSubMode('chained'); }}
+                          className={`btn btn-sm inline-flex items-center gap-1.5 ${b2rSubMode === 'chained' ? 'btn-secondary' : 'btn-ghost'}`}
                         >
                           <Link2 className="h-3.5 w-3.5" aria-hidden="true" /> Chained
                         </button>
@@ -1177,7 +1259,12 @@ export default function App() {
                         aria-pressed={selectedCat === 'all'}
                         className={`chip shrink-0 ${selectedCat === 'all' ? 'is-active' : ''}`}
                       >
-                        All <span className="font-mono opacity-70">{boardMode === 'chained' ? chainVMs.length : freeChallenges.length}</span>
+                        All <span className="font-mono opacity-70">{
+                          boardMode === 'chained' ? chainVMs.length
+                          : boardMode === 'b2r'
+                            ? (b2rSubMode === 'chained' ? b2rSeriesVMs.length : b2rBoxVMs.filter(b => b.seriesId == null).length)
+                            : freeChallenges.length
+                        }</span>
                       </button>
                       {categories.map(cat => {
                         const Icon = CATEGORY_ICON[cat.id] ?? Boxes;
@@ -1313,6 +1400,24 @@ export default function App() {
                     }
                   >
                     <ChainedBoard vms={chainVMs} category={selectedCat} onOpenChallenge={openChainChallenge} />
+                  </React.Suspense>
+                ) : boardMode === 'b2r' ? (
+                  <React.Suspense
+                    fallback={
+                      <div className="flex h-[50vh] items-center justify-center text-text-tertiary">
+                        <span className="sr-only" role="status">Loading B2R…</span>
+                      </div>
+                    }
+                  >
+                    {/* Each flag button opens the ordinary challenge modal — the
+                        solve/submit flow is the existing one, unchanged. */}
+                    <B2RBoard
+                      boxes={b2rBoxVMs}
+                      seriesVMs={b2rSeriesVMs}
+                      subMode={b2rSubMode}
+                      category={selectedCat}
+                      onOpenChallenge={openChainChallenge}
+                    />
                   </React.Suspense>
                 ) : filteredChallenges.length === 0 ? (
                   <div className="surface flex flex-col items-center text-center px-6 py-16" role="status">

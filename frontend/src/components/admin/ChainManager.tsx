@@ -85,7 +85,8 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
   const availableToAdd = useMemo(() => {
     if (!draft) return [];
     const used = new Set(draft.members.map((m) => m.challenge_id));
-    return challenges.filter((c) => !used.has(c.id));
+    // A B2R box's user/root flag challenges live only under the B2R tab.
+    return challenges.filter((c) => !used.has(c.id) && !(c.tags ?? []).includes('b2r'));
   }, [draft, challenges]);
 
   const addMember = (challengeId: string) => {
