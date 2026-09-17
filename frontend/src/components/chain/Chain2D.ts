@@ -36,6 +36,7 @@ const IGNITE_MS = 1400;    // premium ignition ramp
 const FIRE_DISP_H = 56;    // fire band display height (px) — low flame for the small chain
 const FIRE_BASE = 0.72;    // fraction of the fire below its dest-top (flames rise)
 const FIRE_PAD = 22;       // horizontal padding around each burning segment
+const CARD_INSET = 84;     // half the 150px card + margin: fire/glow never run behind a card
 
 export function chainContentWidth(nodeCount: number): number {
   const n = Math.max(1, nodeCount);
@@ -130,7 +131,7 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
   function hotChain(x0: number, x1: number, cy: number, t: number, s: number, heat: number, glow: [number, number, number]) {
     if (x1 <= x0) return;
     const flick = 0.82 + 0.18 * vnoise(t * 2.4 + s * 1.3);
-    const cx = (x0 + x1) / 2, rx = (x1 - x0) / 2 + 14, ry = CHAIN_H * 0.72;
+    const cx = (x0 + x1) / 2, rx = Math.max(8, (x1 - x0) / 2 - CARD_INSET), ry = CHAIN_H * 0.72;
     const [r, gr, b] = glow;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
@@ -168,7 +169,7 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
     for (let s = 0; s < segCount; s++) {
       const heat = segHeat[s];
       if (heat < 0.02) continue;
-      const x0 = nodeX(s), x1 = nodeX(s + 1);
+      const x0 = nodeX(s) + CARD_INSET, x1 = nodeX(s + 1) - CARD_INSET;
       if (x1 <= x0) continue;
       const destW = (x1 - x0) + FIRE_PAD * 2, fh = FIRE_DISP_H, scale = fh / IH;
       const srcW = Math.min(IW, destW / scale), range = Math.max(0, IW - srcW);
@@ -197,7 +198,7 @@ export function createChain2D(canvas: HTMLCanvasElement, opts: Chain2DOptions): 
     mc.globalCompositeOperation = 'source-over';
     for (let s = 0; s < segCount; s++) {
       if (segHeat[s] < 0.02) continue;
-      const x0 = nodeX(s) - FIRE_PAD, x1 = nodeX(s + 1) + FIRE_PAD;
+      const x0 = nodeX(s) + CARD_INSET - FIRE_PAD, x1 = nodeX(s + 1) - CARD_INSET + FIRE_PAD;
       const g = mc.createLinearGradient(x0, 0, x1, 0), fw = 30 / (x1 - x0);
       g.addColorStop(0, 'rgba(0,0,0,0)');
       g.addColorStop(fw, 'rgba(0,0,0,1)');

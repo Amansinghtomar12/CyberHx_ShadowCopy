@@ -408,7 +408,12 @@ export default function App() {
   // B2R master flag — same server-authoritative posture; every B2R read is
   // independently gated in the DB views, so flipping this in the browser
   // exposes nothing.
-  const b2rEnabled = !!eventSettings?.b2r_enabled;
+  // Admins can always open the B2R tab (the DB views already let admins read
+  // published boxes regardless of the flag), so boxes can be built and checked
+  // before the experience is switched on for players. Players see the tab only
+  // when the flag is ON.
+  const b2rFlagOn = !!eventSettings?.b2r_enabled;
+  const b2rEnabled = b2rFlagOn || !!profile?.is_admin;
   const { boxes: b2rBoxes, series: b2rSeries, members: b2rMembers } = useB2R(b2rEnabled);
 
   // If an admin disables the experience mid-session, everyone falls straight
@@ -1196,6 +1201,7 @@ export default function App() {
                             className={`btn btn-sm inline-flex items-center gap-1.5 ${boardMode === 'b2r' ? 'btn-secondary' : 'btn-ghost'}`}
                           >
                             <Server className="h-3.5 w-3.5" aria-hidden="true" /> B2R
+                            {!b2rFlagOn && <span className="rounded-full bg-surface-sunken px-1.5 text-micro text-text-muted" title="B2R is switched off for players — admin preview">off</span>}
                           </button>
                         )}
                       </div>
