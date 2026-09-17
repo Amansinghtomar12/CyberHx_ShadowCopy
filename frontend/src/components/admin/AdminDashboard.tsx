@@ -609,7 +609,7 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
         <FormSection icon={<ListChecks className="w-4 h-4" />} title="Identity">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {field('Title', 'title', 'text', undefined, true)}
-            {field('Author', 'author', 'text', 'Blank falls back to “Cyberhx Team”.')}
+            {!isB2R && field('Author', 'author', 'text', 'Blank falls back to “Cyberhx Team”.')}
             <div className="min-w-0">
               <label className="field-label" htmlFor="chal-category">Category</label>
               <select id="chal-category" value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value as any }))}
@@ -638,7 +638,7 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
               </div>
             )}
             {field('Max Attempts', 'max_attempts', 'number', isB2R ? 'Wrong submissions allowed per player, per flag.' : 'Wrong submissions allowed per player.')}
-            {field('Tags (comma separated)', 'tags')}
+            {!isB2R && field('Tags (comma separated)', 'tags')}
           </div>
         </FormSection>
 
@@ -998,7 +998,17 @@ function AdminDashboardInner() {
   // their SQL defaults, which reset points to 100, attempts to unlimited,
   // author, tags and connection info on every challenge that was switched
   // live — exactly what the kickoff routine does to all of them at once.
+  // A B2R box's two flag rows (tagged 'b2r' by admin_upsert_b2r_box) are
+  // halves of one machine: publish/unpublish and delete the BOX from the B2R
+  // tab so both flags move together. Hiding or deleting one half here would
+  // silently dissolve the box (ON DELETE CASCADE) and strand its sibling.
+  const isB2RFlagRow = (id: string) => (challenges.find(c => c.id === id)?.tags ?? []).includes('b2r');
+
   const toggleVisibility = async (id: string, current: boolean) => {
+    if (isB2RFlagRow(id)) {
+      alert('This is one flag of a B2R box. Publish or unpublish the whole box from the B2R tab so both flags change together.');
+      return;
+    }
     const { data, error } = await supabase.rpc('admin_set_challenge_visibility', {
       p_id: id,
       p_visible: !current,
@@ -1011,6 +1021,10 @@ function AdminDashboardInner() {
 
   // HARDENED: deleteChallenge via RPC — admin check enforced server-side
   const deleteChallenge = async (id: string) => {
+    if (isB2RFlagRow(id)) {
+      alert('This is one flag of a B2R box. Delete the whole box from the B2R tab — deleting one flag here would break the box.');
+      return;
+    }
     if (!confirm('Delete this challenge? This cannot be undone.')) return;
     const { data, error } = await supabase.rpc('admin_delete_challenge', { p_id: id });
     if (error || data?.error) {

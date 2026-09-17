@@ -487,10 +487,14 @@ export default function App() {
     () => new Set(b2rEnabled ? b2rBoxes.flatMap(b => [b.user_challenge_id, b.root_challenge_id]) : []),
     [b2rEnabled, b2rBoxes],
   );
+  // A B2R flag challenge is tagged 'b2r' by admin_upsert_b2r_box, so it stays
+  // off the FREE board even while the B2R experience is switched OFF (when the
+  // client cannot see box membership at all). Placement is "that place only".
   const freeChallenges = useMemo(
-    () => (chainedChallengeIds.size || b2rChallengeIds.size
-      ? challenges.filter(c => !chainedChallengeIds.has(c.id) && !b2rChallengeIds.has(c.id))
-      : challenges),
+    () => challenges.filter(c =>
+      !chainedChallengeIds.has(c.id)
+      && !b2rChallengeIds.has(c.id)
+      && !(c.tags ?? []).includes('b2r')),
     [challenges, chainedChallengeIds, b2rChallengeIds],
   );
 
