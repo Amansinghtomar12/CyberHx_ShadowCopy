@@ -91,7 +91,7 @@ export default function ChainExperience({ series, onOpenChallenge, onBack }: Pro
   const pct = series.total ? Math.round((series.solvedCount / series.total) * 100) : 0;
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border-subtle bg-black">
+    <div className="overflow-hidden rounded-lg border border-border-subtle bg-black/70 backdrop-blur-xl">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle px-4 py-3">
         <div className="flex items-center gap-3">

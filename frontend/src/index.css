@@ -28,7 +28,7 @@
   --color-surface-base: #060b10;     /* = cyber-bg                           */
   --color-surface-rail: #0a1118;     /* = cyber-sidebar (nav rails, headers) */
   --color-surface-card: rgba(13, 22, 31, 0.72); /* = cyber-card, semi-transparent */
-  --color-surface-raised: #121d28;   /* hovered / selected / stacked panel   */
+  --color-surface-raised: rgba(18, 29, 40, 0.72); /* hovered / selected / stacked panel */
   --color-surface-overlay: #17232f;  /* modals, popovers, dropdowns          */
   --color-surface-inset: #08111a;    /* wells: inputs, code blocks, tracks   */
   --color-surface-veil: rgba(6, 11, 16, 0.72); /* scrim behind modals        */
@@ -453,12 +453,16 @@
   /* ══ SURFACES ══════════════════════════════════════════════════════════ */
   .surface {
     background-color: var(--color-surface-card);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--color-border-base);
     border-radius: var(--radius-card);
     box-shadow: var(--shadow-e2);
   }
   .surface-raised {
     background-color: var(--color-surface-raised);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-card);
     box-shadow: var(--shadow-e3);
