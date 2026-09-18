@@ -1771,8 +1771,8 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
           {isSolved && (
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0"
-              style={{ background: 'linear-gradient(180deg, var(--color-neon-wash), transparent 55%)' }}
+              className="pointer-events-none absolute inset-0 rounded-[inherit]"
+              style={{ background: 'rgba(198, 255, 0, 0.06)' }}
             />
           )}
           {/* pointer specular — transform + opacity only */}
