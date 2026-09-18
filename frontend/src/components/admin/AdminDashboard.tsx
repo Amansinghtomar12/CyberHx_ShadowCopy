@@ -2477,6 +2477,7 @@ function TeamsTab() {
   const [msg, setMsg] = useState('');
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(0);
+  const [sortByRank, setSortByRank] = useState(false);
 
   // Teams that include an admin. Their ban and delete controls lock, the way
   // the admin's own row locks in the Users tab; the server refuses too.
@@ -2486,9 +2487,11 @@ function TeamsTab() {
   // so a few hundred teams never become an endless scroll.
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return teams;
-    return teams.filter(t => (t.name ?? '').toLowerCase().includes(q));
-  }, [teams, query]);
+    let list = teams;
+    if (q) list = list.filter(t => (t.name ?? '').toLowerCase().includes(q));
+    if (sortByRank) list = [...list].sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity));
+    return list;
+  }, [teams, query, sortByRank]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / TEAMS_PER_PAGE));
   const clampedPage = Math.min(page, pageCount - 1);
@@ -2497,16 +2500,23 @@ function TeamsTab() {
   const pageTeams = filtered.slice(start, start + TEAMS_PER_PAGE);
 
   const loadTeams = async () => {
-    const { data: teamsData } = await supabase
-      .from('teams')
-      .select('id, name, is_banned, captain_id, created_at')
-      .order('created_at', { ascending: true });
+    const [{ data: teamsData }, { data: scores }, { data: admins }] = await Promise.all([
+      supabase
+        .from('teams')
+        .select('id, name, is_banned, captain_id, created_at')
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('team_scores')
+        .select('id, name, total_points, solved_count, last_solve')
+        .order('total_points', { ascending: false })
+        .order('last_solve', { ascending: true }),
+      supabase
+        .from('profiles')
+        .select('team_id, is_owner')
+        .eq('role', 'admin')
+        .not('team_id', 'is', null),
+    ]);
 
-    const { data: admins } = await supabase
-      .from('profiles')
-      .select('team_id, is_owner')
-      .eq('role', 'admin')
-      .not('team_id', 'is', null);
     const prot: Record<string, 'owner' | 'admin'> = {};
     (admins ?? []).forEach((a: any) => {
       if (!a.team_id) return;
@@ -2517,12 +2527,24 @@ function TeamsTab() {
 
     if (!teamsData) return;
 
+    const scoreMap = new Map<string, { rank: number; total_points: number; solved_count: number }>();
+    (scores ?? []).forEach((s: any, i: number) => {
+      scoreMap.set(s.id, { rank: i + 1, total_points: s.total_points ?? 0, solved_count: s.solved_count ?? 0 });
+    });
+
     const teamsWithCounts = await Promise.all(teamsData.map(async (t) => {
       const { count } = await supabase
         .from('profiles')
         .select('id', { count: 'exact', head: true })
         .eq('team_id', t.id);
-      return { ...t, member_count: count ?? 0 };
+      const sc = scoreMap.get(t.id);
+      return {
+        ...t,
+        member_count: count ?? 0,
+        rank: sc?.rank ?? null,
+        total_points: sc?.total_points ?? 0,
+        solved_count: sc?.solved_count ?? 0,
+      };
     }));
 
     setTeams(teamsWithCounts);
@@ -2592,23 +2614,32 @@ function TeamsTab() {
           <p className="text-small text-text-muted">Select a team to inspect members and its invite code.</p>
         </div>
 
-        <div className="mb-4 relative max-w-sm">
-          <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-          <input
-            type="text"
-            value={query}
-            onChange={e => { setQuery(e.target.value); setPage(0); }}
-            placeholder="Search by team name…"
-            aria-label="Search teams"
-            className="input w-full pl-9"
-          />
-          {query && (
-            <button type="button" onClick={() => { setQuery(''); setPage(0); }}
-              aria-label="Clear search" title="Clear"
-              className="absolute right-2 top-1/2 -translate-y-1/2 btn btn-ghost btn-sm btn-icon">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className="relative max-w-sm flex-1 min-w-[200px]">
+            <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+            <input
+              type="text"
+              value={query}
+              onChange={e => { setQuery(e.target.value); setPage(0); }}
+              placeholder="Search by team name…"
+              aria-label="Search teams"
+              className="input w-full pl-9"
+            />
+            {query && (
+              <button type="button" onClick={() => { setQuery(''); setPage(0); }}
+                aria-label="Clear search" title="Clear"
+                className="absolute right-2 top-1/2 -translate-y-1/2 btn btn-ghost btn-sm btn-icon">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => { setSortByRank(v => !v); setPage(0); }}
+            className={`btn btn-sm ${sortByRank ? 'btn-primary' : 'btn-secondary'} inline-flex items-center gap-1.5`}
+          >
+            <Activity className="w-3.5 h-3.5" /> {sortByRank ? 'Sorted by rank' : 'Sort by rank'}
+          </button>
         </div>
 
         {/* Desktop / tablet: table */}
@@ -2618,8 +2649,10 @@ function TeamsTab() {
               <tr>
                 <Th>#</Th>
                 <Th>Team Name</Th>
+                <Th>Rank</Th>
+                <Th>Score</Th>
+                <Th>Solves</Th>
                 <Th>Members</Th>
-                <Th>Invite Code</Th>
                 <Th>Status</Th>
                 <Th align="right">Actions</Th>
               </tr>
@@ -2636,10 +2669,18 @@ function TeamsTab() {
                       {selected?.id === t.id && <span className="badge badge-neon">Selected</span>}
                     </div>
                   </td>
-                  <td className="px-5 py-4 text-small text-text-secondary whitespace-nowrap">
-                    <span className="font-mono">{t.member_count ?? 0}</span> members
+                  <td className="px-5 py-4 text-small font-mono tabular-nums whitespace-nowrap">
+                    {t.rank != null ? (
+                      <span className={t.rank <= 3 ? 'font-semibold text-cyber-neon' : 'text-text-secondary'}>#{t.rank}</span>
+                    ) : (
+                      <span className="text-text-muted">—</span>
+                    )}
                   </td>
-                  <td className="px-5 py-4 text-small font-mono text-text-muted">••••••••</td>
+                  <td className="px-5 py-4 text-small font-mono font-semibold tabular-nums text-cyber-neon whitespace-nowrap">{t.total_points ?? 0}</td>
+                  <td className="px-5 py-4 text-small font-mono tabular-nums text-text-secondary whitespace-nowrap">{t.solved_count ?? 0}</td>
+                  <td className="px-5 py-4 text-small text-text-secondary whitespace-nowrap">
+                    <span className="font-mono">{t.member_count ?? 0}</span>
+                  </td>
                   <td className="px-5 py-4">
                     <span className={`badge ${t.is_banned ? 'badge-hard' : 'badge-solved'}`}>
                       {t.is_banned ? 'Banned' : 'Active'}
@@ -2658,7 +2699,7 @@ function TeamsTab() {
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={6} className="p-0">
+                <tr><td colSpan={8} className="p-0">
                   <EmptyState icon={<Shield className="w-5 h-5" />} title={query ? 'No matches' : 'No teams yet'} hint={query ? 'No team matches your search.' : 'Teams appear here as soon as a player creates one.'} />
                 </td></tr>
               )}
@@ -2678,12 +2719,16 @@ function TeamsTab() {
                       <p className={`text-body font-semibold truncate ${t.is_banned ? 'line-through text-diff-hard' : 'text-cyber-text'}`}>{t.name}</p>
                     </div>
                     <p className="text-small text-text-muted mt-1">
-                      <span className="font-mono">{t.member_count ?? 0}</span> members · code ••••••••
+                      <span className="font-mono">{t.member_count ?? 0}</span> members
+                      {t.rank != null && <> · Rank <span className={`font-mono ${t.rank <= 3 ? 'text-cyber-neon' : ''}`}>#{t.rank}</span></>}
                     </p>
                   </div>
-                  <span className={`badge shrink-0 ${t.is_banned ? 'badge-hard' : 'badge-solved'}`}>
-                    {t.is_banned ? 'Banned' : 'Active'}
-                  </span>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span className={`badge ${t.is_banned ? 'badge-hard' : 'badge-solved'}`}>
+                      {t.is_banned ? 'Banned' : 'Active'}
+                    </span>
+                    <span className="font-mono text-small font-semibold text-cyber-neon tabular-nums">{t.total_points ?? 0}p</span>
+                  </div>
                 </div>
               </button>
               <div className="mt-3 pt-3 border-t border-border-subtle flex justify-end">
@@ -2745,6 +2790,20 @@ function TeamsTab() {
           </div>
 
           <dl className="surface-inset px-3.5 py-3 space-y-2 text-small">
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-text-muted">Rank</dt>
+              <dd className={`font-mono font-semibold tabular-nums ${selected.rank != null && selected.rank <= 3 ? 'text-cyber-neon' : 'text-cyber-text'}`}>
+                {selected.rank != null ? `#${selected.rank}` : '—'}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-text-muted">Score</dt>
+              <dd className="font-mono font-semibold text-cyber-neon tabular-nums">{selected.total_points ?? 0}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-text-muted">Solves</dt>
+              <dd className="font-mono text-cyber-text tabular-nums">{selected.solved_count ?? 0}</dd>
+            </div>
             <div className="flex items-center justify-between gap-3">
               <dt className="text-text-muted">Status</dt>
               <dd><span className={`badge ${selected.is_banned ? 'badge-hard' : 'badge-solved'}`}>{selected.is_banned ? 'Banned' : 'Active'}</span></dd>
