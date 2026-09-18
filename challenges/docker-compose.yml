@@ -36,15 +36,3 @@ services:
         limits:
           memory: 128M
           cpus: "0.25"
-
-  phantom-protocol:
-    build: ./phantom_protocol
-    container_name: phantom-protocol
-    ports:
-      - "9008:9008"
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-          cpus: "0.25"
