@@ -36,3 +36,15 @@ services:
         limits:
           memory: 128M
           cpus: "0.25"
+
+  operation-ghostwire:
+    build: ./operation_ghostwire
+    container_name: operation-ghostwire
+    ports:
+      - "9008:9008"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
