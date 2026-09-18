@@ -27,7 +27,7 @@
   --color-surface-sunken: #04080c;   /* page gutters, behind everything      */
   --color-surface-base: #060b10;     /* = cyber-bg                           */
   --color-surface-rail: #0a1118;     /* = cyber-sidebar (nav rails, headers) */
-  --color-surface-card: #0d161f;     /* = cyber-card (default panel)         */
+  --color-surface-card: rgba(13, 22, 31, 0.72); /* = cyber-card, semi-transparent */
   --color-surface-raised: #121d28;   /* hovered / selected / stacked panel   */
   --color-surface-overlay: #17232f;  /* modals, popovers, dropdowns          */
   --color-surface-inset: #08111a;    /* wells: inputs, code blocks, tracks   */
@@ -480,6 +480,8 @@
   .card-interactive {
     position: relative;
     background-color: var(--color-surface-card);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--color-border-base);
     border-radius: var(--radius-card);
     box-shadow: var(--shadow-e2);
