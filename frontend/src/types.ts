@@ -1,13 +1,14 @@
 import { LucideIcon } from 'lucide-react';
 
-export type Category = 
-  | 'web' 
-  | 'crypto' 
-  | 'steg' 
-  | 'rev' 
-  | 'pwn' 
-  | 'forensic' 
-  | 'osint' 
+export type Category =
+  | 'web'
+  | 'crypto'
+  | 'steg'
+  | 'rev'
+  | 'pwn'
+  | 'forensic'
+  | 'osint'
+  | 'b2r'
   | 'misc';
 
 export interface Challenge {

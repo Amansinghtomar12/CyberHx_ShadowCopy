@@ -52,7 +52,7 @@ export interface DBTeam {
 export interface DBChallenge {
   id: string;
   title: string;
-  category: 'web' | 'crypto' | 'steg' | 'rev' | 'pwn' | 'forensic' | 'osint' | 'misc';
+  category: 'web' | 'crypto' | 'steg' | 'rev' | 'pwn' | 'forensic' | 'osint' | 'b2r' | 'misc';
   difficulty: 'Easy' | 'Medium' | 'Hard' | 'Insane';
   points: number;
   description: string;

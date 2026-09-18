@@ -9,7 +9,7 @@ import { buildB2RSeriesVM, type B2RBoxVM } from '../b2r/b2rModel';
 
 const ChainExperience = React.lazy(() => import('../chain/ChainExperience'));
 
-const CATEGORIES = ['web', 'crypto', 'steg', 'rev', 'pwn', 'forensic', 'osint', 'misc'];
+const CATEGORIES = ['web', 'crypto', 'steg', 'rev', 'pwn', 'forensic', 'osint', 'b2r', 'misc'];
 const DIFFICULTIES = ['Easy', 'Medium', 'Hard', 'Insane'];
 
 // Shapes returned by the admin_list_b2r_* RPCs (structure only — never flags).

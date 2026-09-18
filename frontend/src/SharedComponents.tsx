@@ -40,7 +40,7 @@ const TOKEN = {
   muted: '#8a949d'
 };
 
-const CAT_KEYS = ['web', 'crypto', 'steg', 'rev', 'pwn', 'forensic', 'osint', 'misc'];
+const CAT_KEYS = ['web', 'crypto', 'steg', 'rev', 'pwn', 'forensic', 'osint', 'b2r', 'misc'];
 
 /** Maps an arbitrary category label onto the design-system category hue. */
 const catColor = (category: unknown): string => {

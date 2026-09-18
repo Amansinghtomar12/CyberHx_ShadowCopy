@@ -79,7 +79,7 @@ function CategoryTicker({ reduceMotion }: { reduceMotion: boolean }) {
   const items = [
     'WEB EXPLOITATION', 'CRYPTOGRAPHY', 'BINARY EXPLOITATION',
     'REVERSE ENGINEERING', 'FORENSICS', 'OSINT', 'STEGANOGRAPHY',
-    'MISC',
+    'BOOT2ROOT', 'MISC',
   ];
   const line = items.map((t, i) => (
     <React.Fragment key={i}>

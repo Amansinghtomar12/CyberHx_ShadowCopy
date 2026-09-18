@@ -10,7 +10,7 @@ import type { DBChainSeries, DBChainMember } from '../../lib/supabase';
 
 const ChainExperience = React.lazy(() => import('../chain/ChainExperience'));
 
-const CATEGORIES = ['web', 'crypto', 'steg', 'rev', 'pwn', 'forensic', 'osint', 'misc'];
+const CATEGORIES = ['web', 'crypto', 'steg', 'rev', 'pwn', 'forensic', 'osint', 'b2r', 'misc'];
 const DIFFICULTIES = ['Easy', 'Medium', 'Hard', 'Insane'];
 
 interface AdminMember { challenge_id: string; position: number; }

@@ -1,7 +1,7 @@
 {
   "name": "CyberHX CTF",
   "short_name": "CyberHX",
-  "description": "Free Capture The Flag platform \u2014 Web, Crypto, Pwn, Rev, OSINT challenges.",
+  "description": "Free Capture The Flag platform \u2014 Web, Crypto, Pwn, B2R, Rev, OSINT challenges.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#060b10",

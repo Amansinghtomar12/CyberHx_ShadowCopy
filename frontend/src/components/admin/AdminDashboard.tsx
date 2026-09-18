@@ -614,7 +614,7 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
               <label className="field-label" htmlFor="chal-category">Category</label>
               <select id="chal-category" value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value as any }))}
                 className="select">
-                {['web','crypto','steg','rev','pwn','forensic','osint','misc'].map(c => <option key={c}>{c}</option>)}
+                {['web','crypto','steg','rev','pwn','forensic','osint','b2r','misc'].map(c => <option key={c}>{c}</option>)}
               </select>
             </div>
             <div className="min-w-0">

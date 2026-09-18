@@ -130,6 +130,7 @@ const CATEGORY_ICON: Record<string, IconCmp> = {
   pwn: Bug,
   forensic: Fingerprint,
   osint: Search,
+  b2r: Server,
   misc: Boxes,
 };
 
