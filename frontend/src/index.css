@@ -38,7 +38,7 @@
   --color-border-base: #1a242d;      /* = cyber-border                       */
   --color-border-strong: #27343f;
   --color-border-hover: #3a4855;          /* scrollbar thumb / control hover  */
-  --color-border-neon: rgba(198, 255, 0, 0.38);
+  --color-border-neon: rgba(198, 255, 0, 0.6);
   --color-border-danger: rgba(224, 112, 95, 0.38); /* danger panels & alerts  */
 
   /* ── Neon ramp + glow ──────────────────────────────────────────────────── */
@@ -47,7 +47,7 @@
   --color-neon-bright: #ddff6b;
   --color-neon-ink: #0a1000;         /* text placed ON a neon fill           */
   --color-neon-glow: rgba(198, 255, 0, 0.35);
-  --color-neon-wash: rgba(198, 255, 0, 0.08);
+  --color-neon-wash: rgba(198, 255, 0, 0.12);
 
   /* ── Text ramp (AA on surface-base unless noted) ───────────────────────── */
   --color-text-primary: #e1e7ec;     /* = cyber-text                         */
@@ -628,7 +628,7 @@
   .badge-medium  { color: var(--color-diff-medium);   border-color: rgba(224, 179, 74, 0.35);  background-color: var(--color-diff-medium-wash); }
   .badge-hard    { color: var(--color-diff-hard);     border-color: rgba(224, 112, 95, 0.35);  background-color: var(--color-diff-hard-wash); }
   .badge-insane  { color: var(--color-diff-insane);   border-color: rgba(185, 140, 247, 0.42); background-color: var(--color-diff-insane-wash); }
-  .badge-solved  { color: var(--color-status-solved); border-color: rgba(166, 224, 74, 0.35);  background-color: var(--color-status-solved-wash); }
+  .badge-solved  { color: var(--color-status-solved); border-color: rgba(166, 224, 74, 0.5);   background-color: rgba(166, 224, 74, 0.18); }
   .badge-locked  { color: var(--color-status-locked); border-color: rgba(107, 118, 129, 0.35); background-color: var(--color-status-locked-wash); }
   .badge-live    { color: var(--color-status-live);   border-color: rgba(255, 106, 94, 0.35);  background-color: var(--color-status-live-wash); }
   .badge-info    { color: var(--color-status-info);   border-color: rgba(109, 159, 212, 0.35); background-color: var(--color-status-info-wash); }

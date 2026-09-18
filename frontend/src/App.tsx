@@ -1758,7 +1758,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
           /* The tier's frame, idle behaviour and hue all key off this. */
           data-diff={challenge.difficulty}
           className={`card-interactive group relative flex h-full w-full flex-col overflow-hidden p-5 text-left ${
-            isSolved ? 'border-border-neon' : ''
+            isSolved ? 'border-border-neon shadow-[0_0_14px_rgba(198,255,0,0.18)]' : ''
           }`}
         >
           {/* category hairline */}
