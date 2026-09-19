@@ -2509,7 +2509,7 @@ function TeamsTab() {
         .from('team_scores')
         .select('id, name, total_points, solved_count, last_solve')
         .order('total_points', { ascending: false })
-        .order('last_solve', { ascending: true }),
+        .order('last_solve', { ascending: true, nullsFirst: false }),
       supabase
         .from('profiles')
         .select('team_id, is_owner')
