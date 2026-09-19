@@ -17,7 +17,7 @@ import { supabase } from './supabase';
 const TOP = 200;
 
 interface TeamRow { id: string; name: string; member_count: number; total_points: number; solved_count: number; last_solve: string | null }
-interface Member { id: string; username: string; team_id: string | null; country: string | null }
+interface Member { id: string; username: string; email: string; team_id: string | null; country: string | null }
 
 /** Excel-safe cell: quoted, quotes doubled, formula-leading characters defused. */
 function cell(v: unknown): string {
@@ -49,7 +49,7 @@ export async function exportScoreboardCsv(eventName: string | null | undefined):
   const captainByTeam = new Map<string, string>();
   if (ids.length) {
     const { data: members, error: mErr } = await supabase
-      .from('safe_profiles').select('id, username, team_id, country').in('team_id', ids);
+      .from('profiles').select('id, username, email, team_id, country').in('team_id', ids);
     if (mErr) throw new Error(`rosters: ${mErr.message}`);
     (members ?? []).forEach((m: Member) => {
       if (!m.team_id) return;
@@ -64,7 +64,7 @@ export async function exportScoreboardCsv(eventName: string | null | undefined):
     });
   }
 
-  const header = ['rank', 'team', 'points', 'solves', 'last_solve_utc', 'member_count', 'captain', 'members', 'countries'];
+  const header = ['rank', 'team', 'points', 'solves', 'last_solve_utc', 'member_count', 'captain', 'members', 'emails', 'countries'];
   const lines = [header.join(',')];
   rows.forEach((t, i) => {
     const roster = (membersByTeam.get(t.id) ?? []).sort((a, b) => a.username.localeCompare(b.username));
@@ -73,7 +73,9 @@ export async function exportScoreboardCsv(eventName: string | null | undefined):
       i + 1, t.name, t.total_points, t.solved_count,
       t.last_solve ? new Date(t.last_solve).toISOString().replace('T', ' ').slice(0, 19) : '',
       t.member_count, captainByTeam.get(t.id) ?? '',
-      roster.map(m => m.username).join(' | '), countries,
+      roster.map(m => m.username).join(' | '),
+      roster.map(m => m.email).join(' | '),
+      countries,
     ].map(cell).join(','));
   });
 
