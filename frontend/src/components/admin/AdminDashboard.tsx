@@ -2500,16 +2500,30 @@ function TeamsTab() {
   const pageTeams = filtered.slice(start, start + TEAMS_PER_PAGE);
 
   const loadTeams = async () => {
-    const [{ data: teamsData }, { data: scores }, { data: admins }] = await Promise.all([
-      supabase
+    // PostgREST caps responses at 1000 rows; paginate to get every team.
+    const fetchAll = async (build: () => any) => {
+      const all: any[] = [];
+      let from = 0;
+      while (true) {
+        const { data } = await build().range(from, from + 999);
+        if (!data?.length) break;
+        all.push(...data);
+        if (data.length < 1000) break;
+        from += 1000;
+      }
+      return all;
+    };
+
+    const [teamsData, scores, { data: admins }] = await Promise.all([
+      fetchAll(() => supabase
         .from('teams')
         .select('id, name, is_banned, captain_id, created_at')
-        .order('created_at', { ascending: true }),
-      supabase
+        .order('created_at', { ascending: true })),
+      fetchAll(() => supabase
         .from('team_scores')
-        .select('id, name, total_points, solved_count, last_solve')
+        .select('id, name, total_points, solved_count, last_solve, member_count')
         .order('total_points', { ascending: false })
-        .order('last_solve', { ascending: true, nullsFirst: false }),
+        .order('last_solve', { ascending: true, nullsFirst: false })),
       supabase
         .from('profiles')
         .select('team_id, is_owner')
@@ -2525,29 +2539,25 @@ function TeamsTab() {
     });
     setProtectedTeams(prot);
 
-    if (!teamsData) return;
+    if (!teamsData.length) return;
 
-    const scoreMap = new Map<string, { rank: number; total_points: number; solved_count: number }>();
-    (scores ?? []).forEach((s: any, i: number) => {
-      scoreMap.set(s.id, { rank: i + 1, total_points: s.total_points ?? 0, solved_count: s.solved_count ?? 0 });
+    const scoreMap = new Map<string, { rank: number; total_points: number; solved_count: number; member_count: number }>();
+    scores.forEach((s: any, i: number) => {
+      scoreMap.set(s.id, { rank: i + 1, total_points: s.total_points ?? 0, solved_count: s.solved_count ?? 0, member_count: s.member_count ?? 0 });
     });
 
-    const teamsWithCounts = await Promise.all(teamsData.map(async (t) => {
-      const { count } = await supabase
-        .from('profiles')
-        .select('id', { count: 'exact', head: true })
-        .eq('team_id', t.id);
+    const merged = teamsData.map((t: any) => {
       const sc = scoreMap.get(t.id);
       return {
         ...t,
-        member_count: count ?? 0,
+        member_count: sc?.member_count ?? 0,
         rank: sc?.rank ?? null,
         total_points: sc?.total_points ?? 0,
         solved_count: sc?.solved_count ?? 0,
       };
-    }));
+    });
 
-    setTeams(teamsWithCounts);
+    setTeams(merged);
   };
 
   useEffect(() => { loadTeams(); }, []);
