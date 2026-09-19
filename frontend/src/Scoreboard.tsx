@@ -611,7 +611,7 @@ export default function Scoreboard({ myTeamId = null, eventStatus = 'live', star
       .from('team_scores')
       .select('*')
       .order('total_points', { ascending: false })
-      .order('last_solve', { ascending: true })
+      .order('last_solve', { ascending: true, nullsFirst: false })
       .limit(10);
 
     if (!teamData?.length) return null;
