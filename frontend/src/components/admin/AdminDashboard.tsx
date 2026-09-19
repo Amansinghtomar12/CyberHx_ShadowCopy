@@ -2483,12 +2483,13 @@ function TeamsTab() {
   // the admin's own row locks in the Users tab; the server refuses too.
   const [protectedTeams, setProtectedTeams] = useState<Record<string, 'owner' | 'admin'>>({});
 
-  // Search narrows by team name; pagination then chops the result into pages
-  // so a few hundred teams never become an endless scroll.
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     let list = teams;
-    if (q) list = list.filter(t => (t.name ?? '').toLowerCase().includes(q));
+    if (q) list = list.filter(t =>
+      (t.name ?? '').toLowerCase().includes(q) ||
+      (t._members ?? []).some((u: string) => u.includes(q))
+    );
     if (sortByRank) list = [...list].sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity));
     return list;
   }, [teams, query, sortByRank]);
@@ -2514,7 +2515,7 @@ function TeamsTab() {
       return all;
     };
 
-    const [teamsData, scores, { data: admins }] = await Promise.all([
+    const [teamsData, scores, { data: admins }, members] = await Promise.all([
       fetchAll(() => supabase
         .from('teams')
         .select('id, name, is_banned, captain_id, created_at')
@@ -2529,7 +2530,19 @@ function TeamsTab() {
         .select('team_id, is_owner')
         .eq('role', 'admin')
         .not('team_id', 'is', null),
+      fetchAll(() => supabase
+        .from('profiles')
+        .select('username, team_id')
+        .not('team_id', 'is', null)),
     ]);
+
+    const membersByTeam = new Map<string, string[]>();
+    members.forEach((m: any) => {
+      if (!m.team_id || !m.username) return;
+      const arr = membersByTeam.get(m.team_id);
+      if (arr) arr.push(m.username.toLowerCase());
+      else membersByTeam.set(m.team_id, [m.username.toLowerCase()]);
+    });
 
     const prot: Record<string, 'owner' | 'admin'> = {};
     (admins ?? []).forEach((a: any) => {
@@ -2554,6 +2567,7 @@ function TeamsTab() {
         rank: sc?.rank ?? null,
         total_points: sc?.total_points ?? 0,
         solved_count: sc?.solved_count ?? 0,
+        _members: membersByTeam.get(t.id) ?? [],
       };
     });
 
@@ -2631,7 +2645,7 @@ function TeamsTab() {
               type="text"
               value={query}
               onChange={e => { setQuery(e.target.value); setPage(0); }}
-              placeholder="Search by team name…"
+              placeholder="Search by team name or username…"
               aria-label="Search teams"
               className="input w-full pl-9"
             />
