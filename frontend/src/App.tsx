@@ -75,6 +75,7 @@ import OperationIntro from './components/OperationIntro';
 import HoldScreen from './components/HoldScreen';
 import EventClock from './components/EventClock';
 import MilestoneBanner from './components/MilestoneBanner';
+import { useFinalsMode, FinalesBanner, FinalsNavBadge, GoldParticles } from './components/FinalsMode';
 import { pendingInvite, clearInvite, type InvitePreview } from './lib/invite';
 import { detectMilestones, type Milestone } from './lib/milestones';
 import { buildChainSeriesVM } from './components/chain/chainModel';
@@ -299,6 +300,7 @@ function NotificationBell({ userId }: { userId: string }) {
 
 export default function App() {
   const { user, profile, refreshProfile } = useAuth();
+  const finalsMode = useFinalsMode();
 
   // ── Solve state ──────────────────────────────────────────
   const [solvedIds, setSolvedIds] = useState<string[]>([]);          // current user's solves
@@ -890,8 +892,9 @@ export default function App() {
       <AmbientBackground />
       <SurfaceLight />
       <CursorRing />
+      {finalsMode && <GoldParticles />}
 
-      <div className="page-shell min-h-screen flex flex-col">
+      <div className={`page-shell min-h-screen flex flex-col ${finalsMode ? 'finals-active' : ''}`}>
         {/* Header */}
         <nav className="bg-cyber-bg/85 backdrop-blur-xl border-b border-border-base sticky top-0 z-50">
           <div className="max-w-screen-2xl mx-auto px-3 sm:px-5 lg:px-6 h-16 flex items-center justify-between gap-2">
@@ -916,6 +919,7 @@ export default function App() {
                   </span>
                   <span className="hidden sm:inline text-h3 tracking-tight text-cyber-text">CYBERHX</span>
                 </button>
+                {finalsMode && <FinalsNavBadge />}
               </h1>
 
               <div className="hidden lg:flex items-center gap-1">
@@ -1158,6 +1162,7 @@ export default function App() {
 
               {/* Main Content Area */}
               <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 py-8 lg:py-10 w-full">
+                {finalsMode && <FinalesBanner />}
                 <CommandHeader
                   status={eventStatus}
                   paused={paused}

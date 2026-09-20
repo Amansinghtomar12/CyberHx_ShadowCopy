@@ -2062,3 +2062,98 @@
   .hold-line { animation: none !important; }
   .hold-dot, .uplink-dot[data-down] { animation: none !important; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   FINALS MODE — Grand Finale atmosphere (temporary, date-gated)
+   Remove this entire block after the finals to revert.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Gold-tinted nav border during finals */
+.finals-active nav.sticky {
+  border-bottom-color: rgba(255, 185, 50, 0.25);
+  box-shadow: 0 1px 20px -4px rgba(255, 170, 0, 0.15);
+}
+
+/* Subtle gold tint on cards during finals */
+.finals-active .card-interactive {
+  border-color: rgba(255, 185, 50, 0.12);
+}
+.finals-active .card-interactive:hover {
+  border-color: rgba(255, 185, 50, 0.3);
+  box-shadow: 0 0 24px -6px rgba(255, 170, 0, 0.2);
+}
+
+/* Gold-tinted section rules */
+.finals-active .diff-rule {
+  background: linear-gradient(90deg,
+    rgba(255, 185, 50, 0.35),
+    transparent) !important;
+}
+
+/* Trophy pulse */
+@keyframes finals-trophy-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.finals-trophy-pulse {
+  animation: finals-trophy-pulse 2.5s ease-in-out infinite;
+}
+
+/* Gradient text animation */
+@keyframes finals-gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Shimmer sweep */
+@keyframes finals-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.finals-shimmer {
+  animation: finals-shimmer 6s linear infinite;
+}
+
+/* Flame flicker */
+@keyframes finals-flicker {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  25% { opacity: 0.7; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.1); }
+  75% { opacity: 0.8; transform: scale(0.95); }
+}
+.finals-flicker {
+  animation: finals-flicker 1.5s ease-in-out infinite;
+}
+
+/* Colon blink in countdown */
+@keyframes finals-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.finals-blink {
+  animation: finals-blink 1s step-end infinite;
+}
+
+/* Nav badge pulse */
+@keyframes finals-badge-glow {
+  0%, 100% { box-shadow: 0 0 6px rgba(255, 185, 50, 0.3); }
+  50% { box-shadow: 0 0 14px rgba(255, 185, 50, 0.5); }
+}
+.finals-nav-badge {
+  animation: finals-badge-glow 2s ease-in-out infinite;
+}
+
+/* Solved cards get a gold wash instead of green during finals */
+.finals-active .card-interactive[class*="border-border-neon"] {
+  border-color: rgba(255, 200, 50, 0.5) !important;
+  box-shadow: 0 0 18px rgba(255, 185, 50, 0.22) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .finals-trophy-pulse,
+  .finals-shimmer,
+  .finals-flicker,
+  .finals-blink,
+  .finals-nav-badge { animation: none !important; }
+}
