@@ -782,6 +782,18 @@ export default function App() {
     return grouped;
   }, [filteredChallenges]);
 
+  const challengesByCat = useMemo(() => {
+    const diffRank = (d: string) => { const i = DIFFICULTY_ORDER.indexOf(d as any); return i === -1 ? 99 : i; };
+    const src = selectedDiff === 'all' ? filteredChallenges : filteredChallenges.filter(c => c.difficulty === selectedDiff);
+    const grouped: Record<string, Challenge[]> = {};
+    src.forEach(c => {
+      if (!grouped[c.category]) grouped[c.category] = [];
+      grouped[c.category].push(c);
+    });
+    Object.values(grouped).forEach(arr => arr.sort((a, b) => diffRank(a.difficulty) - diffRank(b.difficulty)));
+    return grouped;
+  }, [filteredChallenges, selectedDiff]);
+
   // `/` puts the cursor in the search box unless one is already typing.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -795,11 +807,6 @@ export default function App() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [currentView, selectedChallenge]);
-
-  const displayedDiffs = useMemo(() => {
-    if (selectedDiff === 'all') return DIFFICULTIES;
-    return DIFFICULTIES.filter(d => d.id === selectedDiff);
-  }, [selectedDiff]);
 
   // A refused unlock (not enough points, not started, paused, no team, roster
   // gate, rate limit) used to do nothing at all; the button just sat there.
@@ -1430,7 +1437,7 @@ export default function App() {
                       onOpenChallenge={openChainChallenge}
                     />
                   </React.Suspense>
-                ) : filteredChallenges.length === 0 ? (
+                ) : filteredChallenges.length === 0 || Object.values(challengesByCat).every(arr => !arr || arr.length === 0) ? (
                   <div className="surface flex flex-col items-center text-center px-6 py-16" role="status">
                     <span
                       aria-hidden="true"
@@ -1446,30 +1453,35 @@ export default function App() {
                     <button type="button" onClick={clearFilters} className="btn btn-secondary btn-md">Clear filters</button>
                   </div>
                 ) : (
-                  displayedDiffs.map((diff) => (
-                    challengesByDiff[diff.id] && challengesByDiff[diff.id].length > 0 && (
-                      <section key={diff.id} data-diff={diff.id} className="mb-8 sm:mb-section">
-                        <div className="flex items-center gap-4 mb-5">
-                          <h3 className="text-h2 text-cyber-text">{diff.label}</h3>
-                          <span className={`badge ${DIFF_BADGE[diff.id] ?? ''} font-mono`}>
-                            {challengesByDiff[diff.id].length}
+                  categories.map((cat) => {
+                    const items = challengesByCat[cat.id];
+                    if (!items || items.length === 0) return null;
+                    const CatIcon = CATEGORY_ICON[cat.id] ?? Boxes;
+                    const hue = catVar(cat.id);
+                    return (
+                      <section key={cat.id} className="mb-8 sm:mb-section">
+                        <div className="flex items-center gap-3 mb-5">
+                          <span
+                            aria-hidden="true"
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-inset border"
+                            style={{ color: hue, borderColor: 'var(--color-border-base)', backgroundColor: 'var(--color-surface-inset)' }}
+                          >
+                            <CatIcon className="h-3.5 w-3.5" />
                           </span>
-                          {/* The rule takes the tier's hue, so scanning the
-                              board vertically reads as four zones rather than
-                              one long list. */}
+                          <h3 className="text-h2 text-cyber-text uppercase">{cat.id}</h3>
+                          <span className="badge font-mono" style={{ color: hue, borderColor: hue }}>
+                            {items.length}
+                          </span>
                           <span aria-hidden="true" className="diff-rule flex-1" />
                         </div>
-                        {/* Entrance rhythm is the tier's, not the board's: Easy
-                            arrives as a procession, Insane as a burst. */}
                         <div
-                          data-diff={diff.id}
-                          className="stagger grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5"
+                          className="stagger grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3.5 sm:gap-4"
                           style={{
-                            ['--stagger-step' as string]: `${profileFor(diff.id).stagger}ms`,
-                            ['--stagger-dur' as string]: `${profileFor(diff.id).enterMs}ms`,
+                            ['--stagger-step' as string]: '40ms',
+                            ['--stagger-dur' as string]: '350ms',
                           }}
                         >
-                          {challengesByDiff[diff.id].map((challenge, i) => (
+                          {items.map((challenge, i) => (
                             <ChallengeCard
                               key={challenge.id}
                               index={i}
@@ -1483,9 +1495,9 @@ export default function App() {
                           ))}
                         </div>
                       </section>
-                    )
-                  ))
-                )}
+                    );
+                  }))
+                }
               </main>
             </>
           ) : currentView === 'scoreboard' ? (
@@ -1757,7 +1769,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
           data-selflit=""
           /* The tier's frame, idle behaviour and hue all key off this. */
           data-diff={challenge.difficulty}
-          className={`card-interactive group relative flex h-full w-full flex-col overflow-hidden p-5 text-left ${
+          className={`card-interactive group relative flex h-full w-full flex-col overflow-hidden p-3.5 text-left ${
             isSolved ? 'border-border-neon shadow-[0_0_14px_rgba(198,255,0,0.18)]' : ''
           }`}
         >
@@ -1789,14 +1801,14 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
             <div className="flex items-center gap-2.5 min-w-0">
               <span
                 aria-hidden="true"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-inset border"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-inset border"
                 style={{
                   color: hue,
                   borderColor: 'var(--color-border-base)',
                   backgroundColor: 'var(--color-surface-inset)',
                 }}
               >
-                <CategoryIcon className="h-4 w-4" />
+                <CategoryIcon className="h-3.5 w-3.5" />
               </span>
               <span className="label-micro truncate" style={{ color: hue }}>
                 {challenge.category}
@@ -1808,7 +1820,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
             </div>
           </div>
 
-          <h3 className="relative mt-5 text-h3 text-cyber-text truncate transition-colors duration-[var(--duration-base)] group-hover:text-cyber-neon">
+          <h3 className="relative mt-3 text-h3 text-cyber-text truncate transition-colors duration-[var(--duration-base)] group-hover:text-cyber-neon">
             {challenge.title}
           </h3>
 
@@ -1827,7 +1839,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
             )}
           </div>
 
-          <div className="relative mt-auto flex items-center justify-between gap-3 pt-5 text-small">
+          <div className="relative mt-auto flex items-center justify-between gap-3 pt-3 text-small">
             <span className="inline-flex items-center gap-1.5 text-text-muted">
               <Users className="h-3.5 w-3.5" aria-hidden="true" />
               <span className="font-mono">{challenge.solvedCount}</span>
