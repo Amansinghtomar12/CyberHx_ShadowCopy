@@ -79,7 +79,7 @@ import {
   useFinalsMode, useFinalePhase,
   FinaleEntrySequence, FinaleHeader, FinalsNavBadge, GoldParticles,
   FinaleAtmosphere, EndgameOverlay, HexRain, FinalistBadge,
-  FinalWarningBanner,
+  FinalWarningBanner, FinaleSolveBurst,
 } from './components/FinalsMode';
 import { pendingInvite, clearInvite, type InvitePreview } from './lib/invite';
 import { detectMilestones, type Milestone } from './lib/milestones';
@@ -2033,6 +2033,7 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
   // Only a solve that happens in this session replays the acknowledgement.
   // isSolved is already true when reopening a finished challenge.
   const [justBreached, setJustBreached] = useState(false);
+  const finaleActive = useFinalsMode();
   const [solvers, setSolvers] = useState<Solver[]>([]);
   const [solversLoading, setSolversLoading] = useState(false);
   const [realSolveCount, setRealSolveCount] = useState(challenge.solvedCount);
@@ -2268,6 +2269,9 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
         <AnimatePresence>
           {justBreached && (
             <BreachConfirm points={points} legendary={isInsane} onDone={() => setJustBreached(false)} />
+          )}
+          {justBreached && finaleActive && (
+            <FinaleSolveBurst points={points} />
           )}
         </AnimatePresence>
         <div className="flex items-center justify-between gap-3 px-3 sm:px-5 py-3 border-b border-border-base bg-surface-rail">
