@@ -75,7 +75,12 @@ import OperationIntro from './components/OperationIntro';
 import HoldScreen from './components/HoldScreen';
 import EventClock from './components/EventClock';
 import MilestoneBanner from './components/MilestoneBanner';
-import { useFinalsMode, FinalesBanner, FinalsNavBadge, GoldParticles } from './components/FinalsMode';
+import {
+  useFinalsMode, useFinalePhase,
+  FinaleEntrySequence, FinaleHeader, FinalsNavBadge, GoldParticles,
+  FinaleAtmosphere, EndgameOverlay, HexRain, FinalistBadge,
+  FinalWarningBanner,
+} from './components/FinalsMode';
 import { pendingInvite, clearInvite, type InvitePreview } from './lib/invite';
 import { detectMilestones, type Milestone } from './lib/milestones';
 import { buildChainSeriesVM } from './components/chain/chainModel';
@@ -301,6 +306,8 @@ function NotificationBell({ userId }: { userId: string }) {
 export default function App() {
   const { user, profile, refreshProfile } = useAuth();
   const finalsMode = useFinalsMode();
+  const finalePhase = useFinalePhase();
+  const [finaleEntryDone, setFinaleEntryDone] = useState(!finalsMode);
 
   // ── Solve state ──────────────────────────────────────────
   const [solvedIds, setSolvedIds] = useState<string[]>([]);          // current user's solves
@@ -893,8 +900,14 @@ export default function App() {
       <SurfaceLight />
       <CursorRing />
       {finalsMode && <GoldParticles />}
+      {finalsMode && <FinaleAtmosphere />}
+      {finalsMode && <EndgameOverlay />}
+      {finalsMode && <HexRain />}
+      {finalsMode && !finaleEntryDone && (
+        <FinaleEntrySequence onComplete={() => setFinaleEntryDone(true)} />
+      )}
 
-      <div className={`page-shell min-h-screen flex flex-col ${finalsMode ? 'finals-active' : ''}`}>
+      <div className={`page-shell min-h-screen flex flex-col ${finalsMode ? 'finale-active' : ''}`}>
         {/* Header */}
         <nav className="bg-cyber-bg/85 backdrop-blur-xl border-b border-border-base sticky top-0 z-50">
           <div className="max-w-screen-2xl mx-auto px-3 sm:px-5 lg:px-6 h-16 flex items-center justify-between gap-2">
@@ -969,6 +982,7 @@ export default function App() {
                   <UserIcon className="w-3.5 h-3.5" />
                   <span className="hidden xl:inline truncate">{profile?.username ?? 'Profile'}</span>
                 </button>
+                {finalsMode && <FinalistBadge />}
                 <button onClick={() => setCurrentView('settings')} aria-label="Settings"
                   className={`btn btn-ghost btn-sm btn-icon ${currentView === 'settings' ? 'text-cyber-text' : ''}`}>
                   <SettingsIcon className="w-3.5 h-3.5" />
@@ -1162,7 +1176,15 @@ export default function App() {
 
               {/* Main Content Area */}
               <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 py-8 lg:py-10 w-full">
-                {finalsMode && <FinalesBanner />}
+                {finalsMode && <FinalWarningBanner />}
+                {finalsMode ? (
+                  <FinaleHeader
+                    eventName={eventSettings?.name}
+                    score={myScore}
+                    solved={totalSolvedCount}
+                    total={challenges.length}
+                  />
+                ) : null}
                 <CommandHeader
                   status={eventStatus}
                   paused={paused}
