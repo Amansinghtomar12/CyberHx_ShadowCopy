@@ -1,19 +1,31 @@
 /**
- * FinalsMode — Championship Grand Finale atmosphere for CyberHX CTF.
+ * FinalsMode — Three-phase Grand Finale experience for CyberHX CTF.
  *
- * Active during the finals window (Sept 25, 2026, 10:00–22:00 IST).
- * Feature-flag gated: FORCE_FINALE_MODE env var overrides the time gate.
+ * Phase 1: PRE-FINALE  — before Sept 25, 2026, 10:00 IST
+ *   Premium countdown, anticipation hero, "Final 50" branding, locked arena.
+ *
+ * Phase 2: LIVE FINALE — Sept 25, 10:00–22:00 IST
+ *   Championship header, gold overlays, endgame escalation, solve burst.
+ *
+ * Phase 3: POST-FINALE — after Sept 25, 22:00 IST
+ *   "Grand Finale Complete" state, final leaderboard, gratitude.
+ *
+ * Feature-flag gated: window.__FORCE_FINALE_MODE__ overrides time gate.
+ * Additional overrides for testing individual phases:
+ *   window.__FORCE_FINALE_PHASE__ = 'pre' | 'live' | 'post'
+ *
  * Presentation-only: no queries, no auth, no data writes, no scoring changes.
  *
  * To revert: delete this file, remove its import from App.tsx,
- * and remove the .finale-active CSS block from index.css.
+ * and remove the .finale-active / .finale-pre / .finale-post CSS from index.css.
  */
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import {
   Trophy, Flame, Timer, Star, Shield, Crosshair,
   Radio, Zap, Skull, Crown, Target, Activity,
-  AlertTriangle, ChevronUp,
+  AlertTriangle, ChevronUp, Lock, Clock, Award,
+  CheckCircle,
 } from 'lucide-react';
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -23,36 +35,52 @@ import {
 const FINALS_START = new Date('2026-09-25T04:30:00Z'); // 10:00 IST
 const FINALS_END   = new Date('2026-09-25T16:30:00Z'); // 22:00 IST
 
+const PRE_FINALE_WINDOW_DAYS = 14;
+const PRE_FINALE_START = new Date(
+  FINALS_START.getTime() - PRE_FINALE_WINDOW_DAYS * 24 * 60 * 60 * 1000
+);
+
 type FinalePhase = 'standard' | 'lastHour' | 'lastTen' | 'lastMinute';
+export type FinaleGlobalPhase = 'off' | 'pre' | 'live' | 'post';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    HOOKS
    ═══════════════════════════════════════════════════════════════════════════ */
 
-export function useFinalsMode(): boolean {
-  const [active, setActive] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const force = (window as any).__FORCE_FINALE_MODE__;
-      if (force === true || force === 'true') return true;
-    }
-    const now = Date.now();
-    return now >= FINALS_START.getTime() && now < FINALS_END.getTime();
-  });
+function getForcePhase(): FinaleGlobalPhase | null {
+  if (typeof window === 'undefined') return null;
+  const fp = (window as any).__FORCE_FINALE_PHASE__;
+  if (fp === 'pre' || fp === 'live' || fp === 'post') return fp;
+  const force = (window as any).__FORCE_FINALE_MODE__;
+  if (force === true || force === 'true') return 'live';
+  return null;
+}
+
+function deriveGlobalPhase(): FinaleGlobalPhase {
+  const forced = getForcePhase();
+  if (forced) return forced;
+  const now = Date.now();
+  if (now >= FINALS_END.getTime()) return 'post';
+  if (now >= FINALS_START.getTime()) return 'live';
+  if (now >= PRE_FINALE_START.getTime()) return 'pre';
+  return 'off';
+}
+
+export function useFinaleGlobalPhase(): FinaleGlobalPhase {
+  const [phase, setPhase] = useState<FinaleGlobalPhase>(deriveGlobalPhase);
 
   useEffect(() => {
-    const check = () => {
-      if (typeof window !== 'undefined') {
-        const force = (window as any).__FORCE_FINALE_MODE__;
-        if (force === true || force === 'true') { setActive(true); return; }
-      }
-      const now = Date.now();
-      setActive(now >= FINALS_START.getTime() && now < FINALS_END.getTime());
-    };
-    const id = setInterval(check, 30_000);
+    const tick = () => setPhase(deriveGlobalPhase());
+    const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, []);
 
-  return active;
+  return phase;
+}
+
+export function useFinalsMode(): boolean {
+  const gp = useFinaleGlobalPhase();
+  return gp === 'live';
 }
 
 export function useFinalePhase(): FinalePhase {
@@ -99,8 +127,347 @@ export function useFinaleCountdown() {
   };
 }
 
+function useCountdownTo(target: Date) {
+  const [left, setLeft] = useState<number>(() => Math.max(0, target.getTime() - Date.now()));
+
+  useEffect(() => {
+    const t = target.getTime();
+    const tick = () => setLeft(Math.max(0, t - Date.now()));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [target]);
+
+  const total = Math.floor(left / 1000);
+  return {
+    d: String(Math.floor(total / 86400)).padStart(2, '0'),
+    h: String(Math.floor((total % 86400) / 3600)).padStart(2, '0'),
+    m: String(Math.floor((total % 3600) / 60)).padStart(2, '0'),
+    s: String(total % 60).padStart(2, '0'),
+    totalMs: left,
+    expired: left === 0,
+  };
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
-   ENTRY SEQUENCE — cinematic 2.8s intro, once per session
+   PRE-FINALE HERO — the "something massive is coming" section
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+export function PreFinaleHero() {
+  const countdown = useCountdownTo(FINALS_START);
+  const reduce = useReducedMotion();
+
+  return (
+    <section className="pre-finale-hero relative overflow-hidden rounded-card mb-8 lg:mb-10">
+      {/* Background layers */}
+      <div aria-hidden="true" className="absolute inset-0 pointer-events-none">
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `radial-gradient(ellipse at 20% 20%, rgba(255,170,0,0.06) 0%, transparent 50%),
+                         radial-gradient(ellipse at 80% 80%, rgba(255,100,0,0.04) 0%, transparent 50%)`,
+          }}
+        />
+        <div className="absolute inset-0 finale-scanlines" />
+      </div>
+
+      {/* Top gold edge */}
+      <span
+        aria-hidden="true"
+        className="absolute inset-x-0 top-0 h-[2px]"
+        style={{
+          background: 'linear-gradient(90deg, transparent, #ff9800, #ffcc00, #ff9800, transparent)',
+        }}
+      />
+
+      {/* Left accent */}
+      <span
+        aria-hidden="true"
+        className="absolute inset-y-0 left-0 w-[2px]"
+        style={{ backgroundColor: '#ff9800' }}
+      />
+
+      <div className="relative px-5 py-10 sm:px-8 sm:py-14 lg:py-16 text-center">
+        {/* Eyebrow */}
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <span
+            className="inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-micro uppercase tracking-[0.2em] font-bold"
+            style={{
+              border: '1px solid rgba(255,170,0,0.3)',
+              backgroundColor: 'rgba(255,170,0,0.06)',
+              color: '#ff9800',
+            }}
+          >
+            <Shield className="h-3 w-3" />
+            NULL0RIGIN
+          </span>
+        </div>
+
+        {/* Title */}
+        <div
+          className="label-micro tracking-[0.3em] uppercase mb-2"
+          style={{ color: 'rgba(255,200,100,0.6)' }}
+        >
+          The Final 50
+        </div>
+        <h2
+          className="text-[2rem] sm:text-[3rem] lg:text-[3.5rem] font-extrabold tracking-tighter leading-none finale-title-gradient"
+        >
+          GRAND FINALE
+        </h2>
+        <p
+          className="mt-3 text-small sm:text-body max-w-md mx-auto"
+          style={{ color: 'rgba(255,200,100,0.55)' }}
+        >
+          50 finalists. One arena. 12 hours of championship-level challenges.
+        </p>
+
+        {/* Countdown */}
+        <div className="mt-8 sm:mt-10">
+          <div
+            className="label-micro tracking-[0.2em] uppercase mb-4 flex items-center justify-center gap-2"
+            style={{ color: 'rgba(255,200,100,0.5)' }}
+          >
+            <Clock className="h-3 w-3" />
+            {countdown.expired ? 'Starting Now' : 'Starts In'}
+          </div>
+
+          {!countdown.expired && (
+            <div className="flex items-center justify-center gap-2 sm:gap-4">
+              <CountdownUnit value={countdown.d} label="Days" />
+              <span className="text-h1 sm:text-display font-mono tabular-nums" style={{ color: 'rgba(255,200,100,0.25)' }}>:</span>
+              <CountdownUnit value={countdown.h} label="Hours" />
+              <span className="text-h1 sm:text-display font-mono tabular-nums" style={{ color: 'rgba(255,200,100,0.25)' }}>:</span>
+              <CountdownUnit value={countdown.m} label="Minutes" />
+              <span className="text-h1 sm:text-display font-mono tabular-nums" style={{ color: 'rgba(255,200,100,0.25)' }}>:</span>
+              <CountdownUnit value={countdown.s} label="Seconds" />
+            </div>
+          )}
+        </div>
+
+        {/* Event date line */}
+        <div
+          className="mt-6 flex items-center justify-center gap-3 text-small font-mono tabular-nums"
+          style={{ color: 'rgba(255,200,100,0.45)' }}
+        >
+          <span>25 SEPTEMBER 2026</span>
+          <span style={{ color: 'rgba(255,200,100,0.2)' }}>|</span>
+          <span>10:00 AM — 10:00 PM IST</span>
+        </div>
+
+        {/* Status cards */}
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+          <PreFinaleStatusChip icon={<Target className="h-3 w-3" />} label="Arena" value="LOCKED" />
+          <PreFinaleStatusChip icon={<Lock className="h-3 w-3" />} label="Challenges" value="SEALED" />
+          <PreFinaleStatusChip icon={<Radio className="h-3 w-3" />} label="Status" value="STANDBY" />
+        </div>
+      </div>
+
+      {/* Bottom edge */}
+      <span
+        aria-hidden="true"
+        className="absolute inset-x-0 bottom-0 h-px"
+        style={{
+          background: 'linear-gradient(90deg, transparent, rgba(255,170,0,0.3), transparent)',
+        }}
+      />
+    </section>
+  );
+}
+
+function CountdownUnit({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="flex flex-col items-center">
+      <div
+        className="text-[1.75rem] sm:text-[2.5rem] lg:text-[3rem] font-extrabold font-mono tabular-nums leading-none"
+        style={{
+          color: '#ffcc00',
+          textShadow: '0 0 30px rgba(255,200,50,0.25)',
+        }}
+      >
+        {value}
+      </div>
+      <div
+        className="mt-1 text-micro font-mono uppercase tracking-[0.15em]"
+        style={{ color: 'rgba(255,200,100,0.4)' }}
+      >
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function PreFinaleStatusChip({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div
+      className="flex items-center gap-2 px-3 py-1.5 rounded-inset text-micro font-mono uppercase tracking-widest"
+      style={{
+        border: '1px solid rgba(255,170,0,0.15)',
+        backgroundColor: 'rgba(255,170,0,0.03)',
+        color: 'rgba(255,200,100,0.5)',
+      }}
+    >
+      {icon}
+      <span>{label}</span>
+      <span style={{ color: '#ff9800' }}>{value}</span>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PRE-FINALE NAV BADGE — "FINALE" badge that shows before event starts
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+export function PreFinaleNavBadge() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-pill px-2 py-0.5 text-micro uppercase tracking-widest ml-2"
+      style={{
+        border: '1px solid rgba(255,170,0,0.3)',
+        backgroundColor: 'rgba(255,170,0,0.06)',
+        color: '#ff9800',
+      }}
+    >
+      <Star className="h-2 w-2" style={{ color: '#ffcc00' }} />
+      FINALE
+    </span>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   POST-FINALE HERO — the "championship complete" state
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+export function PostFinaleHero({ eventName }: { eventName?: string | null }) {
+  const reduce = useReducedMotion();
+
+  return (
+    <section className="post-finale-hero relative overflow-hidden rounded-card mb-8 lg:mb-10">
+      {/* Background */}
+      <div aria-hidden="true" className="absolute inset-0 pointer-events-none">
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `radial-gradient(ellipse at 50% 30%, rgba(255,170,0,0.05) 0%, transparent 60%)`,
+          }}
+        />
+      </div>
+
+      {/* Top edge */}
+      <span
+        aria-hidden="true"
+        className="absolute inset-x-0 top-0 h-[2px]"
+        style={{
+          background: 'linear-gradient(90deg, transparent, rgba(255,170,0,0.4), transparent)',
+        }}
+      />
+
+      <div className="relative px-5 py-10 sm:px-8 sm:py-14 text-center">
+        {/* Trophy */}
+        <motion.div
+          className="mx-auto mb-4"
+          initial={reduce ? false : { scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <div
+            className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full"
+            style={{
+              border: '2px solid rgba(255,170,0,0.3)',
+              backgroundColor: 'rgba(255,170,0,0.06)',
+              boxShadow: '0 0 40px rgba(255,170,0,0.1)',
+            }}
+          >
+            <Trophy className="w-8 h-8 sm:w-10 sm:h-10" style={{ color: '#ffcc00' }} />
+          </div>
+        </motion.div>
+
+        {/* Status badge */}
+        <div className="flex items-center justify-center gap-2 mb-3">
+          <span
+            className="inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-micro uppercase tracking-[0.2em] font-bold"
+            style={{
+              border: '1px solid rgba(255,170,0,0.25)',
+              backgroundColor: 'rgba(255,170,0,0.04)',
+              color: 'rgba(255,200,100,0.7)',
+            }}
+          >
+            <CheckCircle className="h-3 w-3" />
+            COMPLETE
+          </span>
+        </div>
+
+        {/* Title */}
+        <h2
+          className="text-[2rem] sm:text-[2.5rem] font-extrabold tracking-tighter leading-none"
+          style={{
+            background: 'linear-gradient(135deg, #ffcc00 0%, #ff9800 50%, rgba(255,170,0,0.6) 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}
+        >
+          GRAND FINALE
+        </h2>
+
+        <p
+          className="mt-3 text-body sm:text-h3 font-medium"
+          style={{ color: 'rgba(255,200,100,0.6)' }}
+        >
+          The championship has concluded
+        </p>
+
+        <p
+          className="mt-2 text-small max-w-sm mx-auto"
+          style={{ color: 'rgba(255,200,100,0.35)' }}
+        >
+          Thank you to all finalists for competing in the NULL0RIGIN Grand Finale.
+          Final standings are on the scoreboard.
+        </p>
+
+        {/* Event date reminder */}
+        <div
+          className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-inset text-micro font-mono uppercase tracking-widest"
+          style={{
+            border: '1px solid rgba(255,170,0,0.1)',
+            backgroundColor: 'rgba(255,170,0,0.02)',
+            color: 'rgba(255,200,100,0.35)',
+          }}
+        >
+          <Clock className="h-3 w-3" />
+          25 SEPTEMBER 2026 — CONCLUDED
+        </div>
+      </div>
+
+      {/* Bottom edge */}
+      <span
+        aria-hidden="true"
+        className="absolute inset-x-0 bottom-0 h-px"
+        style={{
+          background: 'linear-gradient(90deg, transparent, rgba(255,170,0,0.2), transparent)',
+        }}
+      />
+    </section>
+  );
+}
+
+export function PostFinaleNavBadge() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-pill px-2 py-0.5 text-micro uppercase tracking-widest ml-2"
+      style={{
+        border: '1px solid rgba(255,170,0,0.2)',
+        backgroundColor: 'rgba(255,170,0,0.04)',
+        color: 'rgba(255,200,100,0.5)',
+      }}
+    >
+      <CheckCircle className="h-2 w-2" />
+      ENDED
+    </span>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ENTRY SEQUENCE — cinematic 2.8s intro, once per session (live phase only)
    ═══════════════════════════════════════════════════════════════════════════ */
 
 const ENTRY_KEY = 'cyberhx_finale_entry_seen';
@@ -142,7 +509,6 @@ export function FinaleEntrySequence({ onComplete }: { onComplete: () => void }) 
           exit={{ opacity: 0 }}
           transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
         >
-          {/* Radial sweep */}
           <motion.div
             className="absolute inset-0"
             initial={{ opacity: 0 }}
@@ -153,13 +519,8 @@ export function FinaleEntrySequence({ onComplete }: { onComplete: () => void }) 
             }}
           />
 
-          {/* Scan lines */}
-          <div
-            className="absolute inset-0 pointer-events-none finale-scanlines"
-            aria-hidden="true"
-          />
+          <div className="absolute inset-0 pointer-events-none finale-scanlines" aria-hidden="true" />
 
-          {/* Shield icon */}
           <motion.div
             initial={{ scale: 0.4, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -178,7 +539,6 @@ export function FinaleEntrySequence({ onComplete }: { onComplete: () => void }) 
             </div>
           </motion.div>
 
-          {/* Title text */}
           <AnimatePresence>
             {stage === 'text' && (
               <motion.div
@@ -212,7 +572,6 @@ export function FinaleEntrySequence({ onComplete }: { onComplete: () => void }) 
             )}
           </AnimatePresence>
 
-          {/* Horizontal divider sweep */}
           <motion.div
             className="absolute left-0 right-0 h-px"
             style={{
@@ -230,7 +589,7 @@ export function FinaleEntrySequence({ onComplete }: { onComplete: () => void }) 
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   CHAMPIONSHIP HEADER — replaces FinalesBanner with a proper war room feel
+   CHAMPIONSHIP HEADER — the live finale header
    ═══════════════════════════════════════════════════════════════════════════ */
 
 interface FinaleHeaderProps {
@@ -261,7 +620,6 @@ export function FinaleHeader({ eventName, score, solved, total }: FinaleHeaderPr
 
   return (
     <header className="finale-header surface relative mb-8 overflow-hidden rounded-card lg:mb-10">
-      {/* Ambient glow behind header */}
       <div
         aria-hidden="true"
         className="absolute inset-0 pointer-events-none"
@@ -271,7 +629,6 @@ export function FinaleHeader({ eventName, score, solved, total }: FinaleHeaderPr
         }}
       />
 
-      {/* Top edge — championship gold */}
       <span
         aria-hidden="true"
         className="absolute inset-x-0 top-0 h-[2px]"
@@ -280,7 +637,6 @@ export function FinaleHeader({ eventName, score, solved, total }: FinaleHeaderPr
         }}
       />
 
-      {/* Status edge left */}
       <span
         aria-hidden="true"
         className="absolute inset-y-0 left-0 w-[2px]"
@@ -288,7 +644,6 @@ export function FinaleHeader({ eventName, score, solved, total }: FinaleHeaderPr
       />
 
       <div className="relative p-5 sm:p-6">
-        {/* Row 1: Title + LIVE + Countdown */}
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2.5">
@@ -298,9 +653,7 @@ export function FinaleHeader({ eventName, score, solved, total }: FinaleHeaderPr
               </span>
             </div>
 
-            <h2
-              className="mt-3 text-h1 sm:text-display font-extrabold tracking-tighter finale-title-gradient"
-            >
+            <h2 className="mt-3 text-h1 sm:text-display font-extrabold tracking-tighter finale-title-gradient">
               {eventName ? `${eventName} — FINALE` : 'GRAND FINALE'}
             </h2>
 
@@ -310,7 +663,6 @@ export function FinaleHeader({ eventName, score, solved, total }: FinaleHeaderPr
             </p>
           </div>
 
-          {/* Countdown clock */}
           {countdown && !countdown.expired && (
             <div className="text-right shrink-0">
               <div className="label-micro flex items-center justify-end gap-1.5" style={{ color: 'rgba(255,200,100,0.6)' }}>
@@ -336,7 +688,6 @@ export function FinaleHeader({ eventName, score, solved, total }: FinaleHeaderPr
           )}
         </div>
 
-        {/* Row 2: Stats bar */}
         <div className="mt-6 grid grid-cols-3 gap-5 border-t pt-5" style={{ borderColor: 'rgba(255,170,0,0.15)' }}>
           <div>
             <div className="label-micro flex items-center gap-1.5" style={{ color: 'rgba(255,200,100,0.5)' }}>
@@ -369,7 +720,6 @@ export function FinaleHeader({ eventName, score, solved, total }: FinaleHeaderPr
           </div>
         </div>
 
-        {/* Progress rail */}
         <div className="mt-4 h-1.5 w-full overflow-hidden rounded-pill" style={{ backgroundColor: 'rgba(255,170,0,0.1)' }} aria-hidden="true">
           <div
             className="h-full origin-left rounded-pill"
@@ -382,7 +732,6 @@ export function FinaleHeader({ eventName, score, solved, total }: FinaleHeaderPr
         </div>
       </div>
 
-      {/* Bottom edge */}
       <span
         aria-hidden="true"
         className="absolute inset-x-0 bottom-0 h-px"
@@ -395,7 +744,7 @@ export function FinaleHeader({ eventName, score, solved, total }: FinaleHeaderPr
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   LIVE BADGE — pulsing indicator in the header
+   LIVE BADGE
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function FinalesLiveBadge({ phase }: { phase: FinalePhase }) {
@@ -420,7 +769,7 @@ function FinalesLiveBadge({ phase }: { phase: FinalePhase }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   NAV BADGE — small indicator in the top nav
+   NAV BADGE — small indicator in the top nav (live phase)
    ═══════════════════════════════════════════════════════════════════════════ */
 
 export function FinalsNavBadge() {
@@ -445,10 +794,10 @@ export function FinalsNavBadge() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   GOLD PARTICLE RAIN — canvas overlay
+   GOLD PARTICLE RAIN — canvas overlay (live + pre phases)
    ═══════════════════════════════════════════════════════════════════════════ */
 
-export function GoldParticles() {
+export function GoldParticles({ intensity = 1 }: { intensity?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const reduce = useRef(
     typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
@@ -463,7 +812,7 @@ export function GoldParticles() {
 
     let raf = 0;
     const particles: { x: number; y: number; vx: number; vy: number; size: number; opacity: number; hue: number }[] = [];
-    const COUNT = 45;
+    const COUNT = Math.round(45 * intensity);
 
     const resize = () => {
       canvas.width = window.innerWidth;
@@ -479,7 +828,7 @@ export function GoldParticles() {
         vx: (Math.random() - 0.5) * 0.25,
         vy: 0.15 + Math.random() * 0.4,
         size: 0.8 + Math.random() * 2,
-        opacity: 0.15 + Math.random() * 0.35,
+        opacity: (0.15 + Math.random() * 0.35) * intensity,
         hue: 30 + Math.random() * 30,
       });
     }
@@ -511,7 +860,7 @@ export function GoldParticles() {
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', resize);
     };
-  }, []);
+  }, [intensity]);
 
   if (reduce.current) return null;
 
@@ -535,16 +884,13 @@ export function FinaleAtmosphere() {
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[2]" aria-hidden="true">
-      {/* Vignette */}
       <div
         className="absolute inset-0"
         style={{
           background: 'radial-gradient(ellipse at center, transparent 50%, rgba(3,6,8,0.4) 100%)',
         }}
       />
-      {/* Scan lines */}
       <div className="absolute inset-0 finale-scanlines" />
-      {/* Top/bottom edge glow */}
       <div
         className="absolute inset-x-0 top-0 h-px"
         style={{ background: 'linear-gradient(90deg, transparent 10%, rgba(255,170,0,0.12) 50%, transparent 90%)' }}
@@ -565,12 +911,10 @@ export function EndgameOverlay() {
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[3]" aria-hidden="true">
-      {/* Border pulse during final hour */}
       {phase === 'lastHour' && (
         <div className="absolute inset-0 finale-border-pulse" style={{ borderColor: 'rgba(255,170,0,0.08)' }} />
       )}
 
-      {/* Corner warning during last 10 */}
       {(phase === 'lastTen' || phase === 'lastMinute') && (
         <>
           <div className="absolute top-0 left-0 w-24 h-24" style={{
@@ -582,7 +926,6 @@ export function EndgameOverlay() {
         </>
       )}
 
-      {/* Full vignette pulse during last minute */}
       {phase === 'lastMinute' && (
         <div
           className="absolute inset-0 finale-critical-pulse"
@@ -596,7 +939,7 @@ export function EndgameOverlay() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   HEX RAIN — decorative microtext in the background (cybersec motif)
+   HEX RAIN — decorative microtext in the background
    ═══════════════════════════════════════════════════════════════════════════ */
 
 export function HexRain() {
@@ -629,7 +972,6 @@ export function HexRain() {
             color: '#ff9800',
           }}
         >
-          {/* Random hex sequences */}
           {'0xDEADBEEF\n0xCAFEBABE\n0x8BADF00D\n0xFF1CE\n0xC0FFEE\n0xD15EA5E\n0xBAAAAAAD\n0xFACEFEED\n0xB16B00B5\n0x1BADB002'}
         </div>
       ))}
@@ -658,7 +1000,7 @@ export function FinalistBadge({ username }: { username?: string }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   FINALE SOLVE CELEBRATION — enhanced BreachConfirm wrapper
+   FINALE SOLVE CELEBRATION
    ═══════════════════════════════════════════════════════════════════════════ */
 
 export function FinaleSolveBurst({ points }: { points: number }) {
@@ -672,7 +1014,6 @@ export function FinaleSolveBurst({ points }: { points: number }) {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
     >
-      {/* Gold radial burst */}
       <motion.div
         className="absolute inset-0"
         initial={{ opacity: 0, scale: 0.5 }}
@@ -683,7 +1024,6 @@ export function FinaleSolveBurst({ points }: { points: number }) {
         }}
       />
 
-      {/* Crown + points */}
       <motion.div
         className="relative text-center"
         initial={{ scale: 0.6, opacity: 0 }}

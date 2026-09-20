@@ -2273,3 +2273,113 @@
   .finale-podium-glow,
   .finale-entry-label { animation: none !important; }
 }
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PRE-FINALE PHASE — Anticipation atmosphere (14 days before finals)
+   Remove this block after the finals to revert.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Nav: subtle gold hint ─────────────────────────────────────────────── */
+.finale-pre nav.sticky {
+  border-bottom-color: rgba(255, 170, 0, 0.1);
+  box-shadow: 0 1px 16px -6px rgba(255, 150, 0, 0.06);
+}
+
+/* ── Cards: muted gold borders ─────────────────────────────────────────── */
+.finale-pre .card-interactive {
+  border-color: rgba(255, 170, 0, 0.06);
+}
+.finale-pre .card-interactive:hover {
+  border-color: rgba(255, 170, 0, 0.12);
+  box-shadow: 0 0 20px -6px rgba(255, 150, 0, 0.08);
+}
+
+/* ── Background: barely-there gold tint ────────────────────────────────── */
+.finale-pre {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255, 170, 0, 0.02) 0%, transparent 70%);
+}
+
+/* ── Countdown unit styling ────────────────────────────────────────────── */
+.finale-pre .countdown-unit {
+  background: rgba(255, 200, 0, 0.04);
+  border: 1px solid rgba(255, 200, 0, 0.1);
+  border-radius: 8px;
+  padding: 12px 8px;
+  min-width: 72px;
+  text-align: center;
+}
+.finale-pre .countdown-digit {
+  font-size: 2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  background: linear-gradient(180deg, #ffcc00 0%, #ff9800 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.finale-pre .countdown-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  opacity: 0.5;
+  margin-top: 4px;
+}
+
+/* ── Status chips ──────────────────────────────────────────────────────── */
+.finale-pre .status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border: 1px solid rgba(255, 200, 0, 0.12);
+  background: rgba(255, 200, 0, 0.04);
+  color: rgba(255, 200, 0, 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .finale-pre .countdown-digit { animation: none !important; }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   POST-FINALE PHASE — Championship concluded
+   Remove this block after the finals to revert.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Nav: fading gold afterglow ────────────────────────────────────────── */
+.finale-post nav.sticky {
+  border-bottom-color: rgba(255, 170, 0, 0.08);
+  box-shadow: 0 1px 12px -6px rgba(255, 150, 0, 0.04);
+}
+
+/* ── Cards: muted, ended feel ──────────────────────────────────────────── */
+.finale-post .card-interactive {
+  border-color: rgba(255, 170, 0, 0.05);
+  opacity: 0.92;
+}
+.finale-post .card-interactive:hover {
+  border-color: rgba(255, 170, 0, 0.08);
+}
+
+/* ── Background: residual warm glow ────────────────────────────────────── */
+.finale-post {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(255, 170, 0, 0.015) 0%, transparent 60%);
+}
+
+/* ── Trophy / completion icon glow ─────────────────────────────────────── */
+.finale-post .trophy-glow {
+  filter: drop-shadow(0 0 12px rgba(255, 200, 0, 0.3));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .finale-post .trophy-glow { animation: none !important; }
+}
