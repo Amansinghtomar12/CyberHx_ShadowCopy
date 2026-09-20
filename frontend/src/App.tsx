@@ -790,7 +790,7 @@ export default function App() {
       if (!grouped[c.category]) grouped[c.category] = [];
       grouped[c.category].push(c);
     });
-    Object.values(grouped).forEach(arr => arr.sort((a, b) => diffRank(a.difficulty) - diffRank(b.difficulty)));
+    Object.values(grouped).forEach(arr => arr.sort((a, b) => diffRank(a.difficulty) - diffRank(b.difficulty) || a.points - b.points));
     return grouped;
   }, [filteredChallenges, selectedDiff]);
 
