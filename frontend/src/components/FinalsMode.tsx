@@ -702,7 +702,7 @@ export function VipTicker() {
   );
 }
 
-const THANKS_KEY = 'cyberhx_finale_thanks_v2';
+const THANKS_KEY = 'cyberhx_finale_thanks_v3';
 const DISCORD_URL = 'https://discord.gg/T3jDBWvFxE';
 
 /**
@@ -726,7 +726,7 @@ export function QualifierThanks() {
         <Award className="mt-0.5 h-4 w-4 shrink-0" style={{ color: '#ffb74d' }} />
         <div className="min-w-0 flex-1 text-text-secondary leading-relaxed">
           <span className="font-semibold text-cyber-text">Thank you for competing in NullOrigin.</span>{' '}
-          The Grand Finale on 25 Sep is for the qualified teams. You can follow it live on the scoreboard, and certificates for every team that scored will be issued on 27 September.{' '}
+          The Grand Finale on 25 Sep is for the qualified teams. You can follow it live on the scoreboard, and certificates for every team that scored in the qualifiers will be issued on 27 September.{' '}
           <span className="text-text-muted">
             Qualified but seeing this? Email{' '}
             <a href={`mailto:${ADMIN_EMAIL}`} className="underline text-cyber-text">{ADMIN_EMAIL}</a>{' '}
