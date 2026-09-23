@@ -41,6 +41,7 @@ export const FINALIST_TEAMS: readonly string[] = [
   'The Shadows',
   'Spark',
   "H4CK3R'$ LOBBY",
+  'Vyadh',
 ];
 
 /** Case, accents' encoding and stray spaces are not what makes a name different. */
