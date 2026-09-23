@@ -80,7 +80,7 @@ import {
   FinaleEntrySequence, FinaleHeader, FinalsNavBadge, GoldParticles,
   FinaleAtmosphere, EndgameOverlay, HexRain, FinalistBadge,
   FinalWarningBanner, FinaleSolveBurst,
-  PreFinaleHero, PreFinaleNavBadge,
+  PreFinaleHero, PreFinaleNavBadge, FinalistWelcome, FinalistPass, VipTicker,
   PostFinaleHero, PostFinaleNavBadge,
 } from './components/FinalsMode';
 import { pendingInvite, clearInvite, type InvitePreview } from './lib/invite';
@@ -317,6 +317,7 @@ export default function App() {
   const [teamSolvedIds, setTeamSolvedIds] = useState<string[]>([]);  // any team member's solves
   const [solvedByMap, setSolvedByMap] = useState<Record<string, string>>({}); // challengeId → "username"
   const [teamRoster, setTeamRoster] = useState<{ id: string; username: string }[]>([]); // everyone on my team
+  const [teamName, setTeamName] = useState<string | null>(null);
   const [firstBloodMap, setFirstBloodMap] = useState<Record<string, string>>({}); // challengeId → "username"
   const [solveCounts, setSolveCounts] = useState<Record<string, number>>({});    // challengeId → count
 
@@ -546,11 +547,13 @@ export default function App() {
       .maybeSingle();
 
     if (profileData?.team_id) {
-      const [{ data: teamSubs }, { data: roster }] = await Promise.all([
+      const [{ data: teamSubs }, { data: roster }, { data: team }] = await Promise.all([
         supabase.rpc('get_team_solves', { p_team_id: profileData.team_id }),
         supabase.from('safe_profiles').select('id, username').eq('team_id', profileData.team_id).order('username'),
+        supabase.from('public_teams').select('name').eq('id', profileData.team_id).maybeSingle(),
       ]);
       setTeamRoster((roster ?? []) as { id: string; username: string }[]);
+      setTeamName(team?.name ?? null);
 
       const solvedChallIds: string[] = [];
       const solvedBy: Record<string, string> = {};
@@ -566,6 +569,7 @@ export default function App() {
       setSolvedByMap(solvedBy);
     } else {
       setTeamRoster([]);
+      setTeamName(null);
     }
 
     // 3 & 4. Solve counts + First blood — via secure RPC (no submitted_flag exposed)
@@ -902,7 +906,8 @@ export default function App() {
       <AmbientBackground />
       <SurfaceLight />
       <CursorRing />
-      {finaleGlobalPhase === 'pre' && <GoldParticles intensity={0.3} />}
+      {finaleGlobalPhase === 'pre' && <GoldParticles intensity={0.5} />}
+      {finaleGlobalPhase === 'pre' && profile?.username && <FinalistWelcome username={profile.username} />}
       {finalsMode && <GoldParticles />}
       {finalsMode && <FinaleAtmosphere />}
       {finalsMode && <EndgameOverlay />}
@@ -1055,6 +1060,7 @@ export default function App() {
             )}
           </AnimatePresence>
         </nav>
+        {finaleGlobalPhase === 'pre' && <VipTicker />}
 
         {paused && profile?.is_admin && (
           <div className="max-w-screen-2xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-4">
@@ -1182,7 +1188,19 @@ export default function App() {
 
               {/* Main Content Area */}
               <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 py-8 lg:py-10 w-full">
-                {finaleGlobalPhase === 'pre' && <PreFinaleHero />}
+                {finaleGlobalPhase === 'pre' && <PreFinaleHero username={profile?.username} />}
+                {finaleGlobalPhase === 'pre' && user && profile && (
+                  <FinalistPass
+                    userId={user.id}
+                    username={profile.username}
+                    teamName={teamName}
+                    hasTeam={!!profile.team_id}
+                    teamMode={isTeamMode}
+                    squadSize={teamRoster.length}
+                    country={profile.country}
+                    onOpenTeam={() => setCurrentView('teamProfile')}
+                  />
+                )}
                 {finalsMode && <FinalWarningBanner />}
                 {finalsMode ? (
                   <FinaleHeader
