@@ -1921,7 +1921,7 @@ function EventTab() {
     setTimeout(() => setMsg(''), 6000);
   };
 
-  /** The final standings as a file, top 200 teams with rosters. */
+  /** The final standings as a file: every team with a point, ranked, with rosters. */
   const exportNow = async () => {
     setExporting(true);
     try {
@@ -2453,7 +2453,7 @@ function EventTab() {
                 </button>
               )}
               <span className="text-small text-text-muted">
-                The top 200 teams with rosters download automatically before anything is cleared. This cannot be undone.
+                Every team with at least one point, ranked, with rosters, downloads automatically before anything is cleared. This cannot be undone.
               </span>
             </div>
           </div>
