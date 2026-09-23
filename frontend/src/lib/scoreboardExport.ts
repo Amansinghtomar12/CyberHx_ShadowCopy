@@ -21,20 +21,37 @@ interface Member { id: string; username: string; email: string; team_id: string 
 
 /**
  * Every row a query matches, a page at a time. PostgREST caps each response
- * (1000 rows on this project), so a single read silently stops there. Paging
- * ends on an empty page rather than a short one, which keeps it correct
- * whatever the cap is. The query must have a total order or pages overlap.
+ * (1000 rows on this project), so a single read silently stops there.
+ *
+ * Pages are keyed on id, not on an offset: each asks for the rows after the
+ * last id seen. Scores, rosters and team membership can all change while
+ * this runs, and with offsets that shifts rows across a page boundary, so a
+ * team or a player is silently skipped. An id never moves. Paging ends on an
+ * empty page rather than a short one, which keeps it correct whatever the
+ * cap is.
  */
-async function readAll<T>(label: string, build: () => any): Promise<T[]> {
+async function readAll<T extends { id: string }>(label: string, build: () => any): Promise<T[]> {
   const all: T[] = [];
-  for (let from = 0; ; ) {
-    const { data, error } = await build().range(from, from + 999);
+  let after: string | null = null;
+  for (;;) {
+    const q = build();
+    const { data, error } = await (after ? q.gt('id', after) : q).order('id', { ascending: true }).limit(1000);
     if (error) throw new Error(`${label}: ${error.message}`);
     const page = (data ?? []) as T[];
     if (!page.length) return all;
     all.push(...page);
-    from += page.length;
+    after = page[page.length - 1].id;
   }
+}
+
+/**
+ * Microseconds since the epoch. Postgres keeps six fractional digits and a
+ * Date only three, and the scoreboard breaks ties on the full value. The
+ * fraction is parsed apart because browsers disagree on digits past three.
+ */
+function micros(ts: string): number {
+  const frac = /\.(\d+)/.exec(ts)?.[1] ?? '';
+  return Date.parse(ts.replace(/\.\d+/, '')) * 1000 + Number(frac.padEnd(6, '0').slice(0, 6));
 }
 
 /** Excel-safe cell: quoted, quotes doubled, formula-leading characters defused. */
@@ -52,16 +69,14 @@ export interface ExportResult { filename: string; rows: number }
 
 /** Fetch, build and hand the browser the file. Throws on any failure. */
 export async function exportScoreboardCsv(eventName: string | null | undefined): Promise<ExportResult> {
-  const standings = await readAll<TeamRow>('standings', () => supabase
+  const teams = await readAll<TeamRow>('standings', () => supabase
     .from('team_scores')
     .select('id, name, member_count, total_points, solved_count, last_solve')
-    .gt('total_points', 0)
-    .order('total_points', { ascending: false })
-    .order('last_solve', { ascending: true, nullsFirst: false })
-    .order('id', { ascending: true }));
-  // A solve landing mid-export can shift a team across a page boundary.
-  const seen = new Set<string>();
-  const rows = standings.filter(t => !seen.has(t.id) && seen.add(t.id));
+    .gt('total_points', 0));
+  // The scoreboard's order: points, then earliest last solve, none last.
+  const solvedAt = new Map(teams.map(t => [t.id, t.last_solve ? micros(t.last_solve) : Infinity]));
+  const rows = teams.sort((a, b) =>
+    b.total_points - a.total_points || solvedAt.get(a.id)! - solvedAt.get(b.id)! || (a.id < b.id ? -1 : 1));
 
   // Whole tables, filtered here: a list of every scoring team's id would not
   // fit in a request URL once the board runs to a few hundred teams.
@@ -72,8 +87,7 @@ export async function exportScoreboardCsv(eventName: string | null | undefined):
     const members = await readAll<Member>('rosters', () => supabase
       .from('profiles')
       .select('id, username, email, team_id, country, is_banned')
-      .not('team_id', 'is', null)
-      .order('id', { ascending: true }));
+      .not('team_id', 'is', null));
     const usernameById = new Map<string, string>();
     members.forEach(m => {
       // Banned players are not in member_count, and get no certificate.
@@ -84,8 +98,7 @@ export async function exportScoreboardCsv(eventName: string | null | undefined):
     });
     const caps = await readAll<{ id: string; captain_id: string | null }>('captains', () => supabase
       .from('public_teams')
-      .select('id, captain_id')
-      .order('id', { ascending: true }));
+      .select('id, captain_id'));
     caps.forEach(t => {
       const cap = t.captain_id && wanted.has(t.id) ? usernameById.get(t.captain_id) : undefined;
       if (cap) captainByTeam.set(t.id, cap);
@@ -98,7 +111,7 @@ export async function exportScoreboardCsv(eventName: string | null | undefined):
   rows.forEach((t, i) => {
     // Level on points and last solve means level on the board: same rank.
     const prev = rows[i - 1];
-    if (!prev || prev.total_points !== t.total_points || prev.last_solve !== t.last_solve) rank = i + 1;
+    if (!prev || prev.total_points !== t.total_points || solvedAt.get(prev.id) !== solvedAt.get(t.id)) rank = i + 1;
     const roster = (membersByTeam.get(t.id) ?? []).sort((a, b) => a.username.localeCompare(b.username));
     const countries = Array.from(new Set(roster.map(m => m.country).filter(Boolean))).join(' | ');
     lines.push([
