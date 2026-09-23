@@ -29,6 +29,11 @@ import {
 } from 'lucide-react';
 import { ADMIN_EMAIL } from '../lib/support';
 import { supabase } from '../lib/supabase';
+import qrcode from 'qrcode-generator';
+
+// The library's default packs each character into one byte, which mangles
+// names like Skånepatrullen. Scanners read UTF-8 byte mode correctly.
+qrcode.stringToBytes = (s: string) => Array.from(new TextEncoder().encode(s));
 
 /* ═══════════════════════════════════════════════════════════════════════════
    CONFIGURATION
@@ -469,7 +474,8 @@ interface FinalistPassProps {
   teamMode: boolean;
   /** Qualifying place, null for admins previewing the pass. */
   place: number | null;
-  squadSize: number;
+  /** Usernames on the team, for the QR payload and the squad count. */
+  squad: string[];
   country: string | null;
   onOpenTeam: () => void;
 }
@@ -539,33 +545,55 @@ function Medallion({ place, metal, label = 'SEAT', ring = 'GRAND FINALIST ◆ NU
   );
 }
 
-/** Bars from the pass id: decoration, but the same finalist always gets the same code. */
-function PassBarcode({ seed }: { seed: string }) {
-  const bars = useMemo(() => {
-    const out: { x: number; w: number }[] = [];
-    let x = 0;
-    for (const ch of seed.replace(/[^0-9a-f]/gi, '').toLowerCase()) {
-      const v = parseInt(ch, 16);
-      const w = 1 + (v % 3);
-      out.push({ x, w });
-      x += w + 1 + ((v >> 2) % 2);
+/**
+ * A real QR code: any phone camera reads it and shows the pass details as
+ * text. Dark modules on a light plate with a full quiet zone, because many
+ * scanners refuse inverted (light-on-dark) codes.
+ */
+function PassQR({ text }: { text: string }) {
+  const { n, d } = useMemo(() => {
+    // Level L: a screen is clean, and fewer modules means bigger modules.
+    const qr = qrcode(0, 'L');
+    qr.addData(text);
+    qr.make();
+    const size = qr.getModuleCount();
+    let path = '';
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) if (qr.isDark(r, c)) path += `M${c} ${r}h1v1h-1z`;
     }
-    return { out, width: x };
-  }, [seed]);
+    return { n: size, d: path };
+  }, [text]);
+  const q = 4;
+  // Whole-pixel modules scan far better than fractional ones.
+  const cell = Math.max(2, Math.floor(172 / (n + 2 * q)));
   return (
-    <svg viewBox={`0 0 ${bars.width} 24`} preserveAspectRatio="none" className="h-9 w-full" aria-hidden="true">
-      {bars.out.map((b, i) => <rect key={i} x={b.x} y="0" width={b.w} height="24" fill="#e3b54f" opacity={0.9} />)}
-    </svg>
+    <div className="lux-qr" role="img" aria-label="QR code with this pass's details" style={{ width: cell * (n + 2 * q) }}>
+      <svg viewBox={`${-q} ${-q} ${n + 2 * q} ${n + 2 * q}`} shapeRendering="crispEdges">
+        <rect x={-q} y={-q} width={n + 2 * q} height={n + 2 * q} fill="#f8eed3" />
+        <path d={d} fill="#1a1206" />
+      </svg>
+    </div>
   );
 }
 
 /** The finalist's own credential: black card, foil, a seat seal. */
-export function FinalistPass({ userId, username, teamName, hasTeam, teamMode, place, squadSize, country, onOpenTeam }: FinalistPassProps) {
+export function FinalistPass({ userId, username, teamName, hasTeam, teamMode, place, squad, country, onOpenTeam }: FinalistPassProps) {
   const reduce = useReducedMotion();
   const cardRef = useRef<HTMLDivElement>(null);
   const hex = userId.replace(/-/g, '').toUpperCase();
   const passId = `FNL-${hex.slice(0, 4)}-${hex.slice(4, 8)}`;
   const metal = metalFor(place);
+  const squadSize = squad.length;
+  const qrText = [
+    'NULL0RIGIN GRAND FINALE 2026',
+    `Pass ${passId}`,
+    `Player: ${username}`,
+    hasTeam && teamName ? `Team: ${teamName}` : null,
+    place ? `Qualified: #${place}` : 'Role: Host',
+    hasTeam && squadSize ? `Squad (${squadSize}): ${squad.join(', ')}` : null,
+    country ? `Representing: ${country}` : null,
+    'Gate: 25 Sep 2026 10:00 IST',
+  ].filter(Boolean).join('\n');
 
   const onMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (reduce || e.pointerType !== 'mouse') return;
@@ -641,9 +669,10 @@ export function FinalistPass({ userId, username, teamName, hasTeam, teamMode, pl
           <span aria-hidden="true" className="lux-perf" />
           <div className="lux-admit">Admit one</div>
           <div className="lux-label mt-1">Seat reserved</div>
-          <div className="lux-stub-seat mt-4">{place ? `No. ${String(place).padStart(2, '0')}` : 'Host'}</div>
-          <div className="mt-4 w-full"><PassBarcode seed={hex} /></div>
-          <div className="lux-serial mt-2">{passId}</div>
+          <div className="lux-stub-seat mt-3">{place ? `No. ${String(place).padStart(2, '0')}` : 'Host'}</div>
+          <div className="mt-3"><PassQR text={qrText} /></div>
+          <div className="lux-serial mt-2.5">{passId}</div>
+          <div className="lux-label mt-1.5">Scan to verify</div>
         </div>
       </div>
     </section>
