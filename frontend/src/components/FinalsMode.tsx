@@ -27,7 +27,6 @@ import {
   AlertTriangle, ChevronUp, Lock, Clock, Award,
   CheckCircle,
 } from 'lucide-react';
-import { FINALIST_TEAMS } from '../lib/finalists';
 import { ADMIN_EMAIL } from '../lib/support';
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -222,8 +221,8 @@ export function PreFinaleHero({ username }: { username?: string | null }) {
           style={{ color: 'rgba(255,200,100,0.55)' }}
         >
           {username
-            ? <>You made it, <span style={{ color: '#ffcc00' }}>{username}</span>. {FINALIST_TEAMS.length} finalist teams. One arena. 12 hours of championship-level challenges.</>
-            : `${FINALIST_TEAMS.length} finalist teams. One arena. 12 hours of championship-level challenges.`}
+            ? <>You made it, <span style={{ color: '#ffcc00' }}>{username}</span>. Only the qualified teams. One arena. 12 hours of championship-level challenges.</>
+            : 'Only the qualified teams. One arena. 12 hours of championship-level challenges.'}
         </p>
 
         {/* Countdown */}
@@ -443,7 +442,7 @@ export function FinalistWelcome({ username, teamName, place }: { username: strin
                     </div>
                   )}
                   <p className="mx-auto mt-4 max-w-sm text-small sm:text-body" style={{ color: 'rgba(255,220,160,0.7)' }}>
-                    Your team fought its way into the final {FINALIST_TEAMS.length}. Your seat in the arena is reserved.
+                    Your team fought its way into the final. Your seat in the arena is reserved.
                   </p>
                   <div className="mt-4 font-mono text-micro uppercase tracking-[0.2em] tabular-nums" style={{ color: 'rgba(255,200,100,0.45)' }}>
                     25 Sep 2026 · Gate opens 10:00 IST
@@ -564,7 +563,7 @@ export function FinalistPass({ userId, username, teamName, hasTeam, teamMode, pl
             <PassField label="Squad">{hasTeam && squadSize > 0 ? `${squadSize} ${squadSize === 1 ? 'member' : 'members'}` : '—'}</PassField>
             <PassField label="Qualified">
               {place
-                ? <span className="tabular-nums" style={{ color: PODIUM[place - 1] ?? '#ffcc00' }}>#{place} <span style={{ color: 'rgba(255,220,160,0.55)' }}>of {FINALIST_TEAMS.length}</span></span>
+                ? <span className="tabular-nums" style={{ color: PODIUM[place - 1] ?? '#ffcc00' }}>#{place}</span>
                 : <span style={{ color: '#ffcc00' }}>Host</span>}
             </PassField>
             <PassField label="Gate opens"><span className="tabular-nums">25 Sep · 10:00 IST</span></PassField>
@@ -613,7 +612,7 @@ function PassField({ label, children }: { label: string; children: React.ReactNo
 
 const TICKER_ITEMS = [
   'Finalist access confirmed',
-  `${FINALIST_TEAMS.length} finalist teams`,
+  'Qualified teams only',
   '25.09.2026 · 10:00 – 22:00 IST',
   'One arena · twelve hours',
   'Challenges sealed until the gate opens',
@@ -662,7 +661,7 @@ export function QualifierThanks() {
         <Award className="mt-0.5 h-4 w-4 shrink-0" style={{ color: '#ffb74d' }} />
         <div className="min-w-0 flex-1 text-text-secondary leading-relaxed">
           <span className="font-semibold text-cyber-text">Thank you for competing in NullOrigin.</span>{' '}
-          The Grand Finale on 25 Sep is for the {FINALIST_TEAMS.length} qualified teams. You can follow it live on the scoreboard, and certificates for every team that scored are on their way.{' '}
+          The Grand Finale on 25 Sep is for the qualified teams. You can follow it live on the scoreboard, and certificates for every team that scored are on their way.{' '}
           <span className="text-text-muted">
             Qualified but seeing this? Email{' '}
             <a href={`mailto:${ADMIN_EMAIL}`} className="underline text-cyber-text">{ADMIN_EMAIL}</a>{' '}
