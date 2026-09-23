@@ -672,7 +672,6 @@ export function FinalistPass({ userId, username, teamName, hasTeam, teamMode, pl
           <div className="lux-stub-seat mt-3">{place ? `No. ${String(place).padStart(2, '0')}` : 'Host'}</div>
           <div className="mt-3"><PassQR text={qrText} /></div>
           <div className="lux-serial mt-2.5">{passId}</div>
-          <div className="lux-label mt-1.5">Scan to verify</div>
         </div>
       </div>
     </section>
