@@ -2477,7 +2477,9 @@
   background:
     radial-gradient(ellipse 55% 65% at 50% 0%, rgba(243, 207, 107, 0.13) 0%, transparent 70%),
     radial-gradient(ellipse 40% 50% at 50% 100%, rgba(156, 106, 24, 0.12) 0%, transparent 70%),
-    linear-gradient(180deg, #0d0b08 0%, #08090b 100%);
+    linear-gradient(180deg, rgba(13, 11, 8, 0.44) 0%, rgba(8, 9, 11, 0.36) 100%);
+  backdrop-filter: blur(5px) saturate(1.15);
+  -webkit-backdrop-filter: blur(5px) saturate(1.15);
   box-shadow: 0 30px 80px -40px rgba(227, 181, 79, 0.35), inset 0 1px 0 rgba(255, 240, 200, 0.06);
 }
 .lux-beam {
@@ -2581,16 +2583,28 @@
   grid-template-columns: minmax(0, 1fr) 12px 13.5rem;
   overflow: hidden;
   border-radius: 18px;
-  border: 1px solid transparent;
-  background:
-    linear-gradient(180deg, #120f0a, #0a0908) padding-box,
-    linear-gradient(135deg, #fff3c4, #c9962e 30%, #5f4210 50%, #e3b54f 70%, #fff3c4) border-box;
+  background: linear-gradient(180deg, rgba(18, 15, 10, 0.5), rgba(10, 9, 8, 0.42));
+  backdrop-filter: blur(5px) saturate(1.15);
+  -webkit-backdrop-filter: blur(5px) saturate(1.15);
   box-shadow:
     0 40px 90px -40px rgba(227, 181, 79, 0.45),
     0 18px 40px -24px rgba(0, 0, 0, 0.95),
     inset 0 1px 0 rgba(255, 240, 200, 0.08);
   transform: rotateX(var(--rx)) rotateY(var(--ry));
   transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lux-pass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  padding: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(135deg, #fff3c4, #c9962e 30%, #5f4210 50%, #e3b54f 70%, #fff3c4);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
 }
 .lux-pass-main {
   position: relative;
@@ -2695,7 +2709,7 @@
   text-align: center;
   background:
     radial-gradient(ellipse 90% 60% at 50% 0%, rgba(227, 181, 79, 0.10), transparent 70%),
-    #0d0b08;
+    rgba(13, 11, 8, 0.35);
 }
 .lux-perf {
   position: absolute;
