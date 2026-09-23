@@ -817,11 +817,11 @@ export default function Scoreboard({ myTeamId = null, eventStatus = 'live', star
         <section aria-label="Podium" className="surface mb-8 sm:mb-section">
           <EmptyState
             icon={Trophy}
-            title={waiting ? 'Podium opens at kickoff' : 'No flags captured yet'}
+            title={waiting ? 'The podium fills in once the event starts' : 'No flags captured yet'}
             hint={
               waiting
-                ? `${teams.length} ${teams.length === 1 ? 'team is' : 'teams are'} registered${opensAt ? `. Doors open ${opensAt}` : ''}. The first team to land a flag takes the crown.`
-                : 'Every team is on zero. First blood decides who stands here.'
+                ? `${opensAt ? `Challenges open ${opensAt}. ` : ''}The top three teams will appear here once teams start scoring.`
+                : 'Every team is on zero points. The top three will appear here after the first flags are captured.'
             }
           />
         </section>
