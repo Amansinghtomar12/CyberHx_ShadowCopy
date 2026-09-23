@@ -2,7 +2,7 @@
  * FinalsMode — Three-phase Grand Finale experience for CyberHX CTF.
  *
  * Phase 1: PRE-FINALE  — before Sept 25, 2026, 10:00 IST
- *   Premium countdown, anticipation hero, "Final 50" branding, locked arena.
+ *   Countdown hero, finalist welcome, pass and ticker.
  *
  * Phase 2: LIVE FINALE — Sept 25, 10:00–22:00 IST
  *   Championship header, gold overlays, endgame escalation, solve burst.
@@ -169,18 +169,17 @@ export function PreFinaleHero({ username }: { username?: string | null }) {
       <span aria-hidden="true" className="lux-beam lux-beam-right" />
       <LuxFrame />
 
-      <div className="relative px-5 py-11 sm:px-10 sm:py-14 lg:py-16 text-center">
-        <div className="lux-eyebrow">Null0rigin presents</div>
-        <LuxOrnament className="mt-4" />
-        <h2 id="lux-hero-title" className="lux-title mt-3">Grand Finale</h2>
-        <div className="lux-eyebrow mt-2">The Final 50</div>
-        <p className="lux-lede mx-auto mt-5 max-w-xl">
-          {username && <>You made it, <span className="lux-lede-name">{username}</span>. </>}
-          Only the qualified teams. One arena. Twelve hours of championship-level challenges.
+      <div className="relative px-5 py-7 sm:px-10 sm:py-9 text-center">
+        <div className="lux-eyebrow">Null0rigin CTF</div>
+        <LuxOrnament className="mt-3" />
+        <h2 id="lux-hero-title" className="lux-title mt-2">Grand Finale</h2>
+        <p className="lux-lede mx-auto mt-3 max-w-xl">
+          {username && <><span className="lux-lede-name">{username}</span>, your team qualified. </>}
+          The finale runs for 12 hours, and the challenges unlock when the countdown ends.
         </p>
 
-        <div className="mt-9">
-          <div className="lux-label mb-4">{countdown.expired ? 'The gate is opening' : 'The gate opens in'}</div>
+        <div className="mt-6">
+          <div className="lux-label mb-3">{countdown.expired ? 'Starting now' : 'Starts in'}</div>
           {!countdown.expired && (
             <div role="timer" aria-live="off" className="flex items-stretch justify-center gap-2 sm:gap-3">
               <LuxUnit value={countdown.d} label="Days" />
@@ -194,16 +193,10 @@ export function PreFinaleHero({ username }: { username?: string | null }) {
           )}
         </div>
 
-        <div className="lux-dateline mt-8">
-          <span>Friday · 25 September 2026</span>
+        <div className="lux-dateline mt-5">
+          <span>Friday 25 September 2026</span>
           <span aria-hidden="true" className="lux-diamond" />
           <span className="tabular-nums">10:00 – 22:00 IST</span>
-        </div>
-
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
-          <span className="lux-chip">Arena <b>Sealed</b></span>
-          <span className="lux-chip">Challenges <b>Locked</b></span>
-          <span className="lux-chip">Status <b>Standby</b></span>
         </div>
       </div>
     </section>
@@ -397,7 +390,7 @@ export function FinalistWelcome({ username, teamName, place }: { username: strin
                 <AnimatePresence mode="wait">
                   {stage === 0 ? (
                     <motion.div key="verify" className="mt-7" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-                      <div className="lux-eyebrow">Verifying finalist credentials</div>
+                      <div className="lux-eyebrow">Loading your finalist pass</div>
                       <div className="vip-scan mx-auto mt-4 h-px w-48 overflow-hidden" style={{ backgroundColor: 'rgba(227,181,79,0.14)' }}>
                         <span className="block h-full w-1/3" style={{ background: 'linear-gradient(90deg, transparent, #f3cf6b, transparent)' }} />
                       </div>
@@ -423,21 +416,21 @@ export function FinalistWelcome({ username, teamName, place }: { username: strin
                   {teamName && (
                     <div className="mt-4">
                       <FitText className="lux-tier-line" minPx={9}>
-                        {place ? `${teamName}  ◆  Seat No. ${String(place).padStart(2, '0')}` : teamName}
+                        {place ? `${teamName}  ◆  Qualified #${place}` : teamName}
                       </FitText>
                     </div>
                   )}
                   <p className="lux-lede mx-auto mt-5 max-w-sm">
-                    Your team fought its way into the final. Your seat in the arena is reserved.
+                    Your team made the final. The challenges unlock at 10:00 IST on 25 September.
                   </p>
                   <div className="lux-dateline mt-6">
-                    <span>Friday · 25 September 2026</span>
+                    <span>Friday 25 September 2026</span>
                     <span aria-hidden="true" className="lux-diamond" />
-                    <span className="tabular-nums">Gate opens 10:00 IST</span>
+                    <span className="tabular-nums">10:00 – 22:00 IST</span>
                   </div>
                   <button ref={enterRef} type="button" onClick={close}
                     className="vip-enter mt-9 inline-flex items-center gap-2.5 rounded-pill px-7 py-3 text-small font-bold uppercase tracking-[0.24em] focus-ring">
-                    <Crown className="h-4 w-4" strokeWidth={1.8} /> Enter the lobby
+                    <Crown className="h-4 w-4" strokeWidth={1.8} /> Continue
                   </button>
                 </div>
               </motion.div>
@@ -508,8 +501,8 @@ function Guilloche() {
   );
 }
 
-/** The seat seal: rotating engraved ring around the qualifying place. */
-function Medallion({ place, metal, label = 'SEAT', ring = 'GRAND FINALIST ◆ NULL0RIGIN ◆ MMXXVI ◆' }: { place: number | null; metal: Metal; label?: string; ring?: string }) {
+/** The rank seal: rotating engraved ring around the qualifying place. */
+function Medallion({ place, metal, label = 'RANK', ring = 'GRAND FINALIST ◆ NULL0RIGIN CTF ◆ 2026 ◆' }: { place: number | null; metal: Metal; label?: string; ring?: string }) {
   const uid = useMemo(() => Math.random().toString(36).slice(2, 8), []);
   const g = `lux-m-${uid}`;
   const ringId = `lux-r-${uid}`;
@@ -576,7 +569,7 @@ function PassQR({ text }: { text: string }) {
   );
 }
 
-/** The finalist's own credential: black card, foil, a seat seal. */
+/** The finalist's own credential: black card, foil, a rank seal. */
 export function FinalistPass({ userId, username, teamName, hasTeam, teamMode, place, squad, country, onOpenTeam }: FinalistPassProps) {
   const reduce = useReducedMotion();
   const cardRef = useRef<HTMLDivElement>(null);
@@ -591,8 +584,8 @@ export function FinalistPass({ userId, username, teamName, hasTeam, teamMode, pl
     hasTeam && teamName ? `Team: ${teamName}` : null,
     place ? `Qualified: #${place}` : 'Role: Host',
     hasTeam && squadSize ? `Squad (${squadSize}): ${squad.join(', ')}` : null,
-    country ? `Representing: ${country}` : null,
-    'Gate: 25 Sep 2026 10:00 IST',
+    country ? `Country: ${country}` : null,
+    'Starts: 25 Sep 2026 10:00 IST',
   ].filter(Boolean).join('\n');
 
   const onMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -626,50 +619,46 @@ export function FinalistPass({ userId, username, teamName, hasTeam, teamMode, pl
 
           <div className="relative flex items-center justify-between gap-3">
             <span className="lux-mark"><Crown className="h-4 w-4" strokeWidth={1.6} /> Null0rigin</span>
-            <span className="lux-label hidden sm:inline">Grand Finale · MMXXVI</span>
+            <span className="lux-label hidden sm:inline">Grand Finale 2026</span>
           </div>
 
-          <div className="lux-pass-idrow relative mt-6 flex items-center justify-between gap-5">
+          <div className="lux-pass-idrow relative mt-3 flex items-center justify-between gap-5">
             <div className="min-w-0 flex-1">
-              <div className="lux-label">Issued to</div>
+              <div className="lux-label">Player</div>
               <div className="mt-1.5"><FitText className="lux-name" minPx={15}>{username}</FitText></div>
-              <div className="lux-tier mt-2">Grand Finalist <span aria-hidden="true" className="lux-diamond" /> All-access</div>
+              <div className="lux-tier mt-1.5">Grand Finalist</div>
             </div>
             <Medallion place={place} metal={metal} />
           </div>
 
-          <dl className="lux-fields relative mt-7">
+          <dl className="lux-fields relative mt-4">
             <LuxField label="Team">
               {hasTeam
                 ? <FitText minPx={11}>{teamName ?? '…'}</FitText>
                 : <span style={{ color: teamMode ? '#ffb24d' : undefined }}>{teamMode ? 'Not set' : 'Solo'}</span>}
             </LuxField>
             <LuxField label="Squad">{hasTeam && squadSize > 0 ? `${squadSize} ${squadSize === 1 ? 'member' : 'members'}` : '—'}</LuxField>
-            <LuxField label="Representing">{country || '—'}</LuxField>
-            <LuxField label="Gate opens"><span className="tabular-nums">25 Sep · 10:00 IST</span></LuxField>
+            <LuxField label="Country">{country || '—'}</LuxField>
+            <LuxField label="Starts"><span className="tabular-nums">25 Sep · 10:00 IST</span></LuxField>
           </dl>
 
           {teamMode && !hasTeam && (
             <div className="relative mt-5 flex flex-wrap items-center gap-3 rounded-inset px-3 py-2.5 text-small"
               style={{ border: '1px solid rgba(255,178,77,0.35)', backgroundColor: 'rgba(255,178,77,0.06)', color: 'rgba(255,230,190,0.85)' }}>
               <AlertTriangle className="h-4 w-4 shrink-0" style={{ color: '#ffb24d' }} />
-              <span className="min-w-0 flex-1">The finale is played in teams. Create or join yours before the gate opens.</span>
+              <span className="min-w-0 flex-1">The finale is played in teams. Create or join one before 10:00 IST on 25 September.</span>
               <button type="button" onClick={onOpenTeam} className="btn btn-secondary btn-sm">Set up team</button>
             </div>
           )}
 
-          <div aria-hidden="true" className="lux-microtext relative mt-6">
-            {'NULL0RIGIN GRAND FINALE ◆ 25.09.2026 ◆ ADMIT ONE FINALIST ◆ '.repeat(6)}
-          </div>
         </div>
 
         <span aria-hidden="true" className="lux-holo" />
 
         <div className="lux-pass-stub">
           <span aria-hidden="true" className="lux-perf" />
-          <div className="lux-admit">Admit one</div>
-          <div className="lux-label mt-1">Seat reserved</div>
-          <div className="lux-stub-seat mt-3">{place ? `No. ${String(place).padStart(2, '0')}` : 'Host'}</div>
+          <div className="lux-admit">Finalist</div>
+          <div className="lux-stub-seat mt-1">{place ? `Rank #${place}` : 'Host'}</div>
           <div className="mt-3"><PassQR text={qrText} /></div>
           <div className="lux-serial mt-2.5">{passId}</div>
         </div>
@@ -688,12 +677,11 @@ function LuxField({ label, children }: { label: string; children: React.ReactNod
 }
 
 const TICKER_ITEMS = [
-  'Finalist access confirmed',
-  'Qualified teams only',
-  '25.09.2026 · 10:00 – 22:00 IST',
-  'One arena · twelve hours',
-  'Challenges sealed until the gate opens',
-  'Only the best remain',
+  'Null0rigin CTF Grand Finale',
+  'Friday 25 September 2026',
+  '10:00 – 22:00 IST',
+  'Challenges unlock at 10:00 IST',
+  'Finalist teams only',
 ];
 
 /** Gold ticker under the nav. Decorative: everything in it is said elsewhere. */
@@ -796,16 +784,16 @@ export function PostFinaleHero({ onViewStandings }: { eventName?: string | null;
       <LuxFrame />
 
       <div className="relative px-5 py-11 sm:px-10 sm:py-14 text-center">
-        <div className="lux-eyebrow">Null0rigin · MMXXVI</div>
+        <div className="lux-eyebrow">Null0rigin CTF 2026</div>
         <LuxOrnament className="mt-4" />
         <h2 id="lux-post-title" className="lux-title mt-3">Grand Finale</h2>
-        <div className="lux-concluded mt-3">The championship has concluded</div>
+        <div className="lux-concluded mt-3">The finale has ended</div>
 
         {podium.length > 0 && (
           <div className="lux-podium mt-10" role="list" aria-label="Champions">
             {podium.map(c => (
               <div key={c.id} role="listitem" className={`lux-podium-step lux-podium-${c.place}`}>
-                <Medallion place={c.place} metal={metalFor(c.place)} label="PLACE" ring="CHAMPION ◆ NULL0RIGIN GRAND FINALE ◆" />
+                <Medallion place={c.place} metal={metalFor(c.place)} label="PLACE" ring="NULL0RIGIN CTF ◆ GRAND FINALE 2026 ◆" />
                 <div className="mt-3 w-full"><FitText className="lux-podium-name" minPx={12}>{c.name}</FitText></div>
                 <div className="lux-podium-points mt-1.5">{c.total_points.toLocaleString()} <span>pts</span></div>
               </div>
@@ -814,19 +802,19 @@ export function PostFinaleHero({ onViewStandings }: { eventName?: string | null;
         )}
 
         <p className="lux-lede mx-auto mt-9 max-w-lg">
-          Thank you to every finalist who fought for the crown. Certificates for every team that scored will be issued on 27 September.
+          Thank you to every team that played the final. Certificates for every team that scored will be issued on 27 September.
         </p>
 
         <div className="lux-dateline mt-7">
-          <span>Friday · 25 September 2026</span>
+          <span>Friday 25 September 2026</span>
           <span aria-hidden="true" className="lux-diamond" />
-          <span>Concluded</span>
+          <span>Ended at 22:00 IST</span>
         </div>
 
         {onViewStandings && (
           <button type="button" onClick={onViewStandings}
             className="vip-enter mt-8 inline-flex items-center gap-2.5 rounded-pill px-7 py-3 text-small font-bold uppercase tracking-[0.24em] focus-ring">
-            <Trophy className="h-4 w-4" strokeWidth={1.8} /> Final standings
+            <Trophy className="h-4 w-4" strokeWidth={1.8} /> View final scoreboard
           </button>
         )}
       </div>
@@ -838,7 +826,7 @@ export function PostFinaleNavBadge() {
   return (
     <span className="lux-live-badge lux-live-badge-sm ml-2">
       <CheckCircle className="h-2.5 w-2.5" style={{ color: '#e3b54f' }} />
-      Concluded
+      Ended
     </span>
   );
 }
@@ -913,10 +901,10 @@ export function FinaleEntrySequence({ onComplete }: { onComplete: () => void }) 
             {stage === 'title' && (
               <motion.div className="relative mt-7"
                 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease }}>
-                <div className="lux-eyebrow">The arena is open</div>
+                <div className="lux-eyebrow">The finale has started</div>
                 <h1 className="lux-title mt-3">Grand Finale</h1>
                 <LuxOrnament className="mt-4" />
-                <div className="lux-label mt-4">Only the best remain</div>
+                <div className="lux-label mt-4">Challenges are now unlocked</div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -943,10 +931,10 @@ export function FinaleHeader({ eventName, score, solved, total }: FinaleHeaderPr
   const pct = total > 0 ? Math.round((solved / total) * 100) : 0;
 
   const phaseLabel =
-    phase === 'lastMinute' ? 'Final seconds'
-      : phase === 'lastTen' ? 'Endgame'
-      : phase === 'lastHour' ? 'Closing hour'
-      : 'Championship';
+    phase === 'lastMinute' ? 'Final minute'
+      : phase === 'lastTen' ? 'Final 10 minutes'
+      : phase === 'lastHour' ? 'Final hour'
+      : 'In progress';
 
   return (
     <header className={`lux-live lux-live-${phase} mb-8 lg:mb-10`}>
@@ -957,7 +945,7 @@ export function FinaleHeader({ eventName, score, solved, total }: FinaleHeaderPr
             <FinalesLiveBadge phase={phase} />
             <span className="lux-chip lux-phase"><b>{phaseLabel}</b></span>
           </div>
-          <span className="lux-label hidden sm:inline">{eventName || 'Null0rigin'} · MMXXVI</span>
+          <span className="lux-label hidden sm:inline">{eventName || 'Null0rigin CTF'}</span>
         </div>
 
         <div className="mt-5 flex flex-wrap items-end justify-between gap-6">
@@ -965,14 +953,14 @@ export function FinaleHeader({ eventName, score, solved, total }: FinaleHeaderPr
             <h2 className="lux-live-title">Grand Finale</h2>
             <p className="lux-lede mt-2 flex items-center gap-2.5">
               <span aria-hidden="true" className="lux-diamond" />
-              Only the best remain. Make every flag count.
+              Scores update live. Submissions close at 22:00 IST.
             </p>
           </div>
 
           {countdown && !countdown.expired && (
             <div className="lux-live-clock" role="timer" aria-live="off"
               aria-label={`${countdown.h} hours ${countdown.m} minutes remaining`}>
-              <div className="lux-label mb-2.5">Time remaining</div>
+              <div className="lux-label mb-2.5">Time left</div>
               <div className="flex items-stretch gap-2">
                 <LuxUnit value={countdown.h} label="Hours" />
                 <span aria-hidden="true" className="lux-sep" />
@@ -1339,9 +1327,9 @@ export function FinalWarningBanner() {
       >
         <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
         {isLast60 ? (
-          <span>Final minute · <span className="tabular-nums">{countdown.s}</span> seconds remain</span>
+          <span>Final minute · <span className="tabular-nums">{countdown.s}</span> seconds left</span>
         ) : (
-          <span>Endgame · <span className="tabular-nums">{countdown.m}:{countdown.s}</span> remain</span>
+          <span>Final 10 minutes · <span className="tabular-nums">{countdown.m}:{countdown.s}</span> left</span>
         )}
         <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
       </div>
