@@ -27,6 +27,7 @@ import {
   AlertTriangle, ChevronUp, Lock, Clock, Award,
   CheckCircle,
 } from 'lucide-react';
+import { FINALIST_TEAMS } from '../lib/finalists';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    CONFIGURATION
@@ -220,8 +221,8 @@ export function PreFinaleHero({ username }: { username?: string | null }) {
           style={{ color: 'rgba(255,200,100,0.55)' }}
         >
           {username
-            ? <>You made it, <span style={{ color: '#ffcc00' }}>{username}</span>. 50 finalists. One arena. 12 hours of championship-level challenges.</>
-            : '50 finalists. One arena. 12 hours of championship-level challenges.'}
+            ? <>You made it, <span style={{ color: '#ffcc00' }}>{username}</span>. {FINALIST_TEAMS.length} finalist teams. One arena. 12 hours of championship-level challenges.</>
+            : `${FINALIST_TEAMS.length} finalist teams. One arena. 12 hours of championship-level challenges.`}
         </p>
 
         {/* Countdown */}
@@ -338,11 +339,11 @@ export function PreFinaleNavBadge() {
 
 /* ═══════════════════════════════════════════════════════════════════════════
    VIP LAYER — pre-finale, for the finalists themselves
-   Entry is allowlist-only, so everyone signed in during this phase earned a
-   seat. A one-time welcome, a personal pass, and a ticker under the nav.
+   Only for the announced finalist teams (lib/finalists.ts) and admins:
+   a one-time welcome, a personal pass, and a ticker under the nav.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-const VIP_WELCOME_KEY = 'cyberhx_vip_welcome_v1';
+const VIP_WELCOME_KEY = 'cyberhx_vip_welcome_v2';
 const GOLD_TEXT: React.CSSProperties = {
   background: 'linear-gradient(135deg, #ffe08a 0%, #ffcc00 30%, #ff9800 65%, #ffcc00 100%)',
   WebkitBackgroundClip: 'text',
@@ -355,7 +356,7 @@ function welcomeSeen(): boolean {
 }
 
 /** Once per device: credentials check, access granted, then the finalist by name. */
-export function FinalistWelcome({ username }: { username: string }) {
+export function FinalistWelcome({ username, teamName, place }: { username: string; teamName: string | null; place: number | null }) {
   const reduce = useReducedMotion();
   const [open, setOpen] = useState(() => !welcomeSeen());
   const [stage, setStage] = useState<0 | 1 | 2>(reduce ? 2 : 0);
@@ -430,13 +431,18 @@ export function FinalistWelcome({ username }: { username: string }) {
                   transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}>
                   <Crown className="mx-auto h-10 w-10" style={{ color: '#ffcc00', filter: 'drop-shadow(0 0 14px rgba(255,200,0,0.45))' }} />
                   <div className="mt-5 text-micro uppercase tracking-[0.35em]" style={{ color: 'rgba(255,200,100,0.7)' }}>
-                    Welcome to the Final 50
+                    Welcome to the Grand Finale
                   </div>
                   <div className="mt-3 break-words text-[2.5rem] sm:text-[3.75rem] font-extrabold leading-none tracking-tighter" style={GOLD_TEXT}>
                     {username}
                   </div>
+                  {teamName && (
+                    <div className="mt-3 text-small sm:text-body font-semibold" style={{ color: 'rgba(255,236,200,0.9)' }}>
+                      {teamName}{place && <span style={{ color: '#ffcc00' }}> · Qualified #{place}</span>}
+                    </div>
+                  )}
                   <p className="mx-auto mt-4 max-w-sm text-small sm:text-body" style={{ color: 'rgba(255,220,160,0.7)' }}>
-                    You earned your place among the best. Your seat in the arena is reserved.
+                    Your team fought its way into the final {FINALIST_TEAMS.length}. Your seat in the arena is reserved.
                   </p>
                   <div className="mt-4 font-mono text-micro uppercase tracking-[0.2em] tabular-nums" style={{ color: 'rgba(255,200,100,0.45)' }}>
                     25 Sep 2026 · Gate opens 10:00 IST
@@ -494,13 +500,15 @@ interface FinalistPassProps {
   teamName: string | null;
   hasTeam: boolean;
   teamMode: boolean;
+  /** Qualifying place, null for admins previewing the pass. */
+  place: number | null;
   squadSize: number;
   country: string | null;
   onOpenTeam: () => void;
 }
 
 /** The finalist's own credential. Follows the pointer like foil does. */
-export function FinalistPass({ userId, username, teamName, hasTeam, teamMode, squadSize, country, onOpenTeam }: FinalistPassProps) {
+export function FinalistPass({ userId, username, teamName, hasTeam, teamMode, place, squadSize, country, onOpenTeam }: FinalistPassProps) {
   const reduce = useReducedMotion();
   const cardRef = useRef<HTMLDivElement>(null);
   const hex = userId.replace(/-/g, '').toUpperCase();
@@ -553,7 +561,11 @@ export function FinalistPass({ userId, username, teamName, hasTeam, teamMode, sq
                 : <span style={{ color: teamMode ? '#ffa726' : undefined }}>{teamMode ? 'Not set' : 'Solo'}</span>}
             </PassField>
             <PassField label="Squad">{hasTeam && squadSize > 0 ? `${squadSize} ${squadSize === 1 ? 'member' : 'members'}` : '—'}</PassField>
-            <PassField label="Clearance"><span style={{ color: '#ffcc00' }}>All-access</span></PassField>
+            <PassField label="Qualified">
+              {place
+                ? <span className="tabular-nums" style={{ color: PODIUM[place - 1] ?? '#ffcc00' }}>#{place} <span style={{ color: 'rgba(255,220,160,0.55)' }}>of {FINALIST_TEAMS.length}</span></span>
+                : <span style={{ color: '#ffcc00' }}>Host</span>}
+            </PassField>
             <PassField label="Gate opens"><span className="tabular-nums">25 Sep · 10:00 IST</span></PassField>
           </dl>
 
@@ -575,17 +587,19 @@ export function FinalistPass({ userId, username, teamName, hasTeam, teamMode, sq
 
         <div className="vip-pass-stub">
           <div className="text-micro font-bold uppercase tracking-[0.3em]" style={{ color: '#ffcc00' }}>Admit one</div>
-          <div className="mt-1 text-micro uppercase tracking-[0.2em]" style={{ color: 'rgba(255,200,100,0.5)' }}>Seat reserved</div>
+          <div className="mt-1 text-micro uppercase tracking-[0.2em]" style={{ color: 'rgba(255,200,100,0.5)' }}>All-access · Seat reserved</div>
           <div className="mt-4 w-full"><PassBarcode seed={hex} /></div>
           <div className="mt-2 font-mono text-micro tracking-[0.18em] tabular-nums" style={{ color: 'rgba(255,220,160,0.75)' }}>{passId}</div>
           <div className="mt-3 inline-flex items-center gap-1.5 text-micro uppercase tracking-widest" style={{ color: 'rgba(255,200,100,0.5)' }}>
-            <Award className="h-3 w-3" /> The Final 50
+            <Award className="h-3 w-3" /> Grand Finalist
           </div>
         </div>
       </div>
     </section>
   );
 }
+
+const PODIUM = ['#ffd54a', '#d9e2ec', '#e59a5b'];
 
 function PassField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -598,7 +612,7 @@ function PassField({ label, children }: { label: string; children: React.ReactNo
 
 const TICKER_ITEMS = [
   'Finalist access confirmed',
-  'The Final 50',
+  `${FINALIST_TEAMS.length} finalist teams`,
   '25.09.2026 · 10:00 – 22:00 IST',
   'One arena · twelve hours',
   'Challenges sealed until the gate opens',
