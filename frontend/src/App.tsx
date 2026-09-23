@@ -1220,7 +1220,7 @@ export default function App() {
                     total={challenges.length}
                   />
                 ) : null}
-                {finaleGlobalPhase === 'post' && <PostFinaleHero eventName={eventSettings?.name} />}
+                {finaleGlobalPhase === 'post' && <PostFinaleHero eventName={eventSettings?.name} onViewStandings={() => setCurrentView('scoreboard')} />}
                 <CommandHeader
                   status={eventStatus}
                   paused={paused}
