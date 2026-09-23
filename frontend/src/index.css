@@ -2070,31 +2070,47 @@
 
 /* ── Nav: gold-tinted border + glow ──────────────────────────────────────── */
 .finale-active nav.sticky {
-  border-bottom-color: rgba(255, 170, 0, 0.2);
-  box-shadow: 0 1px 24px -4px rgba(255, 150, 0, 0.12);
+  background-color: rgba(8, 7, 5, 0.58);
+  border-bottom-color: rgba(227, 181, 79, 0.22);
+  box-shadow: 0 1px 24px -4px rgba(227, 181, 79, 0.14);
+}
+/* ── Glass: panels let the arena behind them show through ──────────────── */
+.finale-active .card-interactive,
+.finale-active .surface {
+  background-color: rgba(12, 10, 7, 0.46);
+  backdrop-filter: blur(9px) saturate(1.15);
+  -webkit-backdrop-filter: blur(9px) saturate(1.15);
+}
+.finale-active .surface { border-color: rgba(227, 181, 79, 0.12); }
+.finale-active .surface-raised { background-color: rgba(20, 16, 10, 0.55); }
+.finale-active .page-shell,
+.finale-active {
+  background: radial-gradient(ellipse 80% 45% at 50% 0%, rgba(243, 207, 107, 0.05) 0%, transparent 70%);
 }
 
 /* ── Cards: gold borders, gold solved wash ───────────────────────────────── */
 .finale-active .card-interactive {
-  border-color: rgba(255, 170, 0, 0.1);
+  border-color: rgba(227, 181, 79, 0.14);
 }
 .finale-active .card-interactive:hover {
-  border-color: rgba(255, 170, 0, 0.28);
-  box-shadow: 0 0 22px -6px rgba(255, 150, 0, 0.18);
+  background-color: rgba(18, 14, 9, 0.6);
+  border-color: rgba(227, 181, 79, 0.38);
+  box-shadow: 0 0 28px -8px rgba(227, 181, 79, 0.32), inset 0 1px 0 rgba(255, 240, 200, 0.06);
 }
 .finale-active .card-interactive[class*="border-border-neon"] {
-  border-color: rgba(255, 200, 50, 0.45) !important;
-  box-shadow: 0 0 16px rgba(255, 185, 50, 0.2) !important;
+  border-color: rgba(243, 207, 107, 0.55) !important;
+  box-shadow: 0 0 18px rgba(227, 181, 79, 0.25), inset 0 0 0 1px rgba(243, 207, 107, 0.12) !important;
 }
 
 /* ── Difficulty section rules: gold tint ─────────────────────────────────── */
 .finale-active .diff-rule {
-  background: linear-gradient(90deg, rgba(255, 170, 0, 0.3), transparent) !important;
+  background: linear-gradient(90deg, rgba(227, 181, 79, 0.45), transparent) !important;
 }
 
 /* ── Sidebar: gold accent ────────────────────────────────────────────────── */
 .finale-active aside {
-  border-color: rgba(255, 170, 0, 0.08);
+  border-color: rgba(227, 181, 79, 0.12);
+  background-color: rgba(8, 7, 5, 0.22);
 }
 
 /* ── Championship Header ─────────────────────────────────────────────────── */
@@ -2239,23 +2255,23 @@
 
 /* ── Modal: gold-tinted in finale mode ───────────────────────────────────── */
 .finale-active .surface-overlay {
-  border-color: rgba(255, 170, 0, 0.12);
+  border-color: rgba(227, 181, 79, 0.22);
   box-shadow: 0 18px 40px -12px rgba(2, 6, 11, 0.78),
-              0 0 40px -8px rgba(255, 150, 0, 0.08);
+              0 0 40px -8px rgba(227, 181, 79, 0.14);
 }
 
 /* ── Tab active state: gold in finale mode ───────────────────────────────── */
 .finale-active .tab.is-active {
-  color: #ffcc00;
-  box-shadow: inset 0 -2px 0 #ff9800;
+  color: #f3cf6b;
+  box-shadow: inset 0 -2px 0 #e3b54f;
 }
 
 /* ── Scrollbar thumb: gold tint ──────────────────────────────────────────── */
 .finale-active .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 170, 0, 0.2);
+  background: rgba(227, 181, 79, 0.22);
 }
 .finale-active .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 170, 0, 0.35);
+  background: rgba(227, 181, 79, 0.38);
 }
 
 /* ── Reduced motion: kill all finale animations ──────────────────────────── */
@@ -2743,6 +2759,117 @@
 }
 
 /* ── VIP: welcome sequence ─────────────────────────────────────────────── */
+/* ── LUX: live championship header ─────────────────────────────────────── */
+.lux-live {
+  --lux-clock: #f3cf6b;
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid var(--lux-line);
+  background:
+    radial-gradient(ellipse 60% 80% at 0% 0%, rgba(243, 207, 107, 0.10), transparent 60%),
+    radial-gradient(ellipse 50% 70% at 100% 100%, rgba(156, 106, 24, 0.10), transparent 70%),
+    rgba(10, 8, 6, 0.5);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  box-shadow: 0 30px 80px -40px rgba(227, 181, 79, 0.4), inset 0 1px 0 rgba(255, 240, 200, 0.07);
+}
+.lux-live-lastHour { --lux-clock: #ffb24d; }
+.lux-live-lastTen { --lux-clock: #ff7a45; }
+.lux-live-lastMinute { --lux-clock: #ff4d4d; border-color: rgba(255, 77, 77, 0.45); }
+.lux-live-title {
+  font-family: 'Cinzel', 'Trajan Pro', Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  line-height: 1;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: linear-gradient(100deg, #a8741c 0%, #f7d774 22%, #fff3c4 30%, #c9962e 45%, #f3cf6b 62%, #fff3c4 70%, #a8741c 100%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.55)) drop-shadow(0 0 22px rgba(227, 181, 79, 0.22));
+  animation: lux-foil 9s ease-in-out infinite;
+}
+.lux-live-clock .lux-unit { min-width: 4.6rem; padding: 0.75rem 0.55rem 0.6rem; background: rgba(12, 10, 7, 0.45); }
+.lux-live-clock .lux-digits { font-size: 2.1rem; }
+.lux-live:not(.lux-live-standard) .lux-live-clock .lux-unit {
+  border-color: color-mix(in srgb, var(--lux-clock) 55%, transparent);
+  box-shadow: 0 0 22px -6px color-mix(in srgb, var(--lux-clock) 45%, transparent), inset 0 1px 0 rgba(255, 240, 200, 0.08);
+}
+.lux-live:not(.lux-live-standard) .lux-live-clock .lux-digits {
+  background: none;
+  color: var(--lux-clock);
+  -webkit-text-fill-color: var(--lux-clock);
+  text-shadow: 0 0 18px color-mix(in srgb, var(--lux-clock) 50%, transparent);
+}
+.lux-live-lastMinute .lux-live-clock { animation: finale-clock-throb 1s ease-in-out infinite; }
+.lux-phase b { color: var(--lux-clock); }
+.lux-fields-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+.lux-stat {
+  font-family: 'Cinzel', 'Trajan Pro', Georgia, serif;
+  font-weight: 600;
+  font-size: clamp(1.35rem, 3vw, 1.9rem);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  background: var(--lux-foil);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.lux-stat-dim { -webkit-text-fill-color: rgba(240, 214, 160, 0.4); color: rgba(240, 214, 160, 0.4); }
+.lux-progress { position: relative; height: 4px; border-radius: 999px; overflow: hidden; background: rgba(227, 181, 79, 0.12); }
+.lux-progress span {
+  position: absolute;
+  inset: 0;
+  transform-origin: left;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #9c6a18, #e3b54f 60%, #fff3c4);
+  box-shadow: 0 0 12px rgba(227, 181, 79, 0.5);
+  transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lux-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--lux-line);
+  background: rgba(12, 10, 7, 0.5);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--lux-hi);
+  box-shadow: 0 0 14px -4px rgba(227, 181, 79, 0.35);
+}
+.lux-live-badge-sm { padding: 0.15rem 0.55rem; letter-spacing: 0.22em; }
+.lux-burst {
+  font-family: 'Cinzel', 'Trajan Pro', Georgia, serif;
+  font-weight: 700;
+  font-size: 2.25rem;
+  font-variant-numeric: tabular-nums;
+  background: var(--lux-foil);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 16px rgba(227, 181, 79, 0.55));
+}
+.lux-warning {
+  font-family: 'Cinzel', 'Trajan Pro', Georgia, serif;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+@media (max-width: 640px) {
+  .lux-live-clock { width: 100%; }
+  .lux-live-clock .lux-unit { flex: 1; min-width: 0; }
+}
+
 /* ── LUX: welcome sequence ─────────────────────────────────────────────── */
 .lux-welcome {
   background:
@@ -2824,7 +2951,9 @@
   .lux-title,
   .lux-pass-gloss,
   .lux-medallion-ring,
-  .lux-welcome-name { animation: none !important; }
+  .lux-welcome-name,
+  .lux-live-title,
+  .lux-live-lastMinute .lux-live-clock { animation: none !important; }
   .lux-pass { transform: none; transition: none; }
 }
 
