@@ -266,13 +266,7 @@ export function PreFinaleNavBadge() {
    a one-time welcome, a personal pass, and a ticker under the nav.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-const VIP_WELCOME_KEY = 'cyberhx_vip_welcome_v2';
-const GOLD_TEXT: React.CSSProperties = {
-  background: 'linear-gradient(180deg, #fff3c4 0%, #f7d774 30%, #c9962e 58%, #f3cf6b 80%, #a8741c 100%)',
-  WebkitBackgroundClip: 'text',
-  WebkitTextFillColor: 'transparent',
-  backgroundClip: 'text',
-};
+const VIP_WELCOME_KEY = 'cyberhx_vip_welcome_v3';
 
 function welcomeSeen(): boolean {
   try { return !!localStorage.getItem(VIP_WELCOME_KEY); } catch { return false; }
@@ -284,6 +278,7 @@ export function FinalistWelcome({ username, teamName, place }: { username: strin
   const [open, setOpen] = useState(() => !welcomeSeen());
   const [stage, setStage] = useState<0 | 1 | 2>(reduce ? 2 : 0);
   const enterRef = useRef<HTMLButtonElement>(null);
+  const ease = [0.22, 1, 0.36, 1] as const;
 
   const close = useCallback(() => {
     try { localStorage.setItem(VIP_WELCOME_KEY, '1'); } catch { /* private mode */ }
@@ -294,8 +289,8 @@ export function FinalistWelcome({ username, teamName, place }: { username: strin
     if (!open) return;
     const timers = reduce
       ? []
-      : [setTimeout(() => setStage(1), 1300), setTimeout(() => setStage(2), 2400)];
-    timers.push(setTimeout(close, reduce ? 9000 : 8000));
+      : [setTimeout(() => setStage(1), 1600), setTimeout(() => setStage(2), 2800)];
+    timers.push(setTimeout(close, 11000));
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
     window.addEventListener('keydown', onKey);
     return () => { timers.forEach(clearTimeout); window.removeEventListener('keydown', onKey); };
@@ -310,83 +305,111 @@ export function FinalistWelcome({ username, teamName, place }: { username: strin
           role="dialog"
           aria-modal="true"
           aria-label={`Welcome to the Grand Finale, ${username}`}
-          className="fixed inset-0 z-[200] flex items-center justify-center px-6"
-          style={{ backgroundColor: '#030608' }}
+          className="lux-welcome fixed inset-0 z-[200] flex items-center justify-center overflow-hidden px-5"
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: 0.7, ease }}
           onClick={close}
         >
-          <div aria-hidden="true" className="absolute inset-0 pointer-events-none" style={{
-            background: 'radial-gradient(ellipse at 50% 45%, rgba(255,180,40,0.10) 0%, rgba(255,110,0,0.04) 38%, transparent 70%)',
-          }} />
-          <div aria-hidden="true" className="absolute inset-0 pointer-events-none finale-scanlines" />
-          <span aria-hidden="true" className="vip-curtain vip-curtain-left" />
-          <span aria-hidden="true" className="vip-curtain vip-curtain-right" />
+          <span aria-hidden="true" className="lux-beam lux-beam-left" />
+          <span aria-hidden="true" className="lux-beam lux-beam-right" />
+          <Guilloche />
 
-          <div className="relative w-full max-w-xl text-center" onClick={e => e.stopPropagation()}>
-            <AnimatePresence mode="wait">
-              {stage === 0 && (
-                <motion.div key="verify" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-                  <Shield className="mx-auto h-12 w-12" style={{ color: '#ff9800' }} />
-                  <div className="mt-5 font-mono text-micro uppercase tracking-[0.3em]" style={{ color: 'rgba(255,200,100,0.7)' }}>
-                    Verifying finalist credentials
-                  </div>
-                  <div className="vip-scan mx-auto mt-4 h-[2px] w-56 overflow-hidden rounded-pill" style={{ backgroundColor: 'rgba(255,170,0,0.12)' }}>
-                    <span className="block h-full w-1/3" style={{ background: 'linear-gradient(90deg, transparent, #ffcc00, transparent)' }} />
-                  </div>
-                  <div className="mt-3 font-mono text-micro tracking-widest" style={{ color: 'rgba(255,200,100,0.35)' }}>
-                    ID · {username.toUpperCase()}
-                  </div>
-                </motion.div>
-              )}
-              {stage === 1 && (
-                <motion.div key="granted" initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}>
-                  <CheckCircle className="mx-auto h-12 w-12" style={{ color: '#ffcc00' }} />
-                  <div className="mt-5 text-h2 sm:text-h1 font-extrabold uppercase tracking-[0.2em]" style={GOLD_TEXT}>
-                    Access granted
-                  </div>
-                </motion.div>
-              )}
-              {stage === 2 && (
-                <motion.div key="welcome"
-                  initial={reduce ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}>
-                  <Crown className="mx-auto h-10 w-10" style={{ color: '#ffcc00', filter: 'drop-shadow(0 0 14px rgba(255,200,0,0.45))' }} />
-                  <div className="mt-5 text-micro uppercase tracking-[0.35em]" style={{ color: 'rgba(255,200,100,0.7)' }}>
-                    Welcome to the Grand Finale
-                  </div>
-                  <div className="lux-serif mt-3 break-words text-[2.4rem] sm:text-[3.5rem] font-semibold leading-none" style={GOLD_TEXT}>
-                    {username}
-                  </div>
+          <AnimatePresence mode="wait">
+            {stage < 2 ? (
+              <motion.div key="seal" className="relative flex flex-col items-center text-center"
+                initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 1.08, filter: 'blur(4px)' }} transition={{ duration: 0.5, ease }}
+                onClick={e => e.stopPropagation()}>
+                <div className="lux-seal">
+                  <svg viewBox="0 0 120 120" aria-hidden="true">
+                    <defs>
+                      <linearGradient id="lux-welcome-g" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0" stopColor="#fff3c4" />
+                        <stop offset="0.45" stopColor="#e3b54f" />
+                        <stop offset="0.75" stopColor="#9c6a18" />
+                        <stop offset="1" stopColor="#e3b54f" />
+                      </linearGradient>
+                    </defs>
+                    <circle cx="60" cy="60" r="56" fill="none" stroke="rgba(227,181,79,0.14)" strokeWidth="1" />
+                    <motion.circle cx="60" cy="60" r="56" fill="none" stroke="url(#lux-welcome-g)" strokeWidth="1.6"
+                      strokeLinecap="round" transform="rotate(-90 60 60)"
+                      initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.5, ease: 'easeInOut' }} />
+                    <circle cx="60" cy="60" r="47" fill="none" stroke="url(#lux-welcome-g)" strokeWidth="0.5" opacity="0.5" />
+                  </svg>
+                  <AnimatePresence mode="wait">
+                    {stage === 0 ? (
+                      <motion.span key="crown" className="lux-seal-icon" exit={{ opacity: 0, scale: 0.8 }} transition={{ duration: 0.2 }}>
+                        <Crown className="h-10 w-10" strokeWidth={1.3} />
+                      </motion.span>
+                    ) : (
+                      <motion.span key="check" className="lux-seal-icon" initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.35, ease }}>
+                        <CheckCircle className="h-10 w-10" strokeWidth={1.3} />
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </div>
+                <AnimatePresence mode="wait">
+                  {stage === 0 ? (
+                    <motion.div key="verify" className="mt-7" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+                      <div className="lux-eyebrow">Verifying finalist credentials</div>
+                      <div className="vip-scan mx-auto mt-4 h-px w-48 overflow-hidden" style={{ backgroundColor: 'rgba(227,181,79,0.14)' }}>
+                        <span className="block h-full w-1/3" style={{ background: 'linear-gradient(90deg, transparent, #f3cf6b, transparent)' }} />
+                      </div>
+                      <div className="lux-serial mt-3 opacity-60">ID · {username.toUpperCase()}</div>
+                    </motion.div>
+                  ) : (
+                    <motion.div key="granted" className="mt-7" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease }}>
+                      <div className="lux-granted">Access granted</div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            ) : (
+              <motion.div key="invite" className="lux-invite relative w-full max-w-xl text-center"
+                initial={reduce ? false : { opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.8, ease, delay: reduce ? 0 : 0.35 }}
+                onClick={e => e.stopPropagation()}>
+                <LuxFrame />
+                <div className="relative px-6 py-10 sm:px-10 sm:py-12">
+                  <LuxOrnament />
+                  <div className="lux-eyebrow mt-5">Welcome to the Grand Finale</div>
+                  <div className="lux-welcome-name mt-4">{username}</div>
                   {teamName && (
-                    <div className="mt-3 text-small sm:text-body font-semibold" style={{ color: 'rgba(255,236,200,0.9)' }}>
-                      {teamName}{place && <span style={{ color: '#ffcc00' }}> · Qualified #{place}</span>}
+                    <div className="lux-tier mt-4 justify-center">
+                      <span className="break-words">{teamName}</span>
+                      {place && <><span aria-hidden="true" className="lux-diamond" /><span>Seat No. {String(place).padStart(2, '0')}</span></>}
                     </div>
                   )}
-                  <p className="mx-auto mt-4 max-w-sm text-small sm:text-body" style={{ color: 'rgba(255,220,160,0.7)' }}>
+                  <p className="lux-lede mx-auto mt-5 max-w-sm">
                     Your team fought its way into the final. Your seat in the arena is reserved.
                   </p>
-                  <div className="mt-4 font-mono text-micro uppercase tracking-[0.2em] tabular-nums" style={{ color: 'rgba(255,200,100,0.45)' }}>
-                    25 Sep 2026 · Gate opens 10:00 IST
+                  <div className="lux-dateline mt-6">
+                    <span>Friday · 25 September 2026</span>
+                    <span aria-hidden="true" className="lux-diamond" />
+                    <span className="tabular-nums">Gate opens 10:00 IST</span>
                   </div>
-                  <button
-                    ref={enterRef}
-                    type="button"
-                    onClick={close}
-                    className="vip-enter mt-8 inline-flex items-center gap-2 rounded-pill px-6 py-2.5 text-small font-bold uppercase tracking-[0.18em] focus-ring"
-                  >
-                    <Star className="h-3.5 w-3.5" /> Enter the lobby
+                  <button ref={enterRef} type="button" onClick={close}
+                    className="vip-enter mt-9 inline-flex items-center gap-2.5 rounded-pill px-7 py-3 text-small font-bold uppercase tracking-[0.24em] focus-ring">
+                    <Crown className="h-4 w-4" strokeWidth={1.8} /> Enter the lobby
                   </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {stage === 2 && !reduce && (
+            <>
+              <motion.span aria-hidden="true" className="lux-curtain lux-curtain-left"
+                initial={{ x: 0 }} animate={{ x: '-102%' }} transition={{ duration: 1.3, ease: [0.65, 0, 0.35, 1] }} />
+              <motion.span aria-hidden="true" className="lux-curtain lux-curtain-right"
+                initial={{ x: 0 }} animate={{ x: '102%' }} transition={{ duration: 1.3, ease: [0.65, 0, 0.35, 1] }} />
+            </>
+          )}
 
           {stage < 2 && (
             <button type="button" onClick={close}
-              className="absolute bottom-6 right-6 font-mono text-micro uppercase tracking-widest focus-ring rounded-inset px-2 py-1"
-              style={{ color: 'rgba(255,200,100,0.45)' }}>
+              className="lux-label absolute bottom-6 right-6 focus-ring rounded-inset px-2 py-1">
               Skip
             </button>
           )}

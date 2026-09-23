@@ -2743,19 +2743,67 @@
 }
 
 /* ── VIP: welcome sequence ─────────────────────────────────────────────── */
-.vip-curtain {
+/* ── LUX: welcome sequence ─────────────────────────────────────────────── */
+.lux-welcome {
+  background:
+    radial-gradient(ellipse 55% 60% at 50% 42%, rgba(243, 207, 107, 0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 50% at 50% 100%, rgba(156, 106, 24, 0.10) 0%, transparent 70%),
+    #060504;
+}
+.lux-welcome .lux-guilloche { opacity: 0.05; }
+.lux-seal { position: relative; width: 8.5rem; height: 8.5rem; filter: drop-shadow(0 0 22px rgba(227, 181, 79, 0.28)); }
+.lux-seal > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.lux-seal-icon { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #f3cf6b; }
+.lux-granted {
+  font-family: 'Cinzel', 'Trajan Pro', Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(1.6rem, 5vw, 2.4rem);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  background: var(--lux-foil);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 18px rgba(227, 181, 79, 0.3));
+}
+.lux-invite {
+  border-radius: 18px;
+  border: 1px solid transparent;
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 0%, rgba(243, 207, 107, 0.12), transparent 70%) padding-box,
+    linear-gradient(180deg, #120f0a, #0a0908) padding-box,
+    linear-gradient(135deg, #fff3c4, #c9962e 30%, #5f4210 50%, #e3b54f 70%, #fff3c4) border-box;
+  box-shadow: 0 40px 100px -40px rgba(227, 181, 79, 0.5), 0 20px 50px -30px rgba(0, 0, 0, 1);
+}
+.lux-welcome-name {
+  font-family: 'Cinzel', 'Trajan Pro', Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(2.2rem, 7.5vw, 4rem);
+  line-height: 1.02;
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+  background: linear-gradient(100deg, #a8741c 0%, #f7d774 22%, #fff3c4 30%, #c9962e 45%, #f3cf6b 62%, #fff3c4 70%, #a8741c 100%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.55)) drop-shadow(0 0 24px rgba(227, 181, 79, 0.25));
+  animation: lux-foil 7s ease-in-out infinite;
+}
+.lux-curtain {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 50%;
+  width: 50.5%;
+  z-index: 5;
   pointer-events: none;
-  background: linear-gradient(90deg, rgba(255, 150, 0, 0.06), transparent);
-  animation: vip-curtain 1.6s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
+  background:
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.35) 0 2px, transparent 2px 26px, rgba(255, 220, 160, 0.03) 26px 30px, transparent 30px 44px),
+    linear-gradient(180deg, #1a130a 0%, #0e0a06 60%, #070504 100%);
 }
-.vip-curtain-left { left: 0; transform-origin: left; }
-.vip-curtain-right { right: 0; transform-origin: right; transform: scaleX(-1); animation-name: vip-curtain-r; }
-@keyframes vip-curtain { from { opacity: 1; transform: scaleX(1); } to { opacity: 0.35; transform: scaleX(0.35); } }
-@keyframes vip-curtain-r { from { opacity: 1; transform: scaleX(-1); } to { opacity: 0.35; transform: scaleX(-0.35); } }
+.lux-curtain-left { left: 0; box-shadow: inset -2px 0 0 #c9962e, inset -20px 0 30px -18px rgba(227, 181, 79, 0.35); }
+.lux-curtain-right { right: 0; box-shadow: inset 2px 0 0 #c9962e, inset 20px 0 30px -18px rgba(227, 181, 79, 0.35); }
+
 .vip-scan span { animation: vip-scan 1.1s ease-in-out infinite; }
 @keyframes vip-scan { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
 .vip-enter {
@@ -2771,12 +2819,12 @@
   .finale-pre nav.sticky::after,
   .finale-pre .finale-finalist-badge,
   .vip-ticker-track,
-  .vip-curtain,
   .vip-scan span,
   .lux-beam,
   .lux-title,
   .lux-pass-gloss,
-  .lux-medallion-ring { animation: none !important; }
+  .lux-medallion-ring,
+  .lux-welcome-name { animation: none !important; }
   .lux-pass { transform: none; transition: none; }
 }
 
