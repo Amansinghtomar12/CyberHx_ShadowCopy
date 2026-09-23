@@ -156,163 +156,86 @@ function useCountdownTo(target: Date) {
 
 export function PreFinaleHero({ username }: { username?: string | null }) {
   const countdown = useCountdownTo(FINALS_START);
-  const reduce = useReducedMotion();
 
   return (
-    <section className="pre-finale-hero relative overflow-hidden rounded-card mb-8 lg:mb-10">
-      {/* Background layers */}
-      <div aria-hidden="true" className="absolute inset-0 pointer-events-none">
-        <div
-          className="absolute inset-0"
-          style={{
-            background: `radial-gradient(ellipse at 20% 20%, rgba(255,170,0,0.06) 0%, transparent 50%),
-                         radial-gradient(ellipse at 80% 80%, rgba(255,100,0,0.04) 0%, transparent 50%)`,
-          }}
-        />
-        <div className="absolute inset-0 finale-scanlines" />
-      </div>
+    <section className="lux-hero mb-8 lg:mb-10" aria-labelledby="lux-hero-title">
+      <span aria-hidden="true" className="lux-beam lux-beam-left" />
+      <span aria-hidden="true" className="lux-beam lux-beam-right" />
+      <LuxFrame />
 
-      {/* Top gold edge */}
-      <span
-        aria-hidden="true"
-        className="absolute inset-x-0 top-0 h-[2px]"
-        style={{
-          background: 'linear-gradient(90deg, transparent, #ff9800, #ffcc00, #ff9800, transparent)',
-        }}
-      />
-
-      {/* Left accent */}
-      <span
-        aria-hidden="true"
-        className="absolute inset-y-0 left-0 w-[2px]"
-        style={{ backgroundColor: '#ff9800' }}
-      />
-
-      <div className="relative px-5 py-10 sm:px-8 sm:py-14 lg:py-16 text-center">
-        {/* Eyebrow */}
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <span
-            className="inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-micro uppercase tracking-[0.2em] font-bold"
-            style={{
-              border: '1px solid rgba(255,170,0,0.3)',
-              backgroundColor: 'rgba(255,170,0,0.06)',
-              color: '#ff9800',
-            }}
-          >
-            <Shield className="h-3 w-3" />
-            NULL0RIGIN
-          </span>
-        </div>
-
-        {/* Title */}
-        <div
-          className="label-micro tracking-[0.3em] uppercase mb-2"
-          style={{ color: 'rgba(255,200,100,0.6)' }}
-        >
-          The Final 50
-        </div>
-        <h2
-          className="text-[2rem] sm:text-[3rem] lg:text-[3.5rem] font-extrabold tracking-tighter leading-none finale-title-gradient"
-        >
-          GRAND FINALE
-        </h2>
-        <p
-          className="mt-3 text-small sm:text-body max-w-lg mx-auto"
-          style={{ color: 'rgba(255,200,100,0.55)' }}
-        >
-          {username
-            ? <>You made it, <span style={{ color: '#ffcc00' }}>{username}</span>. Only the qualified teams. One arena. 12 hours of championship-level challenges.</>
-            : 'Only the qualified teams. One arena. 12 hours of championship-level challenges.'}
+      <div className="relative px-5 py-11 sm:px-10 sm:py-14 lg:py-16 text-center">
+        <div className="lux-eyebrow">Null0rigin presents</div>
+        <LuxOrnament className="mt-4" />
+        <h2 id="lux-hero-title" className="lux-title mt-3">Grand Finale</h2>
+        <div className="lux-eyebrow mt-2">The Final 50</div>
+        <p className="lux-lede mx-auto mt-5 max-w-xl">
+          {username && <>You made it, <span className="lux-lede-name">{username}</span>. </>}
+          Only the qualified teams. One arena. Twelve hours of championship-level challenges.
         </p>
 
-        {/* Countdown */}
-        <div className="mt-8 sm:mt-10">
-          <div
-            className="label-micro tracking-[0.2em] uppercase mb-4 flex items-center justify-center gap-2"
-            style={{ color: 'rgba(255,200,100,0.5)' }}
-          >
-            <Clock className="h-3 w-3" />
-            {countdown.expired ? 'Starting Now' : 'Starts In'}
-          </div>
-
+        <div className="mt-9">
+          <div className="lux-label mb-4">{countdown.expired ? 'The gate is opening' : 'The gate opens in'}</div>
           {!countdown.expired && (
-            <div className="flex items-center justify-center gap-2 sm:gap-4">
-              <CountdownUnit value={countdown.d} label="Days" />
-              <span className="text-h1 sm:text-display font-mono tabular-nums" style={{ color: 'rgba(255,200,100,0.25)' }}>:</span>
-              <CountdownUnit value={countdown.h} label="Hours" />
-              <span className="text-h1 sm:text-display font-mono tabular-nums" style={{ color: 'rgba(255,200,100,0.25)' }}>:</span>
-              <CountdownUnit value={countdown.m} label="Minutes" />
-              <span className="text-h1 sm:text-display font-mono tabular-nums" style={{ color: 'rgba(255,200,100,0.25)' }}>:</span>
-              <CountdownUnit value={countdown.s} label="Seconds" />
+            <div role="timer" aria-live="off" className="flex items-stretch justify-center gap-2 sm:gap-3">
+              <LuxUnit value={countdown.d} label="Days" />
+              <span aria-hidden="true" className="lux-sep" />
+              <LuxUnit value={countdown.h} label="Hours" />
+              <span aria-hidden="true" className="lux-sep" />
+              <LuxUnit value={countdown.m} label="Minutes" />
+              <span aria-hidden="true" className="lux-sep" />
+              <LuxUnit value={countdown.s} label="Seconds" />
             </div>
           )}
         </div>
 
-        {/* Event date line */}
-        <div
-          className="mt-6 flex items-center justify-center gap-3 text-small font-mono tabular-nums"
-          style={{ color: 'rgba(255,200,100,0.45)' }}
-        >
-          <span>25 SEPTEMBER 2026</span>
-          <span style={{ color: 'rgba(255,200,100,0.2)' }}>|</span>
-          <span>10:00 AM — 10:00 PM IST</span>
+        <div className="lux-dateline mt-8">
+          <span>Friday · 25 September 2026</span>
+          <span aria-hidden="true" className="lux-diamond" />
+          <span className="tabular-nums">10:00 – 22:00 IST</span>
         </div>
 
-        {/* Status cards */}
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
-          <PreFinaleStatusChip icon={<Target className="h-3 w-3" />} label="Arena" value="LOCKED" />
-          <PreFinaleStatusChip icon={<Lock className="h-3 w-3" />} label="Challenges" value="SEALED" />
-          <PreFinaleStatusChip icon={<Radio className="h-3 w-3" />} label="Status" value="STANDBY" />
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+          <span className="lux-chip">Arena <b>Sealed</b></span>
+          <span className="lux-chip">Challenges <b>Locked</b></span>
+          <span className="lux-chip">Status <b>Standby</b></span>
         </div>
       </div>
-
-      {/* Bottom edge */}
-      <span
-        aria-hidden="true"
-        className="absolute inset-x-0 bottom-0 h-px"
-        style={{
-          background: 'linear-gradient(90deg, transparent, rgba(255,170,0,0.3), transparent)',
-        }}
-      />
     </section>
   );
 }
 
-function CountdownUnit({ value, label }: { value: string; label: string }) {
+/** Digits in fixed cells, so the tile never jitters as the seconds change. */
+function LuxUnit({ value, label }: { value: string; label: string }) {
   return (
-    <div className="flex flex-col items-center">
-      <div
-        className="text-[1.75rem] sm:text-[2.5rem] lg:text-[3rem] font-extrabold font-mono tabular-nums leading-none"
-        style={{
-          color: '#ffcc00',
-          textShadow: '0 0 30px rgba(255,200,50,0.25)',
-        }}
-      >
-        {value}
-      </div>
-      <div
-        className="mt-1 text-micro font-mono uppercase tracking-[0.15em]"
-        style={{ color: 'rgba(255,200,100,0.4)' }}
-      >
-        {label}
-      </div>
+    <div className="lux-unit">
+      <span className="lux-digits">
+        {value.split('').map((d, i) => <span key={i} className="lux-digit">{d}</span>)}
+      </span>
+      <span className="lux-unit-label">{label}</span>
     </div>
   );
 }
 
-function PreFinaleStatusChip({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+/** Inset hairline with engraved corner brackets. */
+function LuxFrame() {
   return (
-    <div
-      className="flex items-center gap-2 px-3 py-1.5 rounded-inset text-micro font-mono uppercase tracking-widest"
-      style={{
-        border: '1px solid rgba(255,170,0,0.15)',
-        backgroundColor: 'rgba(255,170,0,0.03)',
-        color: 'rgba(255,200,100,0.5)',
-      }}
-    >
-      {icon}
-      <span>{label}</span>
-      <span style={{ color: '#ff9800' }}>{value}</span>
+    <span aria-hidden="true" className="lux-frame">
+      <span className="lux-corner lux-corner-tl" />
+      <span className="lux-corner lux-corner-tr" />
+      <span className="lux-corner lux-corner-bl" />
+      <span className="lux-corner lux-corner-br" />
+    </span>
+  );
+}
+
+function LuxOrnament({ className = '' }: { className?: string }) {
+  return (
+    <div aria-hidden="true" className={`lux-ornament ${className}`}>
+      <span className="lux-rule" />
+      <span className="lux-diamond" />
+      <Crown className="h-5 w-5" strokeWidth={1.5} />
+      <span className="lux-diamond" />
+      <span className="lux-rule lux-rule-r" />
     </div>
   );
 }
@@ -345,7 +268,7 @@ export function PreFinaleNavBadge() {
 
 const VIP_WELCOME_KEY = 'cyberhx_vip_welcome_v2';
 const GOLD_TEXT: React.CSSProperties = {
-  background: 'linear-gradient(135deg, #ffe08a 0%, #ffcc00 30%, #ff9800 65%, #ffcc00 100%)',
+  background: 'linear-gradient(180deg, #fff3c4 0%, #f7d774 30%, #c9962e 58%, #f3cf6b 80%, #a8741c 100%)',
   WebkitBackgroundClip: 'text',
   WebkitTextFillColor: 'transparent',
   backgroundClip: 'text',
@@ -433,7 +356,7 @@ export function FinalistWelcome({ username, teamName, place }: { username: strin
                   <div className="mt-5 text-micro uppercase tracking-[0.35em]" style={{ color: 'rgba(255,200,100,0.7)' }}>
                     Welcome to the Grand Finale
                   </div>
-                  <div className="mt-3 break-words text-[2.5rem] sm:text-[3.75rem] font-extrabold leading-none tracking-tighter" style={GOLD_TEXT}>
+                  <div className="lux-serif mt-3 break-words text-[2.4rem] sm:text-[3.5rem] font-semibold leading-none" style={GOLD_TEXT}>
                     {username}
                   </div>
                   {teamName && (
@@ -473,26 +396,6 @@ export function FinalistWelcome({ username, teamName, place }: { username: strin
   );
 }
 
-/** Bars from the pass id: decoration, but the same finalist always gets the same code. */
-function PassBarcode({ seed }: { seed: string }) {
-  const bars = useMemo(() => {
-    const out: { x: number; w: number }[] = [];
-    let x = 0;
-    for (const ch of seed.replace(/[^0-9a-f]/gi, '').toLowerCase()) {
-      const v = parseInt(ch, 16);
-      const w = 1 + (v % 3);
-      out.push({ x, w });
-      x += w + 1 + ((v >> 2) % 2);
-    }
-    return { out, width: x };
-  }, [seed]);
-  return (
-    <svg viewBox={`0 0 ${bars.width} 24`} preserveAspectRatio="none" className="h-8 w-full" aria-hidden="true">
-      {bars.out.map((b, i) => <rect key={i} x={b.x} y="0" width={b.w} height="24" fill="#ffcc00" opacity={0.85} />)}
-    </svg>
-  );
-}
-
 interface FinalistPassProps {
   userId: string;
   username: string;
@@ -507,12 +410,98 @@ interface FinalistPassProps {
   onOpenTeam: () => void;
 }
 
-/** The finalist's own credential. Follows the pointer like foil does. */
+type Metal = { hi: string; mid: string; lo: string };
+const GOLD: Metal = { hi: '#fff3c4', mid: '#e3b54f', lo: '#9c6a18' };
+const SILVER: Metal = { hi: '#ffffff', mid: '#c9d3dd', lo: '#6f7c89' };
+const BRONZE: Metal = { hi: '#ffe2c4', mid: '#d08a4f', lo: '#7a4318' };
+const metalFor = (place: number | null) => (place === 2 ? SILVER : place === 3 ? BRONZE : GOLD);
+
+/** Banknote-style wave lines, drawn once. */
+function Guilloche() {
+  const d = useMemo(() => {
+    const lines: string[] = [];
+    for (let k = 0; k < 22; k++) {
+      const base = 20 + k * 12;
+      const pts: string[] = [];
+      for (let x = 0; x <= 800; x += 10) {
+        const y = base + 9 * Math.sin(x / 38 + k * 0.55) + 5 * Math.sin(x / 13 - k * 0.3);
+        pts.push(`${x},${y.toFixed(1)}`);
+      }
+      lines.push('M' + pts.join('L'));
+    }
+    return lines.join('');
+  }, []);
+  return (
+    <svg aria-hidden="true" className="lux-guilloche" viewBox="0 0 800 300" preserveAspectRatio="none">
+      <path d={d} fill="none" stroke="currentColor" strokeWidth="0.6" />
+    </svg>
+  );
+}
+
+/** The seat seal: rotating engraved ring around the qualifying place. */
+function Medallion({ place, metal }: { place: number | null; metal: Metal }) {
+  const uid = useMemo(() => Math.random().toString(36).slice(2, 8), []);
+  const g = `lux-m-${uid}`;
+  const ring = `lux-r-${uid}`;
+  return (
+    <div className="lux-medallion" role="img" aria-label={place ? `Seat ${place}` : 'Host'}>
+      <svg viewBox="0 0 120 120">
+        <defs>
+          <linearGradient id={g} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor={metal.hi} />
+            <stop offset="0.45" stopColor={metal.mid} />
+            <stop offset="0.7" stopColor={metal.lo} />
+            <stop offset="1" stopColor={metal.mid} />
+          </linearGradient>
+          <path id={ring} d="M60,60 m-47,0 a47,47 0 1,1 94,0 a47,47 0 1,1 -94,0" />
+        </defs>
+        <circle cx="60" cy="60" r="58" fill="none" stroke={`url(#${g})`} strokeWidth="1.4" />
+        <circle cx="60" cy="60" r="54" fill="none" stroke={`url(#${g})`} strokeWidth="0.5" opacity="0.6" />
+        <g className="lux-medallion-ring">
+          <text fill={`url(#${g})`} fontSize="6.4" fontFamily="Cinzel, Georgia, serif" fontWeight="600">
+            <textPath href={`#${ring}`} textLength="288" lengthAdjust="spacing">GRAND FINALIST ◆ NULL0RIGIN ◆ MMXXVI ◆</textPath>
+          </text>
+        </g>
+        <circle cx="60" cy="60" r="39" fill="#0c0a07" stroke={`url(#${g})`} strokeWidth="1.2" />
+        <circle cx="60" cy="60" r="35" fill="none" stroke={`url(#${g})`} strokeWidth="0.4" opacity="0.5" />
+        <text x="60" y="49" textAnchor="middle" fontSize="6.5" letterSpacing="2.4" fill={metal.mid} fontFamily="Inter, sans-serif" fontWeight="700">
+          {place ? 'SEAT' : 'HOST'}
+        </text>
+        <text x="60" y="78" textAnchor="middle" fontSize={place ? 30 : 20} fill={`url(#${g})`} fontFamily="Cinzel, Georgia, serif" fontWeight="700">
+          {place ? String(place).padStart(2, '0') : '★'}
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+/** Bars from the pass id: decoration, but the same finalist always gets the same code. */
+function PassBarcode({ seed }: { seed: string }) {
+  const bars = useMemo(() => {
+    const out: { x: number; w: number }[] = [];
+    let x = 0;
+    for (const ch of seed.replace(/[^0-9a-f]/gi, '').toLowerCase()) {
+      const v = parseInt(ch, 16);
+      const w = 1 + (v % 3);
+      out.push({ x, w });
+      x += w + 1 + ((v >> 2) % 2);
+    }
+    return { out, width: x };
+  }, [seed]);
+  return (
+    <svg viewBox={`0 0 ${bars.width} 24`} preserveAspectRatio="none" className="h-9 w-full" aria-hidden="true">
+      {bars.out.map((b, i) => <rect key={i} x={b.x} y="0" width={b.w} height="24" fill="#e3b54f" opacity={0.9} />)}
+    </svg>
+  );
+}
+
+/** The finalist's own credential: black card, foil, a seat seal. */
 export function FinalistPass({ userId, username, teamName, hasTeam, teamMode, place, squadSize, country, onOpenTeam }: FinalistPassProps) {
   const reduce = useReducedMotion();
   const cardRef = useRef<HTMLDivElement>(null);
   const hex = userId.replace(/-/g, '').toUpperCase();
   const passId = `FNL-${hex.slice(0, 4)}-${hex.slice(4, 8)}`;
+  const metal = metalFor(place);
 
   const onMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (reduce || e.pointerType !== 'mouse') return;
@@ -522,8 +511,9 @@ export function FinalistPass({ userId, username, teamName, hasTeam, teamMode, pl
     const mx = (e.clientX - r.left) / r.width;
     const my = (e.clientY - r.top) / r.height;
     el.style.setProperty('--mx', `${Math.round(mx * 100)}%`);
-    el.style.setProperty('--rx', `${((0.5 - my) * 4).toFixed(2)}deg`);
-    el.style.setProperty('--ry', `${((mx - 0.5) * 6).toFixed(2)}deg`);
+    el.style.setProperty('--my', `${Math.round(my * 100)}%`);
+    el.style.setProperty('--rx', `${((0.5 - my) * 5).toFixed(2)}deg`);
+    el.style.setProperty('--ry', `${((mx - 0.5) * 7).toFixed(2)}deg`);
   };
   const onLeave = () => {
     const el = cardRef.current;
@@ -533,79 +523,74 @@ export function FinalistPass({ userId, username, teamName, hasTeam, teamMode, pl
   };
 
   return (
-    <section aria-label="Your finalist pass" className="mb-8 lg:mb-10 [perspective:1200px]">
-      <div ref={cardRef} className="vip-pass" onPointerMove={onMove} onPointerLeave={onLeave}>
-        <span aria-hidden="true" className="vip-pass-foil" />
+    <section aria-label="Your finalist pass" className="mb-8 lg:mb-10 [perspective:1400px]">
+      <div ref={cardRef} className="lux-pass" onPointerMove={onMove} onPointerLeave={onLeave}>
+        <span aria-hidden="true" className="lux-pass-gloss" />
 
-        <div className="vip-pass-main">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="inline-flex items-center gap-1.5 text-micro font-bold uppercase tracking-[0.25em]" style={{ color: '#ffcc00' }}>
-              <Crown className="h-3.5 w-3.5" /> Finalist pass
-            </span>
-            <span className="font-mono text-micro uppercase tracking-[0.2em]" style={{ color: 'rgba(255,200,100,0.45)' }}>
-              Null0rigin · Grand Finale
-            </span>
+        <div className="lux-pass-main">
+          <Guilloche />
+          <span aria-hidden="true" className="lux-pass-sheen" />
+          <LuxFrame />
+
+          <div className="relative flex items-center justify-between gap-3">
+            <span className="lux-mark"><Crown className="h-4 w-4" strokeWidth={1.6} /> Null0rigin</span>
+            <span className="lux-label hidden sm:inline">Grand Finale · MMXXVI</span>
           </div>
 
-          <div className="mt-5">
-            <div className="text-micro uppercase tracking-[0.25em]" style={{ color: 'rgba(255,200,100,0.5)' }}>Issued to</div>
-            <div className="mt-1 break-words text-[1.75rem] sm:text-[2.25rem] font-extrabold leading-tight tracking-tight" style={GOLD_TEXT}>
-              {username}
+          <div className="relative mt-6 flex items-center justify-between gap-5">
+            <div className="min-w-0">
+              <div className="lux-label">Issued to</div>
+              <div className="lux-name mt-1.5">{username}</div>
+              <div className="lux-tier mt-2">Grand Finalist <span aria-hidden="true" className="lux-diamond" /> All-access</div>
             </div>
+            <Medallion place={place} metal={metal} />
           </div>
 
-          <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
-            <PassField label="Team">
+          <dl className="lux-fields relative mt-7">
+            <LuxField label="Team">
               {hasTeam
                 ? <span className="break-words">{teamName ?? '…'}</span>
-                : <span style={{ color: teamMode ? '#ffa726' : undefined }}>{teamMode ? 'Not set' : 'Solo'}</span>}
-            </PassField>
-            <PassField label="Squad">{hasTeam && squadSize > 0 ? `${squadSize} ${squadSize === 1 ? 'member' : 'members'}` : '—'}</PassField>
-            <PassField label="Qualified">
-              {place
-                ? <span className="tabular-nums" style={{ color: PODIUM[place - 1] ?? '#ffcc00' }}>#{place}</span>
-                : <span style={{ color: '#ffcc00' }}>Host</span>}
-            </PassField>
-            <PassField label="Gate opens"><span className="tabular-nums">25 Sep · 10:00 IST</span></PassField>
+                : <span style={{ color: teamMode ? '#ffb24d' : undefined }}>{teamMode ? 'Not set' : 'Solo'}</span>}
+            </LuxField>
+            <LuxField label="Squad">{hasTeam && squadSize > 0 ? `${squadSize} ${squadSize === 1 ? 'member' : 'members'}` : '—'}</LuxField>
+            <LuxField label="Representing">{country || '—'}</LuxField>
+            <LuxField label="Gate opens"><span className="tabular-nums">25 Sep · 10:00 IST</span></LuxField>
           </dl>
 
-          {country && (
-            <div className="mt-4 text-small" style={{ color: 'rgba(255,220,160,0.6)' }}>
-              Representing <span style={{ color: 'rgba(255,230,180,0.9)' }}>{country}</span>
-            </div>
-          )}
-
           {teamMode && !hasTeam && (
-            <div className="mt-5 flex flex-wrap items-center gap-3 rounded-inset px-3 py-2.5 text-small"
-              style={{ border: '1px solid rgba(255,167,38,0.35)', backgroundColor: 'rgba(255,167,38,0.06)', color: 'rgba(255,220,160,0.85)' }}>
-              <AlertTriangle className="h-4 w-4 shrink-0" style={{ color: '#ffa726' }} />
+            <div className="relative mt-5 flex flex-wrap items-center gap-3 rounded-inset px-3 py-2.5 text-small"
+              style={{ border: '1px solid rgba(255,178,77,0.35)', backgroundColor: 'rgba(255,178,77,0.06)', color: 'rgba(255,230,190,0.85)' }}>
+              <AlertTriangle className="h-4 w-4 shrink-0" style={{ color: '#ffb24d' }} />
               <span className="min-w-0 flex-1">The finale is played in teams. Create or join yours before the gate opens.</span>
               <button type="button" onClick={onOpenTeam} className="btn btn-secondary btn-sm">Set up team</button>
             </div>
           )}
+
+          <div aria-hidden="true" className="lux-microtext relative mt-6">
+            {'NULL0RIGIN GRAND FINALE ◆ 25.09.2026 ◆ ADMIT ONE FINALIST ◆ '.repeat(6)}
+          </div>
         </div>
 
-        <div className="vip-pass-stub">
-          <div className="text-micro font-bold uppercase tracking-[0.3em]" style={{ color: '#ffcc00' }}>Admit one</div>
-          <div className="mt-1 text-micro uppercase tracking-[0.2em]" style={{ color: 'rgba(255,200,100,0.5)' }}>All-access · Seat reserved</div>
+        <span aria-hidden="true" className="lux-holo" />
+
+        <div className="lux-pass-stub">
+          <span aria-hidden="true" className="lux-perf" />
+          <div className="lux-admit">Admit one</div>
+          <div className="lux-label mt-1">Seat reserved</div>
+          <div className="lux-stub-seat mt-4">{place ? `No. ${String(place).padStart(2, '0')}` : 'Host'}</div>
           <div className="mt-4 w-full"><PassBarcode seed={hex} /></div>
-          <div className="mt-2 font-mono text-micro tracking-[0.18em] tabular-nums" style={{ color: 'rgba(255,220,160,0.75)' }}>{passId}</div>
-          <div className="mt-3 inline-flex items-center gap-1.5 text-micro uppercase tracking-widest" style={{ color: 'rgba(255,200,100,0.5)' }}>
-            <Award className="h-3 w-3" /> Grand Finalist
-          </div>
+          <div className="lux-serial mt-2">{passId}</div>
         </div>
       </div>
     </section>
   );
 }
 
-const PODIUM = ['#ffd54a', '#d9e2ec', '#e59a5b'];
-
-function PassField({ label, children }: { label: string; children: React.ReactNode }) {
+function LuxField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="min-w-0">
-      <dt className="text-micro uppercase tracking-[0.2em]" style={{ color: 'rgba(255,200,100,0.45)' }}>{label}</dt>
-      <dd className="mt-1 text-small font-semibold" style={{ color: 'rgba(255,236,200,0.92)' }}>{children}</dd>
+      <dt className="lux-label">{label}</dt>
+      <dd className="lux-value mt-1.5">{children}</dd>
     </div>
   );
 }
@@ -623,7 +608,7 @@ const TICKER_ITEMS = [
 export function VipTicker() {
   const run = TICKER_ITEMS.map(t => (
     <span key={t} className="inline-flex items-center gap-4 pr-4">
-      <Star className="h-2.5 w-2.5" style={{ color: '#ffcc00' }} />
+      <span aria-hidden="true" className="lux-diamond" />
       <span>{t}</span>
     </span>
   ));
