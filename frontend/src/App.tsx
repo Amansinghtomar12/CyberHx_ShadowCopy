@@ -887,6 +887,10 @@ export default function App() {
   const hasTeam = !!(profile?.team_id);
   const needsTeam = !hasTeam;  // Server refuses teamless solves; admins included
   const canSeeChallenges = profile?.is_admin || eventStatus !== 'inactive';
+  // The gold championship header replaces the regular one only while the
+  // event is actually running. Unset, paused or over, the regular header
+  // stays, because it is the one that explains that state.
+  const finaleLive = finalsMode && eventStatus === 'live' && !paused;
 
   // ── Presentation-only derivations ────────────────────────
   const eventBadgeClass =
@@ -1211,17 +1215,19 @@ export default function App() {
                     onOpenTeam={() => setCurrentView('teamProfile')}
                   />
                 )}
-                {finalsMode && <FinalWarningBanner />}
-                {finalsMode ? (
+                {finaleLive && <FinalWarningBanner />}
+                {finaleLive && (
                   <FinaleHeader
                     eventName={eventSettings?.name}
                     score={myScore}
                     solved={totalSolvedCount}
                     total={challenges.length}
+                    mine={solvedIds.length}
+                    hasTeam={!!profile?.team_id}
                   />
-                ) : null}
+                )}
                 {finaleGlobalPhase === 'post' && <PostFinaleHero eventName={eventSettings?.name} onViewStandings={() => setCurrentView('scoreboard')} />}
-                <CommandHeader
+                {!finaleLive && <CommandHeader
                   status={eventStatus}
                   paused={paused}
                   eventName={eventSettings?.name}
@@ -1234,7 +1240,7 @@ export default function App() {
                   total={challenges.length}
                   mine={solvedIds.length}
                   hasTeam={!!profile?.team_id}
-                />
+                />}
 
                 {/* Search and category, above the cards. Difficulty stays in
                     the rail: it is a mode; these are a flick of the eye. */}
