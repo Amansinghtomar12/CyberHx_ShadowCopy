@@ -80,7 +80,7 @@ import {
   FinaleEntrySequence, FinaleHeader, FinalsNavBadge, GoldParticles,
   FinaleAtmosphere, EndgameOverlay, HexRain, FinalistBadge,
   FinalWarningBanner, FinaleSolveBurst,
-  PreFinaleHero, PreFinaleNavBadge, FinalistWelcome, FinalistPass, VipTicker,
+  PreFinaleHero, PreFinaleNavBadge, FinalistWelcome, FinalistPass, VipTicker, QualifierThanks,
   PostFinaleHero, PostFinaleNavBadge,
 } from './components/FinalsMode';
 import { pendingInvite, clearInvite, type InvitePreview } from './lib/invite';
@@ -319,6 +319,7 @@ export default function App() {
   const [solvedByMap, setSolvedByMap] = useState<Record<string, string>>({}); // challengeId → "username"
   const [teamRoster, setTeamRoster] = useState<{ id: string; username: string }[]>([]); // everyone on my team
   const [teamName, setTeamName] = useState<string | null>(null);
+  const [teamLoaded, setTeamLoaded] = useState(false); // so a finalist is never shown the not-qualified note mid-load
   // The VIP finalist layer is for the announced finalist teams (and admins).
   const qualifiedPlace = profile?.team_id ? finalistPlace(teamName) : null;
   const isFinalist = qualifiedPlace !== null || !!profile?.is_admin;
@@ -575,6 +576,7 @@ export default function App() {
       setTeamRoster([]);
       setTeamName(null);
     }
+    setTeamLoaded(true);
 
     // 3 & 4. Solve counts + First blood — via secure RPC (no submitted_flag exposed)
     const { data: solveData } = await supabase.rpc('get_solve_data');
@@ -1067,6 +1069,7 @@ export default function App() {
           </AnimatePresence>
         </nav>
         {finaleGlobalPhase === 'pre' && isFinalist && <VipTicker />}
+        {finaleGlobalPhase === 'pre' && teamLoaded && profile && !isFinalist && <QualifierThanks />}
 
         {paused && profile?.is_admin && (
           <div className="max-w-screen-2xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-4">

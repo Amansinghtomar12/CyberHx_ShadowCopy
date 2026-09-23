@@ -28,6 +28,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { FINALIST_TEAMS } from '../lib/finalists';
+import { ADMIN_EMAIL } from '../lib/support';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    CONFIGURATION
@@ -632,6 +633,47 @@ export function VipTicker() {
       <div className="vip-ticker-track">
         <div className="vip-ticker-run">{run}</div>
         <div className="vip-ticker-run">{run}</div>
+      </div>
+    </div>
+  );
+}
+
+const THANKS_KEY = 'cyberhx_finale_thanks_v1';
+const DISCORD_URL = 'https://discord.gg/T3jDBWvFxE';
+
+/**
+ * For players whose team did not make the final: a thank-you, not a verdict.
+ * Once per device. It ends by pointing at support, because a finalist whose
+ * team name differs from the announced list would land here too.
+ */
+export function QualifierThanks() {
+  const [open, setOpen] = useState(() => {
+    try { return !localStorage.getItem(THANKS_KEY); } catch { return true; }
+  });
+  if (!open) return null;
+  const dismiss = () => {
+    try { localStorage.setItem(THANKS_KEY, '1'); } catch { /* private mode */ }
+    setOpen(false);
+  };
+  return (
+    <div className="max-w-screen-2xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-4">
+      <div role="status" className="relative flex items-start gap-3 rounded-control px-4 py-3 text-small"
+        style={{ border: '1px solid rgba(255,190,60,0.22)', backgroundColor: 'rgba(255,170,0,0.04)' }}>
+        <Award className="mt-0.5 h-4 w-4 shrink-0" style={{ color: '#ffb74d' }} />
+        <div className="min-w-0 flex-1 text-text-secondary leading-relaxed">
+          <span className="font-semibold text-cyber-text">Thank you for competing in NullOrigin.</span>{' '}
+          The Grand Finale on 25 Sep is for the {FINALIST_TEAMS.length} qualified teams. You can follow it live on the scoreboard, and certificates for every team that scored are on their way.{' '}
+          <span className="text-text-muted">
+            Qualified but seeing this? Email{' '}
+            <a href={`mailto:${ADMIN_EMAIL}`} className="underline text-cyber-text">{ADMIN_EMAIL}</a>{' '}
+            or message us on{' '}
+            <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" className="underline text-cyber-text">Discord</a>.
+          </span>
+        </div>
+        <button type="button" onClick={dismiss} aria-label="Dismiss"
+          className="btn btn-ghost btn-sm btn-icon -mr-1 -mt-1 shrink-0">
+          <span aria-hidden="true" className="text-body leading-none">×</span>
+        </button>
       </div>
     </div>
   );
