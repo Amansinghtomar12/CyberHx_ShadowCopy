@@ -1206,7 +1206,7 @@ export default function App() {
                     hasTeam={!!profile.team_id}
                     teamMode={isTeamMode}
                     place={qualifiedPlace}
-                    squadSize={teamRoster.length}
+                    squad={teamRoster.map(m => m.username)}
                     country={profile.country}
                     onOpenTeam={() => setCurrentView('teamProfile')}
                   />
