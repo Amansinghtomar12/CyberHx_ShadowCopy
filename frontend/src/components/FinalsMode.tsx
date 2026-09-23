@@ -923,9 +923,12 @@ interface FinaleHeaderProps {
   score: number;
   solved: number;
   total: number;
+  /** This player's own solves, out of the team's. */
+  mine: number;
+  hasTeam: boolean;
 }
 
-export function FinaleHeader({ eventName, score, solved, total }: FinaleHeaderProps) {
+export function FinaleHeader({ eventName, score, solved, total, mine, hasTeam }: FinaleHeaderProps) {
   const countdown = useFinaleCountdown();
   const phase = useFinalePhase();
   const pct = total > 0 ? Math.round((solved / total) * 100) : 0;
@@ -972,10 +975,11 @@ export function FinaleHeader({ eventName, score, solved, total }: FinaleHeaderPr
           )}
         </div>
 
-        <dl className="lux-fields lux-fields-3 mt-6">
-          <LuxStat label="Score">{score.toLocaleString()}</LuxStat>
+        <dl className={`lux-fields mt-6 ${hasTeam ? '' : 'lux-fields-3'}`}>
+          <LuxStat label={hasTeam ? 'Team score' : 'Score'}>{score.toLocaleString()}</LuxStat>
           <LuxStat label="Solved">{solved}<span className="lux-stat-dim"> / {total}</span></LuxStat>
           <LuxStat label="Progress">{pct}<span className="lux-stat-dim">%</span></LuxStat>
+          {hasTeam && <LuxStat label="Your solves">{mine}<span className="lux-stat-dim"> / {solved}</span></LuxStat>}
         </dl>
 
         <div className="lux-progress mt-4" aria-hidden="true">
