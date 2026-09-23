@@ -2750,6 +2750,8 @@
   .lux-pass { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 10px auto; }
   .lux-pass-main { padding: 1.5rem 1.35rem 1.25rem; }
   .lux-medallion { width: 5.25rem; height: 5.25rem; }
+  .lux-pass-idrow { flex-direction: column-reverse; align-items: stretch; gap: 1rem; }
+  .lux-pass-idrow .lux-medallion { align-self: flex-end; margin-bottom: -2.75rem; }
   .lux-holo { background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.10) 0 2px, transparent 2px 5px), linear-gradient(90deg, #f7d774, #9fe3d6, #c4a8ff, #ffb3c7, #f7d774); }
   .lux-pass-stub { padding: 1.6rem 1.35rem 1.4rem; }
   .lux-perf { left: 12px; right: 12px; top: 0; bottom: auto; width: auto; height: 8px; background: radial-gradient(circle, var(--color-cyber-bg) 2.2px, transparent 2.8px) 0 0 / 12px 8px repeat-x; }
@@ -2870,6 +2872,70 @@
   .lux-live-clock .lux-unit { flex: 1; min-width: 0; }
 }
 
+/* ── LUX: one-line auto-fit ────────────────────────────────────────────── */
+.lux-fit { width: 100%; min-width: 0; }
+.lux-fit-text { display: inline-block; max-width: 100%; white-space: nowrap; vertical-align: top; }
+.lux-tier-line {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  white-space: pre;
+  color: var(--lux-cream);
+}
+
+/* ── LUX: post-finale podium ───────────────────────────────────────────── */
+.lux-concluded {
+  font-family: 'Cinzel', 'Trajan Pro', Georgia, serif;
+  font-weight: 600;
+  font-size: clamp(0.85rem, 2vw, 1.05rem);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--lux-cream);
+}
+.lux-podium {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 1rem;
+  max-width: 48rem;
+  margin-inline: auto;
+}
+.lux-podium-step {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 15rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.25rem 0.85rem 1.2rem;
+  border-radius: 12px;
+  border: 1px solid var(--lux-faint);
+  background: linear-gradient(180deg, rgba(255, 236, 180, 0.06), rgba(255, 236, 180, 0.01));
+  box-shadow: inset 0 1px 0 rgba(255, 240, 200, 0.06);
+}
+.lux-podium-step .lux-medallion { width: 6.25rem; height: 6.25rem; }
+.lux-podium-1 { padding-top: 1.75rem; padding-bottom: 2.1rem; border-color: var(--lux-line); box-shadow: 0 0 50px -18px rgba(227, 181, 79, 0.55), inset 0 1px 0 rgba(255, 240, 200, 0.1); }
+.lux-podium-1 .lux-medallion { width: 8rem; height: 8rem; }
+.lux-podium-name {
+  font-family: 'Cinzel', 'Trajan Pro', Georgia, serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  background: var(--lux-foil);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.lux-podium-1 .lux-podium-name { font-size: 1.35rem; }
+.lux-podium-points { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.18em; color: var(--lux-cream); font-variant-numeric: tabular-nums; }
+.lux-podium-points span { color: var(--lux-dim); }
+@media (max-width: 640px) {
+  .lux-podium { flex-direction: column; align-items: stretch; }
+  .lux-podium-step { max-width: none; }
+  .lux-podium-1 { order: -1; }
+}
+
 /* ── LUX: welcome sequence ─────────────────────────────────────────────── */
 .lux-welcome {
   background:
@@ -2965,23 +3031,23 @@
 
 /* ── Nav: fading gold afterglow ────────────────────────────────────────── */
 .finale-post nav.sticky {
-  border-bottom-color: rgba(255, 170, 0, 0.08);
-  box-shadow: 0 1px 12px -6px rgba(255, 150, 0, 0.04);
+  border-bottom-color: rgba(227, 181, 79, 0.16);
+  box-shadow: 0 1px 16px -6px rgba(227, 181, 79, 0.1);
 }
 
 /* ── Cards: muted, ended feel ──────────────────────────────────────────── */
 .finale-post .card-interactive {
-  border-color: rgba(255, 170, 0, 0.05);
-  opacity: 0.92;
+  border-color: rgba(227, 181, 79, 0.1);
 }
 .finale-post .card-interactive:hover {
-  border-color: rgba(255, 170, 0, 0.08);
+  border-color: rgba(227, 181, 79, 0.26);
+  box-shadow: 0 0 22px -8px rgba(227, 181, 79, 0.25);
 }
 
 /* ── Background: residual warm glow ────────────────────────────────────── */
 .finale-post {
   background:
-    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(255, 170, 0, 0.015) 0%, transparent 60%);
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(243, 207, 107, 0.04) 0%, transparent 60%);
 }
 
 /* ── Trophy / completion icon glow ─────────────────────────────────────── */

@@ -19,7 +19,7 @@
  * To revert: delete this file, remove its import from App.tsx,
  * and remove the .finale-active / .finale-pre / .finale-post CSS from index.css.
  */
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import {
   Trophy, Flame, Timer, Star, Shield, Crosshair,
@@ -28,6 +28,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { ADMIN_EMAIL } from '../lib/support';
+import { supabase } from '../lib/supabase';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    CONFIGURATION
@@ -204,6 +205,45 @@ export function PreFinaleHero({ username }: { username?: string | null }) {
   );
 }
 
+/**
+ * One line, however long the name: the font shrinks until the text fits
+ * its box, but never below `minPx`, so it stays readable. Only a name that
+ * still does not fit at that size is allowed to wrap.
+ */
+function FitText({ children, className = '', minPx = 14 }: { children: string; className?: string; minPx?: number }) {
+  const box = useRef<HTMLDivElement>(null);
+  const text = useRef<HTMLSpanElement>(null);
+
+  useLayoutEffect(() => {
+    const o = box.current, t = text.current;
+    if (!o || !t) return;
+    const fit = () => {
+      t.style.fontSize = '';
+      t.style.whiteSpace = 'nowrap';
+      const base = parseFloat(getComputedStyle(t).fontSize);
+      const room = o.clientWidth;
+      const need = t.scrollWidth;
+      if (!room || need <= room) return;
+      const size = Math.max(Math.min(minPx, base), Math.floor(base * (room / need) * 0.98 * 10) / 10);
+      t.style.fontSize = `${size}px`;
+      if (t.scrollWidth > room) t.style.whiteSpace = 'normal';
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(o);
+    // A web font arriving changes the text's width but not the box's.
+    document.fonts?.addEventListener?.('loadingdone', fit);
+    document.fonts?.ready.then(fit).catch(() => {});
+    return () => { ro.disconnect(); document.fonts?.removeEventListener?.('loadingdone', fit); };
+  }, [children, minPx]);
+
+  return (
+    <div ref={box} className="lux-fit">
+      <span ref={text} className={`lux-fit-text ${className}`}>{children}</span>
+    </div>
+  );
+}
+
 /** Digits in fixed cells, so the tile never jitters as the seconds change. */
 function LuxUnit({ value, label }: { value: string; label: string }) {
   return (
@@ -374,11 +414,12 @@ export function FinalistWelcome({ username, teamName, place }: { username: strin
                 <div className="relative px-6 py-10 sm:px-10 sm:py-12">
                   <LuxOrnament />
                   <div className="lux-eyebrow mt-5">Welcome to the Grand Finale</div>
-                  <div className="lux-welcome-name mt-4">{username}</div>
+                  <div className="mt-4"><FitText className="lux-welcome-name" minPx={16}>{username}</FitText></div>
                   {teamName && (
-                    <div className="lux-tier mt-4 justify-center">
-                      <span className="break-words">{teamName}</span>
-                      {place && <><span aria-hidden="true" className="lux-diamond" /><span>Seat No. {String(place).padStart(2, '0')}</span></>}
+                    <div className="mt-4">
+                      <FitText className="lux-tier-line" minPx={9}>
+                        {place ? `${teamName}  ◆  Seat No. ${String(place).padStart(2, '0')}` : teamName}
+                      </FitText>
                     </div>
                   )}
                   <p className="lux-lede mx-auto mt-5 max-w-sm">
@@ -462,12 +503,12 @@ function Guilloche() {
 }
 
 /** The seat seal: rotating engraved ring around the qualifying place. */
-function Medallion({ place, metal }: { place: number | null; metal: Metal }) {
+function Medallion({ place, metal, label = 'SEAT', ring = 'GRAND FINALIST ◆ NULL0RIGIN ◆ MMXXVI ◆' }: { place: number | null; metal: Metal; label?: string; ring?: string }) {
   const uid = useMemo(() => Math.random().toString(36).slice(2, 8), []);
   const g = `lux-m-${uid}`;
-  const ring = `lux-r-${uid}`;
+  const ringId = `lux-r-${uid}`;
   return (
-    <div className="lux-medallion" role="img" aria-label={place ? `Seat ${place}` : 'Host'}>
+    <div className="lux-medallion" role="img" aria-label={place ? `${label.toLowerCase()} ${place}` : 'Host'}>
       <svg viewBox="0 0 120 120">
         <defs>
           <linearGradient id={g} x1="0" y1="0" x2="1" y2="1">
@@ -476,19 +517,19 @@ function Medallion({ place, metal }: { place: number | null; metal: Metal }) {
             <stop offset="0.7" stopColor={metal.lo} />
             <stop offset="1" stopColor={metal.mid} />
           </linearGradient>
-          <path id={ring} d="M60,60 m-47,0 a47,47 0 1,1 94,0 a47,47 0 1,1 -94,0" />
+          <path id={ringId} d="M60,60 m-47,0 a47,47 0 1,1 94,0 a47,47 0 1,1 -94,0" />
         </defs>
         <circle cx="60" cy="60" r="58" fill="none" stroke={`url(#${g})`} strokeWidth="1.4" />
         <circle cx="60" cy="60" r="54" fill="none" stroke={`url(#${g})`} strokeWidth="0.5" opacity="0.6" />
         <g className="lux-medallion-ring">
           <text fill={`url(#${g})`} fontSize="6.4" fontFamily="Cinzel, Georgia, serif" fontWeight="600">
-            <textPath href={`#${ring}`} textLength="288" lengthAdjust="spacing">GRAND FINALIST ◆ NULL0RIGIN ◆ MMXXVI ◆</textPath>
+            <textPath href={`#${ringId}`} textLength="288" lengthAdjust="spacing">{ring}</textPath>
           </text>
         </g>
         <circle cx="60" cy="60" r="39" fill="#0c0a07" stroke={`url(#${g})`} strokeWidth="1.2" />
         <circle cx="60" cy="60" r="35" fill="none" stroke={`url(#${g})`} strokeWidth="0.4" opacity="0.5" />
         <text x="60" y="49" textAnchor="middle" fontSize="6.5" letterSpacing="2.4" fill={metal.mid} fontFamily="Inter, sans-serif" fontWeight="700">
-          {place ? 'SEAT' : 'HOST'}
+          {place ? label : 'HOST'}
         </text>
         <text x="60" y="78" textAnchor="middle" fontSize={place ? 30 : 20} fill={`url(#${g})`} fontFamily="Cinzel, Georgia, serif" fontWeight="700">
           {place ? String(place).padStart(2, '0') : '★'}
@@ -560,10 +601,10 @@ export function FinalistPass({ userId, username, teamName, hasTeam, teamMode, pl
             <span className="lux-label hidden sm:inline">Grand Finale · MMXXVI</span>
           </div>
 
-          <div className="relative mt-6 flex items-center justify-between gap-5">
-            <div className="min-w-0">
+          <div className="lux-pass-idrow relative mt-6 flex items-center justify-between gap-5">
+            <div className="min-w-0 flex-1">
               <div className="lux-label">Issued to</div>
-              <div className="lux-name mt-1.5">{username}</div>
+              <div className="mt-1.5"><FitText className="lux-name" minPx={15}>{username}</FitText></div>
               <div className="lux-tier mt-2">Grand Finalist <span aria-hidden="true" className="lux-diamond" /> All-access</div>
             </div>
             <Medallion place={place} metal={metal} />
@@ -572,7 +613,7 @@ export function FinalistPass({ userId, username, teamName, hasTeam, teamMode, pl
           <dl className="lux-fields relative mt-7">
             <LuxField label="Team">
               {hasTeam
-                ? <span className="break-words">{teamName ?? '…'}</span>
+                ? <FitText minPx={11}>{teamName ?? '…'}</FitText>
                 : <span style={{ color: teamMode ? '#ffb24d' : undefined }}>{teamMode ? 'Not set' : 'Solo'}</span>}
             </LuxField>
             <LuxField label="Squad">{hasTeam && squadSize > 0 ? `${squadSize} ${squadSize === 1 ? 'member' : 'members'}` : '—'}</LuxField>
@@ -690,130 +731,86 @@ export function QualifierThanks() {
    POST-FINALE HERO — the "championship complete" state
    ═══════════════════════════════════════════════════════════════════════════ */
 
-export function PostFinaleHero({ eventName }: { eventName?: string | null }) {
-  const reduce = useReducedMotion();
+interface Champion { id: string; name: string; total_points: number }
+
+/**
+ * The podium, read from the same view as the scoreboard. When the board is
+ * hidden the view returns nothing, and so does this: no results leak early.
+ */
+function useChampions(): Champion[] {
+  const [top, setTop] = useState<Champion[]>([]);
+  useEffect(() => {
+    let live = true;
+    supabase
+      .from('team_scores')
+      .select('id, name, total_points')
+      .gt('total_points', 0)
+      .order('total_points', { ascending: false })
+      .order('last_solve', { ascending: true, nullsFirst: false })
+      .limit(3)
+      .then(({ data }) => { if (live && data) setTop(data as Champion[]); });
+    return () => { live = false; };
+  }, []);
+  return top;
+}
+
+export function PostFinaleHero({ onViewStandings }: { eventName?: string | null; onViewStandings?: () => void }) {
+  const champions = useChampions();
+  // Podium order: 2nd, 1st, 3rd, so the champion stands in the middle.
+  const podium = [champions[1], champions[0], champions[2]]
+    .map((c, i) => (c ? { ...c, place: [2, 1, 3][i] } : null))
+    .filter(Boolean) as (Champion & { place: number })[];
 
   return (
-    <section className="post-finale-hero relative overflow-hidden rounded-card mb-8 lg:mb-10">
-      {/* Background */}
-      <div aria-hidden="true" className="absolute inset-0 pointer-events-none">
-        <div
-          className="absolute inset-0"
-          style={{
-            background: `radial-gradient(ellipse at 50% 30%, rgba(255,170,0,0.05) 0%, transparent 60%)`,
-          }}
-        />
-      </div>
+    <section className="lux-hero mb-8 lg:mb-10" aria-labelledby="lux-post-title">
+      <span aria-hidden="true" className="lux-beam lux-beam-left" />
+      <span aria-hidden="true" className="lux-beam lux-beam-right" />
+      <LuxFrame />
 
-      {/* Top edge */}
-      <span
-        aria-hidden="true"
-        className="absolute inset-x-0 top-0 h-[2px]"
-        style={{
-          background: 'linear-gradient(90deg, transparent, rgba(255,170,0,0.4), transparent)',
-        }}
-      />
+      <div className="relative px-5 py-11 sm:px-10 sm:py-14 text-center">
+        <div className="lux-eyebrow">Null0rigin · MMXXVI</div>
+        <LuxOrnament className="mt-4" />
+        <h2 id="lux-post-title" className="lux-title mt-3">Grand Finale</h2>
+        <div className="lux-concluded mt-3">The championship has concluded</div>
 
-      <div className="relative px-5 py-10 sm:px-8 sm:py-14 text-center">
-        {/* Trophy */}
-        <motion.div
-          className="mx-auto mb-4"
-          initial={reduce ? false : { scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <div
-            className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full"
-            style={{
-              border: '2px solid rgba(255,170,0,0.3)',
-              backgroundColor: 'rgba(255,170,0,0.06)',
-              boxShadow: '0 0 40px rgba(255,170,0,0.1)',
-            }}
-          >
-            <Trophy className="w-8 h-8 sm:w-10 sm:h-10" style={{ color: '#ffcc00' }} />
+        {podium.length > 0 && (
+          <div className="lux-podium mt-10" role="list" aria-label="Champions">
+            {podium.map(c => (
+              <div key={c.id} role="listitem" className={`lux-podium-step lux-podium-${c.place}`}>
+                <Medallion place={c.place} metal={metalFor(c.place)} label="PLACE" ring="CHAMPION ◆ NULL0RIGIN GRAND FINALE ◆" />
+                <div className="mt-3 w-full"><FitText className="lux-podium-name" minPx={12}>{c.name}</FitText></div>
+                <div className="lux-podium-points mt-1.5">{c.total_points.toLocaleString()} <span>pts</span></div>
+              </div>
+            ))}
           </div>
-        </motion.div>
+        )}
 
-        {/* Status badge */}
-        <div className="flex items-center justify-center gap-2 mb-3">
-          <span
-            className="inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-micro uppercase tracking-[0.2em] font-bold"
-            style={{
-              border: '1px solid rgba(255,170,0,0.25)',
-              backgroundColor: 'rgba(255,170,0,0.04)',
-              color: 'rgba(255,200,100,0.7)',
-            }}
-          >
-            <CheckCircle className="h-3 w-3" />
-            COMPLETE
-          </span>
-        </div>
-
-        {/* Title */}
-        <h2
-          className="text-[2rem] sm:text-[2.5rem] font-extrabold tracking-tighter leading-none"
-          style={{
-            background: 'linear-gradient(135deg, #ffcc00 0%, #ff9800 50%, rgba(255,170,0,0.6) 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }}
-        >
-          GRAND FINALE
-        </h2>
-
-        <p
-          className="mt-3 text-body sm:text-h3 font-medium"
-          style={{ color: 'rgba(255,200,100,0.6)' }}
-        >
-          The championship has concluded
+        <p className="lux-lede mx-auto mt-9 max-w-lg">
+          Thank you to every finalist who fought for the crown. Certificates for every team that scored will be issued on 27 September.
         </p>
 
-        <p
-          className="mt-2 text-small max-w-sm mx-auto"
-          style={{ color: 'rgba(255,200,100,0.35)' }}
-        >
-          Thank you to all finalists for competing in the NULL0RIGIN Grand Finale.
-          Final standings are on the scoreboard.
-        </p>
-
-        {/* Event date reminder */}
-        <div
-          className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-inset text-micro font-mono uppercase tracking-widest"
-          style={{
-            border: '1px solid rgba(255,170,0,0.1)',
-            backgroundColor: 'rgba(255,170,0,0.02)',
-            color: 'rgba(255,200,100,0.35)',
-          }}
-        >
-          <Clock className="h-3 w-3" />
-          25 SEPTEMBER 2026 — CONCLUDED
+        <div className="lux-dateline mt-7">
+          <span>Friday · 25 September 2026</span>
+          <span aria-hidden="true" className="lux-diamond" />
+          <span>Concluded</span>
         </div>
+
+        {onViewStandings && (
+          <button type="button" onClick={onViewStandings}
+            className="vip-enter mt-8 inline-flex items-center gap-2.5 rounded-pill px-7 py-3 text-small font-bold uppercase tracking-[0.24em] focus-ring">
+            <Trophy className="h-4 w-4" strokeWidth={1.8} /> Final standings
+          </button>
+        )}
       </div>
-
-      {/* Bottom edge */}
-      <span
-        aria-hidden="true"
-        className="absolute inset-x-0 bottom-0 h-px"
-        style={{
-          background: 'linear-gradient(90deg, transparent, rgba(255,170,0,0.2), transparent)',
-        }}
-      />
     </section>
   );
 }
 
 export function PostFinaleNavBadge() {
   return (
-    <span
-      className="inline-flex items-center gap-1 rounded-pill px-2 py-0.5 text-micro uppercase tracking-widest ml-2"
-      style={{
-        border: '1px solid rgba(255,170,0,0.2)',
-        backgroundColor: 'rgba(255,170,0,0.04)',
-        color: 'rgba(255,200,100,0.5)',
-      }}
-    >
-      <CheckCircle className="h-2 w-2" />
-      ENDED
+    <span className="lux-live-badge lux-live-badge-sm ml-2">
+      <CheckCircle className="h-2.5 w-2.5" style={{ color: '#e3b54f' }} />
+      Concluded
     </span>
   );
 }
