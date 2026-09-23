@@ -84,6 +84,7 @@ import {
   PostFinaleHero, PostFinaleNavBadge,
 } from './components/FinalsMode';
 import { pendingInvite, clearInvite, type InvitePreview } from './lib/invite';
+import { finalistPlace } from './lib/finalists';
 import { detectMilestones, type Milestone } from './lib/milestones';
 import { buildChainSeriesVM } from './components/chain/chainModel';
 import { buildB2RBoxVM, buildB2RSeriesVM } from './components/b2r/b2rModel';
@@ -318,6 +319,9 @@ export default function App() {
   const [solvedByMap, setSolvedByMap] = useState<Record<string, string>>({}); // challengeId → "username"
   const [teamRoster, setTeamRoster] = useState<{ id: string; username: string }[]>([]); // everyone on my team
   const [teamName, setTeamName] = useState<string | null>(null);
+  // The VIP finalist layer is for the announced finalist teams (and admins).
+  const qualifiedPlace = profile?.team_id ? finalistPlace(teamName) : null;
+  const isFinalist = qualifiedPlace !== null || !!profile?.is_admin;
   const [firstBloodMap, setFirstBloodMap] = useState<Record<string, string>>({}); // challengeId → "username"
   const [solveCounts, setSolveCounts] = useState<Record<string, number>>({});    // challengeId → count
 
@@ -907,7 +911,9 @@ export default function App() {
       <SurfaceLight />
       <CursorRing />
       {finaleGlobalPhase === 'pre' && <GoldParticles intensity={0.5} />}
-      {finaleGlobalPhase === 'pre' && profile?.username && <FinalistWelcome username={profile.username} />}
+      {finaleGlobalPhase === 'pre' && isFinalist && profile?.username && (
+        <FinalistWelcome username={profile.username} teamName={qualifiedPlace ? teamName : null} place={qualifiedPlace} />
+      )}
       {finalsMode && <GoldParticles />}
       {finalsMode && <FinaleAtmosphere />}
       {finalsMode && <EndgameOverlay />}
@@ -993,7 +999,7 @@ export default function App() {
                   <UserIcon className="w-3.5 h-3.5" />
                   <span className="hidden xl:inline truncate">{profile?.username ?? 'Profile'}</span>
                 </button>
-                {(finalsMode || finaleGlobalPhase === 'pre') && <FinalistBadge />}
+                {(finalsMode || finaleGlobalPhase === 'pre') && isFinalist && <FinalistBadge />}
                 <button onClick={() => setCurrentView('settings')} aria-label="Settings"
                   className={`btn btn-ghost btn-sm btn-icon ${currentView === 'settings' ? 'text-cyber-text' : ''}`}>
                   <SettingsIcon className="w-3.5 h-3.5" />
@@ -1060,7 +1066,7 @@ export default function App() {
             )}
           </AnimatePresence>
         </nav>
-        {finaleGlobalPhase === 'pre' && <VipTicker />}
+        {finaleGlobalPhase === 'pre' && isFinalist && <VipTicker />}
 
         {paused && profile?.is_admin && (
           <div className="max-w-screen-2xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-4">
@@ -1188,14 +1194,15 @@ export default function App() {
 
               {/* Main Content Area */}
               <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 py-8 lg:py-10 w-full">
-                {finaleGlobalPhase === 'pre' && <PreFinaleHero username={profile?.username} />}
-                {finaleGlobalPhase === 'pre' && user && profile && (
+                {finaleGlobalPhase === 'pre' && <PreFinaleHero username={isFinalist ? profile?.username : null} />}
+                {finaleGlobalPhase === 'pre' && isFinalist && user && profile && (
                   <FinalistPass
                     userId={user.id}
                     username={profile.username}
                     teamName={teamName}
                     hasTeam={!!profile.team_id}
                     teamMode={isTeamMode}
+                    place={qualifiedPlace}
                     squadSize={teamRoster.length}
                     country={profile.country}
                     onOpenTeam={() => setCurrentView('teamProfile')}
