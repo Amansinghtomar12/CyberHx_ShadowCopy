@@ -48,6 +48,7 @@ export const FINALIST_TEAMS: readonly (string | readonly [string, number])[] = [
   'Vyadh',
   '2Null',
   ['0xA', 74],
+  ['Bl4ck_Kloud', 92],
 ];
 
 /** Case, accents' encoding and stray spaces are not what makes a name different. */
