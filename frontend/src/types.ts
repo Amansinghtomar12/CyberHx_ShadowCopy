@@ -8,6 +8,7 @@ export type Category =
   | 'pwn'
   | 'forensic'
   | 'osint'
+  | 'mobile'
   | 'b2r'
   | 'misc';
 

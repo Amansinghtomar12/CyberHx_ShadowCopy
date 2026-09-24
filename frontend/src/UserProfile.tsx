@@ -171,7 +171,7 @@ export default function UserProfile() {
   });
   const totalCatPoints = Object.values(categoryMap).reduce((a, b) => a + b, 0) || 1;
   // Category ramp, mirroring --color-cat-* in src/index.css (recharts needs literals).
-  const COLORS = ['#c6ff00', '#4fb3a4', '#8e86d6', '#c97fa0', '#cfa15c', '#6d9fd4', '#8fb573', '#93a1ad'];
+  const COLORS = ['#c6ff00', '#4fb3a4', '#8e86d6', '#c97fa0', '#cfa15c', '#6d9fd4', '#8fb573', '#e0894f', '#e05a8d', '#93a1ad'];
   const categories = Object.entries(categoryMap).map(([name, val], i) => ({
     name, value: (val / totalCatPoints) * 100, color: COLORS[i % COLORS.length]
   }));
