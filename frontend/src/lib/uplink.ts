@@ -114,22 +114,35 @@ export function recordSuccess() {
   stopProbe();
 }
 
-const REQUEST_TIMEOUT_MS = 15_000;
+// Reads are capped short so a saturated connection pool shows a retry prompt
+// instead of a frozen page. Writes and uploads are not page loads: cutting a
+// challenge save or a 50 MB attachment off at 15 seconds aborted work that was
+// still making progress, so they get room to finish.
+const READ_TIMEOUT_MS = 15_000;
+const WRITE_TIMEOUT_MS = 60_000;
+const UPLOAD_TIMEOUT_MS = 10 * 60_000;
+
+function timeoutFor(input: RequestInfo | URL, init?: RequestInit): number {
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  if (url.includes('/storage/v1/object')) return UPLOAD_TIMEOUT_MS;
+  const method = (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
+  return method === 'GET' || method === 'HEAD' ? READ_TIMEOUT_MS : WRITE_TIMEOUT_MS;
+}
 
 /** Drop-in for fetch that keeps the uplink store informed. */
 export const uplinkFetch: typeof fetch = async (input, init) => {
-  // If the caller already attached a signal, respect it; otherwise cap the
-  // request at 15 seconds so a saturated connection pool shows a retry prompt
-  // instead of a frozen page.
+  // If the caller already attached a signal, respect it; otherwise cap it.
   let ac: AbortController | undefined;
   let signal = init?.signal;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   if (!signal) {
     ac = new AbortController();
     signal = ac.signal;
-    setTimeout(() => ac!.abort(), REQUEST_TIMEOUT_MS);
+    timer = setTimeout(() => ac!.abort(), timeoutFor(input, init));
   }
   try {
     const r = await fetch(input, { ...init, signal });
+    if (timer) clearTimeout(timer);
     // Only the gateway saying the project is unreachable counts. A 500 from
     // one query is that query's problem, not evidence the backend is gone,
     // and treating it as such is how a busy minute becomes a reconnect storm.
@@ -137,6 +150,7 @@ export const uplinkFetch: typeof fetch = async (input, init) => {
     else if (r.status < 500) recordSuccess();
     return r;
   } catch (e) {
+    if (timer) clearTimeout(timer);
     // A request the app itself cancelled says nothing about the network.
     if (!(e instanceof DOMException && e.name === 'AbortError')) recordFailure();
     throw e;
