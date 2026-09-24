@@ -614,7 +614,7 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
               <label className="field-label" htmlFor="chal-category">Category</label>
               <select id="chal-category" value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value as any }))}
                 className="select">
-                {['web','crypto','steg','rev','pwn','forensic','osint','b2r','misc'].map(c => <option key={c}>{c}</option>)}
+                {['web','crypto','steg','rev','pwn','forensic','osint','mobile','b2r','misc'].map(c => <option key={c}>{c}</option>)}
               </select>
             </div>
             <div className="min-w-0">
@@ -769,7 +769,7 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
         <FormSection
           icon={<Paperclip className="w-4 h-4" />}
           title="Attachments"
-          description={`Files players download from the challenge page — pcaps, binaries, images, archives. Up to 50 MB each, 200 MB per challenge (${mb(usedBytes)} used).`}
+          description={`Files players download from the challenge page — pcaps, binaries, APKs, images, archives. Up to 50 MB each, 200 MB per challenge (${mb(usedBytes)} used).`}
           action={
             <>
               <input

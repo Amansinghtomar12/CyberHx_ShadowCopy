@@ -101,6 +101,8 @@ Category (muted, deliberately not rainbow):
 | pwn | `--color-cat-pwn` | `#d96a5c` |
 | forensic | `--color-cat-forensic` | `#6d9fd4` |
 | osint | `--color-cat-osint` | `#8fb573` |
+| mobile | `--color-cat-mobile` | `#e0894f` |
+| b2r | `--color-cat-b2r` | `#e05a8d` |
 | misc | `--color-cat-misc` | `#93a1ad` |
 
 The keys match `Category` in `src/types.ts` exactly, so this is safe:

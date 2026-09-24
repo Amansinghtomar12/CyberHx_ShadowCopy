@@ -36,6 +36,7 @@ import {
   Clock,
   Link2,
   Server,
+  Smartphone,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
@@ -139,6 +140,7 @@ const CATEGORY_ICON: Record<string, IconCmp> = {
   pwn: Bug,
   forensic: Fingerprint,
   osint: Search,
+  mobile: Smartphone,
   b2r: Server,
   misc: Boxes,
 };
