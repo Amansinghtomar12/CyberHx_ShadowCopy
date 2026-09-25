@@ -321,6 +321,7 @@ export default function App() {
   const [solvedByMap, setSolvedByMap] = useState<Record<string, string>>({}); // challengeId → "username"
   const [teamRoster, setTeamRoster] = useState<{ id: string; username: string }[]>([]); // everyone on my team
   const [teamName, setTeamName] = useState<string | null>(null);
+  const [teamBanned, setTeamBanned] = useState(false);
   const [teamLoaded, setTeamLoaded] = useState(false); // so a finalist is never shown the not-qualified note mid-load
   // The VIP finalist layer is for the announced finalist teams (and admins).
   const qualifiedPlace = profile?.team_id ? finalistPlace(teamName) : null;
@@ -557,10 +558,11 @@ export default function App() {
       const [{ data: teamSubs }, { data: roster }, { data: team }] = await Promise.all([
         supabase.rpc('get_team_solves', { p_team_id: profileData.team_id }),
         supabase.from('safe_profiles').select('id, username').eq('team_id', profileData.team_id).order('username'),
-        supabase.from('public_teams').select('name').eq('id', profileData.team_id).maybeSingle(),
+        supabase.from('public_teams').select('name, is_banned').eq('id', profileData.team_id).maybeSingle(),
       ]);
       setTeamRoster((roster ?? []) as { id: string; username: string }[]);
       setTeamName(team?.name ?? null);
+      setTeamBanned(!!team?.is_banned);
 
       const solvedChallIds: string[] = [];
       const solvedBy: Record<string, string> = {};
@@ -577,6 +579,7 @@ export default function App() {
     } else {
       setTeamRoster([]);
       setTeamName(null);
+      setTeamBanned(false);
     }
     setTeamLoaded(true);
 
@@ -1216,6 +1219,27 @@ export default function App() {
                     country={profile.country}
                     onOpenTeam={() => setCurrentView('teamProfile')}
                   />
+                )}
+                {teamBanned && !profile?.is_admin && (
+                  <div
+                    role="alert"
+                    className="mb-6 rounded-card border p-5 sm:p-6"
+                    style={{ borderColor: 'var(--color-diff-hard)', background: 'var(--color-blood-wash)' }}
+                  >
+                    <p className="flex items-center gap-2 text-label uppercase" style={{ color: 'var(--color-diff-hard)' }}>
+                      <TriangleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      Team disqualified
+                    </p>
+                    <h2 className="mt-2 text-h3 text-cyber-text">
+                      {teamName ? <>Your team <span className="font-mono">{teamName}</span> has</> : 'Your team has'} been removed from the competition
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-body text-text-secondary">
+                      The organisers found a fair-play violation in your team's flag submissions. Your team no longer appears on the scoreboard, and flag submissions and hints are closed for every member.
+                    </p>
+                    <p className="mt-2 max-w-3xl text-small text-text-muted">
+                      If you believe this is a mistake, email <a className="text-cyber-text underline" href="mailto:support@cyberhx.com">support@cyberhx.com</a> or open a ticket on Discord before 22:00 IST. Every appeal is checked against the submission logs.
+                    </p>
+                  </div>
                 )}
                 {finaleLive && <FinalWarningBanner />}
                 {finaleLive && (
