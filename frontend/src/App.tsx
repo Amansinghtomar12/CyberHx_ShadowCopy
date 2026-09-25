@@ -683,11 +683,12 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     getUnlockedHints(user.id).then(async ids => {
-      setUnlockedHintIds(ids);
-
-      // One round trip for all unlocked hint texts instead of N.
+      // One round trip for all unlocked hint texts instead of N. It includes
+      // hints a teammate already bought, which are free for the whole team.
       const { data } = await supabase.rpc('get_my_hint_texts');
-      if (data && typeof data === 'object') setHintTexts(prev => ({ ...prev, ...data as Record<string, string> }));
+      const texts = data && typeof data === 'object' ? data as Record<string, string> : {};
+      setUnlockedHintIds(Array.from(new Set([...ids, ...Object.keys(texts)])));
+      if (Object.keys(texts).length) setHintTexts(prev => ({ ...prev, ...texts }));
     });
   }, [user]);
   useEffect(() => {
@@ -2020,7 +2021,7 @@ interface ChallengeModalProps {
   hintTexts: Record<string, string>;
   /** Why the last unlock was refused, if it was. */
   hintError?: string;
-  onUnlockHint: (hintId: string) => void;
+  onUnlockHint: (hintId: string) => void | Promise<void>;
   onClose: () => void;
   isSolved: boolean;
   canSubmit: boolean;
@@ -2070,6 +2071,13 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
   me,
 }) => {
   const [activeTab, setActiveTab] = useState<'challenge' | 'solves'>('challenge');
+  // A hint costs points, so the first click only arms it; the second confirms.
+  const [armedHint, setArmedHint] = useState<string | null>(null);
+  const [hintBusy, setHintBusy] = useState(false);
+  const confirmHint = async (hintId: string) => {
+    setHintBusy(true);
+    try { await onUnlockHint(hintId); } finally { setHintBusy(false); setArmedHint(null); }
+  };
   const [flagInput, setFlagInput] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -2464,9 +2472,28 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
                               <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyber-neon" aria-hidden="true" />
                               <p className="text-body text-text-secondary break-words">{text}</p>
                             </div>
+                          ) : armedHint === hint.id && !isUnlocked ? (
+                            <div role="alertdialog" aria-labelledby={`hint-confirm-${hint.id}`} className="border-l-2 p-4" style={{ borderColor: 'var(--color-diff-hard)' }}>
+                              <p id={`hint-confirm-${hint.id}`} className="flex items-center gap-2 text-label uppercase" style={{ color: 'var(--color-diff-hard)' }}>
+                                <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                                Confirm decryption
+                              </p>
+                              <p className="mt-2 font-mono text-small text-text-secondary">&gt; unlock_hint --cost {hint.cost}</p>
+                              <p className="mt-1 text-small text-text-muted">
+                                This takes <span className="font-semibold text-cyber-text">{hint.cost} points</span> from your team's score and can't be undone. If a teammate already unlocked this hint, it opens for free.
+                              </p>
+                              <div className="mt-3 flex flex-wrap justify-end gap-2">
+                                <button type="button" className="btn btn-outline btn-sm" disabled={hintBusy} onClick={() => setArmedHint(null)}>
+                                  Abort
+                                </button>
+                                <button type="button" className="btn btn-primary btn-sm" disabled={hintBusy} onClick={() => void confirmHint(hint.id)} autoFocus>
+                                  {hintBusy ? 'Decrypting…' : `Decrypt −${hint.cost} pts`}
+                                </button>
+                              </div>
+                            </div>
                           ) : (
                             <button
-                              onClick={() => onUnlockHint(hint.id)}
+                              onClick={() => (hint.cost > 0 && !isUnlocked ? setArmedHint(hint.id) : void onUnlockHint(hint.id))}
                               className="flex w-full items-center justify-between gap-3 p-4 text-left text-label uppercase text-text-muted transition-colors duration-[var(--duration-base)] hover:bg-surface-raised hover:text-cyber-text"
                             >
                               <span className="flex min-w-0 items-center gap-2.5">
