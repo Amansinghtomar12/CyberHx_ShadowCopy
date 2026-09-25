@@ -861,11 +861,10 @@ export default function App() {
     );
   }, [user]);
 
-  const getPoints = (challenge: Challenge) => {
-    const used = usedHintIds[challenge.id] || [];
-    const deduction = challenge.hints?.filter(h => used.includes(h.id)).reduce((acc, h) => acc + h.cost, 0) || 0;
-    return Math.max(0, challenge.points - deduction);
-  };
+  // A solve always awards the challenge's full points; a hint's cost is taken
+  // from the score once, when the hint is unlocked. Showing points minus hint
+  // costs here read as a second deduction.
+  const getPoints = (challenge: Challenge) => challenge.points;
 
   // CTFd: challenge is "solved" if current user OR any team member solved it
   const isChallengeSolved = (id: string) =>
@@ -2507,6 +2506,14 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
                       );
                     })}
                   </div>
+                  {(() => {
+                    const spent = challenge.hints.filter(h => usedHints.includes(h.id)).reduce((acc, h) => acc + h.cost, 0);
+                    return spent > 0 ? (
+                      <p className="mt-2 text-small text-text-muted">
+                        Hints used on this challenge: <span className="font-mono text-cyber-text">−{spent} pts</span>, already taken from your team's score once. Solving still awards the full {challenge.points} pts.
+                      </p>
+                    ) : null;
+                  })()}
                   {hintError && (
                     <p role="alert" className="mt-2 text-small" style={{ color: 'var(--color-diff-hard)' }}>{hintError}</p>
                   )}
