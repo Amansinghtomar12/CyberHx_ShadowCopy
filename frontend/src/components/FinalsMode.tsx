@@ -4,10 +4,10 @@
  * Phase 1: PRE-FINALE  — before Sept 25, 2026, 10:00 IST
  *   Countdown hero, finalist welcome, pass and ticker.
  *
- * Phase 2: LIVE FINALE — Sept 25, 10:00–22:00 IST
+ * Phase 2: LIVE FINALE — Sept 25, 10:00–22:30 IST
  *   Championship header, gold overlays, endgame escalation, solve burst.
  *
- * Phase 3: POST-FINALE — after Sept 25, 22:00 IST
+ * Phase 3: POST-FINALE — after Sept 25, 22:30 IST
  *   "Grand Finale Complete" state, final leaderboard, gratitude.
  *
  * Feature-flag gated: window.__FORCE_FINALE_MODE__ overrides time gate.
@@ -40,7 +40,7 @@ qrcode.stringToBytes = (s: string) => Array.from(new TextEncoder().encode(s));
    ═══════════════════════════════════════════════════════════════════════════ */
 
 const FINALS_START = new Date('2026-09-25T04:30:00Z'); // 10:00 IST
-const FINALS_END   = new Date('2026-09-25T16:30:00Z'); // 22:00 IST
+const FINALS_END   = new Date('2026-09-25T17:00:00Z'); // 22:30 IST (extended 30 minutes)
 
 const PRE_FINALE_WINDOW_DAYS = 14;
 const PRE_FINALE_START = new Date(
@@ -196,7 +196,7 @@ export function PreFinaleHero({ username }: { username?: string | null }) {
         <div className="lux-dateline mt-5">
           <span>Friday 25 September 2026</span>
           <span aria-hidden="true" className="lux-diamond" />
-          <span className="tabular-nums">10:00 – 22:00 IST</span>
+          <span className="tabular-nums">10:00 – 22:30 IST</span>
         </div>
       </div>
     </section>
@@ -426,7 +426,7 @@ export function FinalistWelcome({ username, teamName, place }: { username: strin
                   <div className="lux-dateline mt-6">
                     <span>Friday 25 September 2026</span>
                     <span aria-hidden="true" className="lux-diamond" />
-                    <span className="tabular-nums">10:00 – 22:00 IST</span>
+                    <span className="tabular-nums">10:00 – 22:30 IST</span>
                   </div>
                   <button ref={enterRef} type="button" onClick={close}
                     className="vip-enter mt-9 inline-flex items-center gap-2.5 rounded-pill px-7 py-3 text-small font-bold uppercase tracking-[0.24em] focus-ring">
@@ -679,7 +679,7 @@ function LuxField({ label, children }: { label: string; children: React.ReactNod
 const TICKER_ITEMS = [
   'Null0rigin CTF Grand Finale',
   'Friday 25 September 2026',
-  '10:00 – 22:00 IST',
+  '10:00 – 22:30 IST',
   'Challenges unlock at 10:00 IST',
   'Finalist teams only',
 ];
@@ -808,7 +808,7 @@ export function PostFinaleHero({ onViewStandings }: { eventName?: string | null;
         <div className="lux-dateline mt-7">
           <span>Friday 25 September 2026</span>
           <span aria-hidden="true" className="lux-diamond" />
-          <span>Ended at 22:00 IST</span>
+          <span>Ended at 22:30 IST</span>
         </div>
 
         {onViewStandings && (
@@ -956,7 +956,7 @@ export function FinaleHeader({ eventName, score, solved, total, mine, hasTeam }:
             <h2 className="lux-live-title">Grand Finale</h2>
             <p className="lux-lede mt-2 flex items-center gap-2.5">
               <span aria-hidden="true" className="lux-diamond" />
-              Scores update live. Submissions close at 22:00 IST.
+              Scores update live. Submissions close at 22:30 IST.
             </p>
           </div>
 
