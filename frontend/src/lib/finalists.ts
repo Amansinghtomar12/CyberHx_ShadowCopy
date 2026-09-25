@@ -47,6 +47,7 @@ export const FINALIST_TEAMS: readonly (string | readonly [string, number])[] = [
   "H4CK3R'$ LOBBY",
   'Vyadh',
   '2Null',
+  'RootHunters',
   ['0xA', 74],
   ['Bl4ck_Kloud', 92],
 ];
