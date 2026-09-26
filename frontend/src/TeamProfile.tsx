@@ -76,6 +76,8 @@ export default function TeamProfile() {
   const [scoreData, setScoreData] = useState<any[]>([]);
   const [rank, setRank] = useState<number | null>(null);
   const [teamTotalPoints, setTeamTotalPoints] = useState(0);
+  const [hintsUsed, setHintsUsed] = useState<{ title: string; cost: number; username: string; time: string }[]>([]);
+  const [solvePointsTotal, setSolvePointsTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const [mode, setMode] = useState<'none' | 'create' | 'join'>('none');
@@ -166,6 +168,9 @@ export default function TeamProfile() {
       .eq('id', teamId)
       .maybeSingle();
     if (mine) {
+      // The scoreboard's own figure (solve points minus hints, once per team),
+      // so this page and the board can never disagree.
+      setTeamTotalPoints(Number(mine.total_points ?? 0));
       const pts = Number(mine.total_points ?? 0);
       const tie = mine.last_solve
         ? `and(total_points.eq.${pts},last_solve.lt.${mine.last_solve})`
@@ -219,6 +224,7 @@ export default function TeamProfile() {
     });
 
     const solvesFormatted = uniqueSolves.map((s: any) => ({
+      ts: new Date(s.submitted_at).getTime(),
       title: s.challenges?.title ?? '?',
       category: s.challenges?.category ?? '?',
       value: s.challenges?.points ?? 0,
@@ -229,12 +235,33 @@ export default function TeamProfile() {
       }),
     }));
 
-    // Score over time graph
-    let cumulative = 0;
-    const graph = solvesFormatted.map(s => {
-      cumulative += s.value;
-      return { time: s.time, score: cumulative };
+    // Hints the team paid for: one row per hint, first unlock in the team,
+    // the same rule the score uses.
+    const { data: teamHints } = await supabase.rpc('get_team_hint_unlocks', { p_team_id: teamId });
+    const fmt = (t: string) => new Date(t).toLocaleString('en-US', {
+      month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit',
     });
+    const hintRows = (teamHints ?? []).map((h: any) => ({
+      ts: new Date(h.unlocked_at).getTime(),
+      title: h.challenge_title ?? '?',
+      cost: Number(h.cost ?? 0),
+      username: h.username ?? '?',
+      time: fmt(h.unlocked_at),
+    }));
+    setHintsUsed(hintRows.filter((h: any) => h.cost > 0));
+    setSolvePointsTotal(solvesFormatted.reduce((sum, x) => sum + (x.value ?? 0), 0));
+
+    // Score over time: solves add, hints subtract, in the order they happened.
+    let cumulative = 0;
+    const graph = [
+      ...solvesFormatted.map(x => ({ ts: x.ts, time: x.time, delta: x.value })),
+      ...hintRows.filter((h: any) => h.cost > 0).map((h: any) => ({ ts: h.ts, time: h.time, delta: -h.cost })),
+    ]
+      .sort((a, b) => a.ts - b.ts)
+      .map(e => {
+        cumulative += e.delta;
+        return { time: e.time, score: Math.max(0, cumulative) };
+      });
 
     // Fails = wrong attempts from this team (by team_id snapshot)
     const { count: failCount } = await supabase
@@ -634,6 +661,43 @@ export default function TeamProfile() {
       {solves.length > 0 ? (
         <>
           <SolvesTable solves={solves} />
+          {hintsUsed.length > 0 && (
+            <section className="mb-8 sm:mb-section">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <h3 className="text-h2 text-cyber-text">Hints used</h3>
+                <span className="font-mono text-small text-text-secondary tabular-nums">
+                  −{hintsUsed.reduce((sum, h) => sum + h.cost, 0)} pts
+                </span>
+              </div>
+              <div className="surface overflow-x-auto">
+                <table className="w-full min-w-[520px] text-left">
+                  <thead>
+                    <tr className="border-b border-border-subtle">
+                      <th className="label-micro px-5 py-3">Challenge</th>
+                      <th className="label-micro px-5 py-3">Unlocked by</th>
+                      <th className="label-micro px-5 py-3">Time</th>
+                      <th className="label-micro px-5 py-3 text-right">Cost</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {hintsUsed.map((h, i) => (
+                      <tr key={i} className="border-b border-border-subtle last:border-0">
+                        <td className="px-5 py-3 text-body text-cyber-text">{h.title}</td>
+                        <td className="px-5 py-3 font-mono text-small text-text-secondary">{h.username}</td>
+                        <td className="px-5 py-3 font-mono text-small text-text-muted">{h.time}</td>
+                        <td className="px-5 py-3 text-right font-mono text-small tabular-nums" style={{ color: 'var(--color-diff-hard)' }}>−{h.cost}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-3 text-small text-text-muted">
+                Solve points <span className="font-mono text-text-secondary">{solvePointsTotal}</span>
+                {' '}− hints <span className="font-mono text-text-secondary">{hintsUsed.reduce((sum, h) => sum + h.cost, 0)}</span>
+                {' '}= score <span className="font-mono text-cyber-text">{teamTotalPoints}</span>. A hint is charged once per team.
+              </p>
+            </section>
+          )}
           <ProgressBars solvedCount={solves.length} failCount={fails} categories={categories} />
           {scoreData.length > 0 && <ScoreChart data={scoreData} />}
         </>
