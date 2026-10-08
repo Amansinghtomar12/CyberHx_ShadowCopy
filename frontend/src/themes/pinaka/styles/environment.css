@@ -1,0 +1,207 @@
+/* ============================================================================
+   PINAKA — ENVIRONMENT
+   The fixed world behind .page-shell, owned by components/PinakaEnvironment.tsx.
+   Same place in the stacking order as .ambient-root: fixed, inset 0, z-index 0,
+   pointer-events none. Everything the component animates is transform or
+   opacity; the sky's colour change rides on two registered custom properties
+   so the gradient itself can transition (browsers without @property simply
+   switch colour in one step).
+
+   Layers, bottom to top:
+     .pk-env-sky       gradient between the world's sky tokens (+ phase tints)
+     .pk-env-scene ×2  crossfading slots: horizon glow + three depth strips
+     .pk-env-motes     the one animated canvas
+     .pk-env-veil      readability veil (stronger behind the nav and footer)
+     .pk-env-vignette
+   ========================================================================== */
+
+@property --pk-env-sky-a {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: #0a0e17;
+}
+@property --pk-env-sky-b {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: #141522;
+}
+
+/* ── Root ──────────────────────────────────────────────────────────────── */
+html[data-theme="pinaka"] .pk-env {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  contain: strict;
+  background-color: #0a0e17;
+  --pk-env-fade: 1.2s;
+  --pk-env-ease: var(--ease-standard, cubic-bezier(0.4, 0, 0.2, 1));
+}
+
+/* ── 1. Sky ────────────────────────────────────────────────────────────── */
+html[data-theme="pinaka"] .pk-env-sky {
+  position: absolute;
+  inset: 0;
+  --pk-env-sky-a: var(--pk-world-sky-top);
+  --pk-env-sky-b: var(--pk-world-sky-bottom);
+  background-image: linear-gradient(180deg, var(--pk-env-sky-a) 0%, var(--pk-env-sky-a) 18%, var(--pk-env-sky-b) 100%);
+  transition: --pk-env-sky-a var(--pk-env-fade) var(--pk-env-ease), --pk-env-sky-b var(--pk-env-fade) var(--pk-env-ease);
+}
+/* Phase tints. ::before is the cool pre-dawn, ::after the golden horizon. */
+html[data-theme="pinaka"] .pk-env-sky::before,
+html[data-theme="pinaka"] .pk-env-sky::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity var(--pk-env-fade) var(--pk-env-ease);
+}
+html[data-theme="pinaka"] .pk-env-sky::before {
+  background: linear-gradient(180deg, rgba(5, 9, 22, 0.6) 0%, rgba(7, 11, 24, 0.3) 55%, rgba(7, 11, 24, 0.12) 100%);
+}
+html[data-theme="pinaka"] .pk-env-sky::after {
+  background: linear-gradient(0deg, rgba(227, 187, 102, 0.17) 0%, rgba(227, 187, 102, 0.06) 30%, transparent 58%);
+}
+html[data-theme="pinaka"] .pk-env[data-phase="before"] .pk-env-sky::before { opacity: 1; }
+html[data-theme="pinaka"] .pk-env[data-phase="during"] .pk-env-sky::after { opacity: 0.35; }
+html[data-theme="pinaka"] .pk-env[data-phase="after"] .pk-env-sky::after { opacity: 1; }
+
+/* ── 2–3. Scene slots: horizon glow + silhouettes, crossfaded ──────────── */
+html[data-theme="pinaka"] .pk-env-scene {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity var(--pk-env-fade) var(--pk-env-ease);
+}
+html[data-theme="pinaka"] .pk-env-scene[data-active="true"] { opacity: 1; }
+
+/* The sun: a wide, low radial glow at the horizon. Colour and position come
+   from the world the slot holds; the phase scales and brightens it. */
+html[data-theme="pinaka"] .pk-env-sun {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--pk-sun-bottom, 0px);
+  height: 72vh;
+  background-image: radial-gradient(
+    ellipse var(--pk-sun-w, 62%) var(--pk-sun-h, 58%) at var(--pk-sun-x, 50%) 100%,
+    var(--pk-sun-core, rgba(227, 187, 102, 0.4)) 0%,
+    var(--pk-sun-mid, rgba(181, 139, 98, 0.16)) 30%,
+    transparent 72%
+  );
+  opacity: calc(var(--pk-sun-alpha, 0.8) * var(--pk-phase-sun, 1));
+  transform: scale(var(--pk-phase-scale, 1));
+  transform-origin: var(--pk-sun-x, 50%) 100%;
+  transition: opacity var(--pk-env-fade) var(--pk-env-ease), transform var(--pk-env-fade) var(--pk-env-ease);
+}
+html[data-theme="pinaka"] .pk-env[data-phase="before"] { --pk-phase-sun: 0.6; --pk-phase-scale: 0.9; }
+html[data-theme="pinaka"] .pk-env[data-phase="during"] { --pk-phase-sun: 1; --pk-phase-scale: 1; }
+html[data-theme="pinaka"] .pk-env[data-phase="after"]  { --pk-phase-sun: 1.25; --pk-phase-scale: 1.12; }
+
+/* Per-world sun. Ayodhya: warm sandstone dawn, off to the right. */
+html[data-theme="pinaka"] .pk-env-scene[data-world="ayodhya"] {
+  --pk-sun-x: 62%;
+  --pk-sun-core: rgba(227, 187, 102, 0.42);
+  --pk-sun-mid: rgba(181, 139, 98, 0.18);
+  --pk-sun-alpha: 0.85;
+}
+/* Vanavasa: a pale green-gold light low between the trees. */
+html[data-theme="pinaka"] .pk-env-scene[data-world="vanavasa"] {
+  --pk-sun-x: 50%;
+  --pk-sun-w: 48%;
+  --pk-sun-h: 52%;
+  --pk-sun-core: rgba(214, 206, 140, 0.3);
+  --pk-sun-mid: rgba(76, 140, 110, 0.14);
+  --pk-sun-alpha: 0.75;
+}
+/* Setu: a wide, flat glow on the water line. */
+html[data-theme="pinaka"] .pk-env-scene[data-world="setu"] {
+  --pk-sun-x: 50%;
+  --pk-sun-w: 80%;
+  --pk-sun-h: 40%;
+  --pk-sun-bottom: 34vh;
+  --pk-sun-core: rgba(235, 203, 132, 0.34);
+  --pk-sun-mid: rgba(90, 150, 190, 0.16);
+  --pk-sun-alpha: 0.85;
+}
+/* Lanka: ember-red and low, as if the fortress smoulders. */
+html[data-theme="pinaka"] .pk-env-scene[data-world="lanka"] {
+  --pk-sun-x: 40%;
+  --pk-sun-w: 70%;
+  --pk-sun-h: 36%;
+  --pk-sun-core: rgba(200, 70, 50, 0.4);
+  --pk-sun-mid: rgba(121, 44, 53, 0.2);
+  --pk-sun-alpha: 0.8;
+}
+/* Vijaya: the brightest and warmest horizon of the five. */
+html[data-theme="pinaka"] .pk-env-scene[data-world="vijaya"] {
+  --pk-sun-x: 50%;
+  --pk-sun-w: 76%;
+  --pk-sun-h: 66%;
+  --pk-sun-core: rgba(246, 223, 163, 0.5);
+  --pk-sun-mid: rgba(227, 187, 102, 0.22);
+  --pk-sun-alpha: 1;
+}
+
+/* Depth strips: pinned to the bottom, bled past every edge so parallax never
+   shows a seam. Height is set inline by the component (viewport-derived). */
+html[data-theme="pinaka"] .pk-env-depth {
+  position: absolute;
+  left: -24px;
+  right: -24px;
+  bottom: -96px;
+}
+html[data-theme="pinaka"] .pk-env:not([data-mode="static"]) .pk-env-depth { will-change: transform; }
+html[data-theme="pinaka"] .pk-env-canvas,
+html[data-theme="pinaka"] .pk-env-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ── 4. Motes ──────────────────────────────────────────────────────────── */
+html[data-theme="pinaka"] .pk-env-motes {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ── 5. Veil and vignette ──────────────────────────────────────────────── */
+/* The world is beautiful and the text has to win anyway: darker behind the
+   nav, darker again at the foot where the near silhouettes are busiest. */
+html[data-theme="pinaka"] .pk-env-veil {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(85% 100% at 22% 45%, rgba(6, 8, 16, 0.5) 0%, transparent 70%),
+    radial-gradient(110% 75% at 50% 45%, transparent 0%, rgba(6, 8, 16, 0.46) 84%),
+    linear-gradient(to bottom, rgba(6, 8, 16, 0.58), transparent 24%, transparent 70%, rgba(4, 6, 12, 0.66));
+  transition: opacity var(--pk-env-fade) var(--pk-env-ease);
+}
+html[data-theme="pinaka"] .pk-env[data-intensity="normal"] .pk-env-veil { opacity: 0.62; }
+html[data-theme="pinaka"] .pk-env-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(115% 85% at 50% 45%, transparent 42%, rgba(4, 6, 12, 0.55) 100%);
+}
+
+/* ── Reduced motion: no transitions, no parallax, a complete still picture ── */
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme="pinaka"] .pk-env-sky,
+  html[data-theme="pinaka"] .pk-env-sky::before,
+  html[data-theme="pinaka"] .pk-env-sky::after,
+  html[data-theme="pinaka"] .pk-env-scene,
+  html[data-theme="pinaka"] .pk-env-sun,
+  html[data-theme="pinaka"] .pk-env-veil {
+    transition: none;
+  }
+  html[data-theme="pinaka"] .pk-env-depth {
+    will-change: auto;
+    transform: none;
+  }
+}

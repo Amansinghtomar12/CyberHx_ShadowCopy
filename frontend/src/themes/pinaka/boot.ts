@@ -8,9 +8,14 @@ import { PINAKA_FONTS_HREF, PINAKA_THEME_COLOR } from './config';
 import { overrideCategoryIcons } from '../index';
 
 export async function bootPinaka(): Promise<void> {
-  // Vite turns this into its own CSS chunk and resolves once the <link> has
-  // loaded, so the first paint already wears the theme.
-  await import('./pinaka.css');
+  // Vite turns the stylesheet into its own CSS chunk and resolves once the
+  // <link> has loaded, so the first paint already wears the theme. The glyph
+  // and motif chunks are fetched in the same round trip rather than after it.
+  const [, glyphs] = await Promise.all([
+    import('./pinaka.css'),
+    import('./components/CategoryGlyph').catch(() => null),
+    import('./components/BowMotifs').catch(() => null),
+  ]);
 
   // Display faces, swapped in when they arrive. Both hosts are already in the
   // CSP (style-src fonts.googleapis.com, font-src fonts.gstatic.com); Inter and
@@ -27,11 +32,7 @@ export async function bootPinaka(): Promise<void> {
   if (meta) meta.content = PINAKA_THEME_COLOR;
 
   // The category glyphs replace the Lucide icons in the board's map before it
-  // renders; the motif chunk (solve light, countdown) is warmed so its first
-  // use is not a frame late. Neither is fatal if it fails.
-  const [glyphs] = await Promise.all([
-    import('./components/CategoryGlyph').catch(() => null),
-    import('./components/BowMotifs').catch(() => null),
-  ]);
+  // renders; the motif chunk (solve light, countdown) was warmed above so its
+  // first use is not a frame late. Neither is fatal if it fails to arrive.
   if (glyphs) overrideCategoryIcons(glyphs.PINAKA_CATEGORY_ICON);
 }
