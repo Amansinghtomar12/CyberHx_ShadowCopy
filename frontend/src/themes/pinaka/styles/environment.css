@@ -82,8 +82,8 @@ html[data-theme="pinaka"] .pk-env-sun {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: var(--pk-sun-bottom, 0px);
-  height: 72vh;
+  bottom: calc(var(--pk-env-vh, 100vh) * var(--pk-sun-bottom, 0));
+  height: calc(var(--pk-env-vh, 100vh) * 0.72);
   background-image: radial-gradient(
     ellipse var(--pk-sun-w, 62%) var(--pk-sun-h, 58%) at var(--pk-sun-x, 50%) 100%,
     var(--pk-sun-core, rgba(227, 187, 102, 0.4)) 0%,
@@ -120,7 +120,7 @@ html[data-theme="pinaka"] .pk-env-scene[data-world="setu"] {
   --pk-sun-x: 50%;
   --pk-sun-w: 80%;
   --pk-sun-h: 40%;
-  --pk-sun-bottom: 34vh;
+  --pk-sun-bottom: 0.34;
   --pk-sun-core: rgba(235, 203, 132, 0.34);
   --pk-sun-mid: rgba(90, 150, 190, 0.16);
   --pk-sun-alpha: 0.85;
