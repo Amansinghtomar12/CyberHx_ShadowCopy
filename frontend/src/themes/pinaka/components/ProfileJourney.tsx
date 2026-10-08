@@ -117,7 +117,7 @@ export default function ProfileJourney({ solves }: ProfileJourneyProps) {
                     <span className="font-mono text-small tabular-nums text-cyber-neon">
                       +{Math.max(0, Math.round(Number(s.points) || 0))}
                     </span>
-                    <span className="label-micro truncate normal-case tracking-normal" style={{ color: categoryHue(s.category) }}>
+                    <span className="label-micro truncate" style={{ color: categoryHue(s.category) }}>
                       {s.category}
                     </span>
                   </span>

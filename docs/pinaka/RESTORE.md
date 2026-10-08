@@ -89,6 +89,4 @@ CSP (`vercel.json`), `package.json`. The one schema change is additive and
 isolated: `supabase/migrations/20261008000000_event_theme.sql` adds
 `event_settings.theme` (default `'cyberhx'`), `admin_set_theme(text)` and
 `public_theme()`; dropping those three restores the previous schema.
-Everything else on the server — environment secrets,
-`vercel.json` (CSP unchanged), `package.json` dependencies, challenge data,
-scores, users, teams.
+Environment secrets and the deployment configuration are not touched.
