@@ -79,6 +79,12 @@ import MilestoneBanner from './components/MilestoneBanner';
 import { pendingInvite, clearInvite, type InvitePreview } from './lib/invite';
 import { detectMilestones, type Milestone } from './lib/milestones';
 import { buildChainSeriesVM } from './components/chain/chainModel';
+import { isPinaka, registerCategoryIcons } from './themes';
+import { deriveWorld, derivePhase } from './themes/pinaka/hooks';
+import { shouldShowIntro } from './themes/pinaka/intro-gate';
+import {
+  PinakaEnvironment, PinakaIntro, JourneyMap, WorldBanner, PartnerStrip, ArrowSolveLight,
+} from './themes/pinaka/lazy';
 import { buildB2RBoxVM, buildB2RSeriesVM } from './components/b2r/b2rModel';
 
 // The entire Chained Challenges subsystem (series board + heavy WebGL engine)
@@ -122,8 +128,9 @@ const DIFFICULTIES: { id: string; label: string }[] =
 // ─────────────────────────────────────────
 type IconCmp = React.ComponentType<{ className?: string }>;
 
-/** Category → glyph. Keys match `Category` in types.ts; unknown values fall back. */
-const CATEGORY_ICON: Record<string, IconCmp> = {
+/** Category → glyph. Keys match `Category` in types.ts; unknown values fall back.
+    Registered with the theme layer, which may swap the glyphs in place at boot. */
+const CATEGORY_ICON: Record<string, IconCmp> = registerCategoryIcons({
   web: Globe,
   crypto: KeyRound,
   steg: ImageIcon,
@@ -134,7 +141,7 @@ const CATEGORY_ICON: Record<string, IconCmp> = {
   mobile: Smartphone,
   b2r: Server,
   misc: Boxes,
-};
+});
 
 /** Category → hue, with a safe fallback if the DB carries an unmapped value. */
 const catVar = (category: string) => `var(--color-cat-${category}, var(--color-cat-misc))`;
@@ -431,6 +438,15 @@ export default function App() {
   }, [b2rEnabled]);
 
   const reduce = useReducedMotion();
+
+  // ── Event skin (presentation only) ───────────────────────
+  // Resolved once per page load. The world is a pure function of the view,
+  // the board mode and the server-derived event status; nothing below reads
+  // it for anything but pixels.
+  const pinaka = isPinaka();
+  const world = deriveWorld(currentView, boardMode, eventStatus);
+  const worldPhase = derivePhase(eventStatus);
+  const [introOpen, setIntroOpen] = useState(() => pinaka && shouldShowIntro());
 
   // Your score, derived rather than fetched. Mirrors the database exactly --
   // GREATEST(total_points - hint_spend, 0) -- so the number in the header and
@@ -896,9 +912,15 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-cyber-bg text-cyber-text font-sans" data-tier={getCapability().tier}>
-      <AmbientBackground />
+      {pinaka
+        ? <React.Suspense fallback={null}><PinakaEnvironment world={world} phase={worldPhase} /></React.Suspense>
+        : <AmbientBackground />}
       <SurfaceLight />
       <CursorRing />
+      {/* First visit only, skippable from the first frame; the app is live underneath. */}
+      {pinaka && introOpen && (
+        <React.Suspense fallback={null}><PinakaIntro onDone={() => setIntroOpen(false)} /></React.Suspense>
+      )}
 
       <div className="page-shell min-h-screen flex flex-col">
         {/* Header */}
@@ -926,6 +948,11 @@ export default function App() {
                   <span className="hidden sm:inline text-h3 tracking-tight text-cyber-text">CYBERHX</span>
                 </button>
               </h1>
+              {pinaka && (
+                <span className="badge badge-neon hidden md:inline-flex shrink-0" title="Pinaka CTF 2026 · Scoring platform by CyberHX">
+                  Pinaka CTF
+                </span>
+              )}
 
               <div className="hidden lg:flex items-center gap-1">
                 {navItems.map(item => (
@@ -1188,6 +1215,19 @@ export default function App() {
                     </p>
                   </div>
                 )}
+                {pinaka && (
+                  <React.Suspense fallback={null}>
+                    <WorldBanner
+                      world={world}
+                      phase={worldPhase}
+                      status={eventStatus}
+                      paused={paused}
+                      eventName={eventSettings?.name}
+                      startTime={eventSettings?.start_time}
+                      endTime={eventSettings?.end_time}
+                    />
+                  </React.Suspense>
+                )}
                 <CommandHeader
                   status={eventStatus}
                   paused={paused}
@@ -1202,6 +1242,15 @@ export default function App() {
                   mine={solvedIds.length}
                   hasTeam={!!profile?.team_id}
                 />
+                {pinaka && challenges.length > 0 && canSeeChallenges && !needsTeam && (
+                  <React.Suspense fallback={null}>
+                    <JourneyMap
+                      world={world}
+                      phase={worldPhase}
+                      progress={challenges.length ? totalSolvedCount / challenges.length : 0}
+                    />
+                  </React.Suspense>
+                )}
 
                 {/* Search and category, above the cards. Difficulty stays in
                     the rail: it is a mode; these are a flick of the eye. */}
@@ -1706,6 +1755,11 @@ export default function App() {
         </AnimatePresence>
 
         <footer className="mt-auto border-t border-border-base py-8 px-4 sm:px-6">
+          {pinaka && (
+            <div className="max-w-screen-2xl mx-auto mb-6">
+              <React.Suspense fallback={null}><PartnerStrip variant="footer" /></React.Suspense>
+            </div>
+          )}
           <div className="max-w-screen-2xl mx-auto flex flex-col md:flex-row justify-between items-center gap-5">
             <div className="flex items-center gap-2.5">
               <span aria-hidden="true" className="w-5 h-5 bg-neon-wash border border-border-neon rounded-inset flex items-center justify-center">
@@ -1800,7 +1854,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
           /* The tier's frame, idle behaviour and hue all key off this. */
           data-diff={challenge.difficulty}
           className={`card-interactive group relative flex h-full w-full flex-col overflow-hidden p-3.5 text-left ${
-            isSolved ? 'border-border-neon shadow-[0_0_14px_rgba(198,255,0,0.18)]' : ''
+            isSolved ? 'border-border-neon shadow-[0_0_14px_color-mix(in_srgb,var(--color-neon)_18%,transparent)]' : ''
           }`}
         >
           {/* category hairline */}
@@ -1814,7 +1868,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
             <span
               aria-hidden="true"
               className="pointer-events-none absolute inset-0 rounded-[inherit]"
-              style={{ background: 'rgba(198, 255, 0, 0.06)' }}
+              style={{ background: 'color-mix(in srgb, var(--color-neon) 6%, transparent)' }}
             />
           )}
           {/* pointer specular — transform + opacity only */}
@@ -2278,6 +2332,9 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
         <AnimatePresence>
           {justBreached && (
             <BreachConfirm points={points} legendary={isInsane} onDone={() => setJustBreached(false)} />
+          )}
+          {justBreached && isPinaka() && (
+            <React.Suspense fallback={null}><ArrowSolveLight points={points} legendary={isInsane} /></React.Suspense>
           )}
         </AnimatePresence>
         <div className="flex items-center justify-between gap-3 px-3 sm:px-5 py-3 border-b border-border-base bg-surface-rail">

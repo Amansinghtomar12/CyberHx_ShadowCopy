@@ -2,10 +2,15 @@ import React, { Suspense, useMemo, useState } from 'react';
 import { Flame, ChevronRight, Layers, Loader2, Download } from 'lucide-react';
 import { safeHttpUrl } from '../../lib/url';
 import type { ChainSeriesVM } from './chainModel';
+import { isPinaka } from '../../themes';
 
 // The chain experience (canvas renderer + steel/fire image assets) is a
-// separate chunk, loaded only when a player actually enters a series.
-const ChainExperience = React.lazy(() => import('./ChainExperience'));
+// separate chunk, loaded only when a player actually enters a series. Under
+// the event skin the same props drive the Setu causeway instead; the series
+// data, the node buttons and the unlock rules are identical either way.
+const ChainExperience = React.lazy(() =>
+  isPinaka() ? import('../../themes/pinaka/components/SetuChain') : import('./ChainExperience'),
+);
 
 interface Props {
   vms: ChainSeriesVM[];
@@ -27,7 +32,7 @@ function MiniChain({ vm }: { vm: ChainSeriesVM }) {
         <React.Fragment key={n.challengeId}>
           <span
             className={`inline-block h-2.5 w-2.5 rounded-full ${
-              n.solved ? 'bg-cyber-neon shadow-[0_0_8px_rgba(198,255,0,0.6)]' : 'bg-surface-sunken ring-1 ring-border-subtle'
+              n.solved ? 'bg-cyber-neon shadow-[0_0_8px_color-mix(in_srgb,var(--color-neon)_60%,transparent)]' : 'bg-surface-sunken ring-1 ring-border-subtle'
             }`}
           />
           {i < vm.segments.length && (
@@ -133,7 +138,7 @@ export default function ChainedBoard({ vms, category, onOpenChallenge }: Props) 
                 <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-sunken">
                   <div
                     className="h-full rounded-full"
-                    style={{ width: `${pct}%`, background: 'linear-gradient(90deg,#8fb800,#c6ff00,#ddff6b)' }}
+                    style={{ width: `${pct}%`, background: 'linear-gradient(90deg, var(--color-neon-dim), var(--color-neon), var(--color-neon-bright))' }}
                   />
                 </div>
               </div>

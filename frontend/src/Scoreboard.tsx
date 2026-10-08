@@ -10,6 +10,9 @@ import {
   ArrowUp, ArrowDown, Minus, TrendingUp, Lock, EyeOff, RefreshCw, ChevronDown, Users, Clock
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
+import { isPinaka } from './themes';
+import { accent, accentBright } from './lib/brand';
+import { PodiumFrame } from './themes/pinaka/lazy';
 
 /* Literal token values — recharts SVG attributes are the one place a raw hex is
    safer than var(). These mirror the category and neon ramps in src/index.css
@@ -35,7 +38,12 @@ interface GraphPoint {
 
 /* ───────────────────────── presentational helpers ───────────────────────── */
 
-const seriesColor = (i: number) => COLORS[i % COLORS.length];
+// The first and last series carry the brand accent, read from the live token
+// so a skin that re-points it is honoured; the rest are fixed hues.
+const seriesColor = (i: number) => {
+  const k = i % COLORS.length;
+  return k === 0 ? accent() : k === COLORS.length - 1 ? accentBright() : COLORS[k];
+};
 
 /**
  * "updated 12s ago", ticking on its own.
@@ -706,15 +714,16 @@ export default function Scoreboard({ myTeamId = null, eventStatus = 'live', star
   // A podium with nobody on it is not a podium. Until a team scores, the
   // top three are just the first three names in the roster.
   const podiumReady = leaderPoints > 0;
+  const pinaka = isPinaka();
 
   return (
-    <div className="flex-1 w-full min-w-0 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+    <div className={`flex-1 w-full min-w-0 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 sm:py-12 ${pinaka ? 'pk-lanka-hall' : ''}`}>
       {/* ── header ───────────────────────────────────────────────── */}
       <header className="mb-8 sm:mb-section flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <p className="label-micro flex items-center gap-1.5 mb-2">
             <Radio className="w-3 h-3 text-cyber-neon" aria-hidden="true" />
-            {waiting ? 'Pre-event' : inactive ? 'Standby' : 'Live telemetry'}
+            {waiting ? 'Pre-event' : inactive ? 'Standby' : pinaka ? 'The hall of honour' : 'Live telemetry'}
           </p>
           <h2 className="text-h1 text-cyber-text">Scoreboard</h2>
           <div
@@ -831,15 +840,24 @@ export default function Scoreboard({ myTeamId = null, eventStatus = 'live', star
             <Trophy className="w-3 h-3" aria-hidden="true" /> Podium
           </h3>
           <div className="grid gap-4 sm:grid-cols-3 sm:items-end">
-            {podium.map((team, i) => (
-              <PodiumCard
-                key={team.id}
-                team={team}
-                rank={i + 1}
-                leaderPoints={leaderPoints}
-                reduced={reduced}
-              />
-            ))}
+            {podium.map((team, i) => {
+              const card = (
+                <PodiumCard
+                  key={team.id}
+                  team={team}
+                  rank={i + 1}
+                  leaderPoints={leaderPoints}
+                  reduced={reduced}
+                />
+              );
+              // The event skin frames the three cards; the cards themselves
+              // and their data are untouched.
+              return pinaka ? (
+                <React.Suspense key={team.id} fallback={card}>
+                  <PodiumFrame rank={(i + 1) as 1 | 2 | 3}>{card}</PodiumFrame>
+                </React.Suspense>
+              ) : card;
+            })}
           </div>
         </section>
       ) : null}

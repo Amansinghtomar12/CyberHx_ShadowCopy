@@ -1,0 +1,26 @@
+/* ============================================================================
+   PINAKA — THE DIVINE CYBER YUDDHA
+   Temporary event skin for the CyberHX CTF platform (Pinaka CTF 2026).
+
+   This is the single stylesheet entry for the theme. It is fetched on demand
+   by themes/index.ts when the theme resolves to 'pinaka' and never otherwise,
+   so the default build pays nothing for it.
+
+   Every rule is scoped under html[data-theme="pinaka"]. Nothing here uses
+   @apply or Tailwind directives: this file is plain CSS layered over the
+   tokens that src/index.css declares, which is what makes it removable by
+   deleting one directory. See src/themes/pinaka/README.md.
+
+   Order matters: tokens first, then the core re-skin of existing components,
+   then the theme's own components.
+   ========================================================================== */
+@import './styles/tokens.css';
+@import './styles/core.css';
+@import './styles/motifs.css';
+@import './styles/environment.css';
+@import './styles/intro.css';
+@import './styles/journey.css';
+@import './styles/setu.css';
+@import './styles/gateway.css';
+@import './styles/lanka.css';
+@import './styles/partners.css';

@@ -1,0 +1,174 @@
+/* ============================================================================
+   PINAKA — TOKENS
+   Scoped to html[data-theme="pinaka"]. Every value here shadows a token that
+   src/index.css declares in @theme static, so the existing Tailwind utilities
+   (bg-cyber-neon, text-text-muted, border-border-base, …) re-skin themselves
+   without a single component changing. The seven frozen --color-cyber-*
+   tokens are overridden, never renamed.
+
+   Palette (starting points from the brief, tuned for AA on the ground):
+     deep midnight   #0a0e17   ground
+     royal indigo    #17284a   depth, Lanka sky
+     antique gold    #c49a45   lines, dim accent
+     soft gold       #ebcb84   accent text, highlights
+     sandstone       #b58b62   Ayodhya warmth
+     forest emerald  #214d43   Vanavasa
+     lanka crimson   #792c35   Lanka
+     parchment       #f3e8d1   primary text
+   ========================================================================== */
+
+html[data-theme="pinaka"] {
+  /* ── Theme-private tokens (prefix pk-) ───────────────────────────────── */
+  --pk-font-display: "Cinzel", "Trajan Pro", Georgia, "Times New Roman", serif;
+  --pk-font-prose: "EB Garamond", Georgia, "Times New Roman", serif;
+
+  --pk-gold: #e3bb66;
+  --pk-gold-soft: #ebcb84;
+  --pk-gold-bright: #f6dfa3;
+  --pk-gold-deep: #c49a45;
+  --pk-gold-ink: #1a1206;
+  --pk-gold-line: rgba(227, 187, 102, 0.34);
+  --pk-gold-faint: rgba(227, 187, 102, 0.12);
+  --pk-gold-glow: rgba(227, 187, 102, 0.35);
+  --pk-foil: linear-gradient(180deg, #f6dfa3 0%, #e9c97a 32%, #c49a45 58%, #ebcb84 80%, #a8771f 100%);
+
+  --pk-indigo: #17284a;
+  --pk-sandstone: #b58b62;
+  --pk-emerald: #214d43;
+  --pk-crimson: #792c35;
+  --pk-parchment: #f3e8d1;
+
+  /* World tint: the environment writes data-world on <html>; these follow. */
+  --pk-world-tint: rgba(227, 187, 102, 0.06);
+  --pk-world-rim: rgba(227, 187, 102, 0.22);
+  --pk-world-sky-top: #0a0e17;
+  --pk-world-sky-bottom: #141522;
+
+  /* ── Typefaces (UI stays on Inter / JetBrains Mono for legibility) ───── */
+  /* --font-sans and --font-mono are intentionally untouched. */
+
+  /* ── FROZEN legacy palette ───────────────────────────────────────────── */
+  --color-cyber-bg: #0a0e17;
+  --color-cyber-sidebar: #0d1220;
+  --color-cyber-card: #111727;
+  --color-cyber-border: #262a3a;
+  --color-cyber-neon: #e3bb66;
+  --color-cyber-muted: #a69a84;
+  --color-cyber-text: #f3e8d1;
+
+  /* ── Surface ramp ────────────────────────────────────────────────────── */
+  --color-surface-sunken: #06080f;
+  --color-surface-base: #0a0e17;
+  --color-surface-rail: #0d1220;
+  --color-surface-card: rgba(17, 20, 34, 0.74);
+  --color-surface-raised: rgba(24, 27, 44, 0.76);
+  --color-surface-overlay: #171b2c;
+  --color-surface-inset: #0b0f1b;
+  --color-surface-veil: rgba(8, 10, 18, 0.74);
+
+  /* ── Border ramp ─────────────────────────────────────────────────────── */
+  --color-border-subtle: #1a1d2c;
+  --color-border-base: #262a3a;
+  --color-border-strong: #383c50;
+  --color-border-hover: #4b4f67;
+  --color-border-neon: rgba(227, 187, 102, 0.55);
+  --color-border-danger: rgba(214, 106, 92, 0.42);
+
+  /* ── Accent ramp (gold replaces lime) ────────────────────────────────── */
+  --color-neon-dim: #c49a45;
+  --color-neon: #e3bb66;
+  --color-neon-bright: #f6dfa3;
+  --color-neon-ink: #1a1206;
+  --color-neon-glow: rgba(227, 187, 102, 0.35);
+  --color-neon-wash: rgba(227, 187, 102, 0.10);
+
+  /* ── Text ramp (AA on #0a0e17: primary 15.3:1, secondary 10.1:1, muted 6.3:1) */
+  --color-text-primary: #f3e8d1;
+  --color-text-secondary: #cdc0a6;
+  --color-text-muted: #a69a84;
+  --color-text-faint: #726859;
+
+  /* ── Difficulty ──────────────────────────────────────────────────────── */
+  --color-diff-easy: #8ccb9c;
+  --color-diff-easy-wash: rgba(140, 203, 156, 0.12);
+  --color-diff-medium: #e0b34a;
+  --color-diff-medium-wash: rgba(224, 179, 74, 0.12);
+  --color-diff-hard: #e07a63;
+  --color-diff-hard-wash: rgba(224, 122, 99, 0.12);
+  --color-diff-insane: #bf98f5;
+  --color-diff-insane-wash: rgba(191, 152, 245, 0.12);
+
+  /* ── Status ──────────────────────────────────────────────────────────── */
+  --color-status-solved: #e3bb66;
+  --color-status-solved-wash: rgba(227, 187, 102, 0.14);
+  --color-status-locked: #716d7e;
+  --color-status-locked-wash: rgba(113, 109, 126, 0.12);
+  --color-status-live: #ff7a6b;
+  --color-status-live-wash: rgba(255, 122, 107, 0.12);
+  --color-status-info: #7ea7d8;
+  --color-status-info-wash: rgba(126, 167, 216, 0.12);
+  --color-blood: #ff6b7f;
+  --color-blood-wash: rgba(255, 107, 127, 0.12);
+  --color-danger-fg: #ffb8ae;
+  --color-success-fg: #f0dcae;
+
+  /* ── Category hues (muted, warmed one step toward the gold) ──────────── */
+  --color-cat-web: #5fb8a8;
+  --color-cat-crypto: #a195e0;
+  --color-cat-steg: #d08db0;
+  --color-cat-rev: #d9ad66;
+  --color-cat-pwn: #e0745f;
+  --color-cat-forensic: #7aa6d9;
+  --color-cat-osint: #9dbf7c;
+  --color-cat-mobile: #e39560;
+  --color-cat-b2r: #e3689a;
+  --color-cat-misc: #a3aab5;
+
+  /* ── Elevation (tinted with the midnight ground) ─────────────────────── */
+  --shadow-e1: 0 1px 2px rgba(3, 5, 10, 0.6);
+  --shadow-e2: 0 2px 6px -1px rgba(3, 5, 10, 0.65), 0 1px 2px rgba(3, 5, 10, 0.5);
+  --shadow-e3: 0 8px 20px -6px rgba(3, 5, 10, 0.72), 0 2px 6px -2px rgba(3, 5, 10, 0.5);
+  --shadow-e4: 0 18px 40px -12px rgba(3, 5, 10, 0.8), 0 4px 12px -4px rgba(3, 5, 10, 0.55);
+  --shadow-e5: 0 32px 70px -18px rgba(3, 5, 10, 0.86), 0 8px 24px -8px rgba(3, 5, 10, 0.6);
+  --shadow-well: inset 0 1px 2px rgba(3, 5, 10, 0.7);
+  --shadow-neon: 0 0 0 1px rgba(227, 187, 102, 0.18), 0 6px 22px -8px rgba(227, 187, 102, 0.42);
+  --shadow-neon-strong: 0 0 0 1px rgba(227, 187, 102, 0.3), 0 10px 34px -8px rgba(227, 187, 102, 0.55);
+
+  /* ── Focus ───────────────────────────────────────────────────────────── */
+  --focus-ring-color: rgba(235, 203, 132, 0.8);
+
+  color-scheme: dark;
+}
+
+/* ── World tints: the only thing that changes between chapters at the token
+   level. Everything else is the environment layer's job. ────────────────── */
+html[data-theme="pinaka"][data-world="ayodhya"] {
+  --pk-world-tint: rgba(227, 187, 102, 0.07);
+  --pk-world-rim: rgba(227, 187, 102, 0.26);
+  --pk-world-sky-top: #0a0e17;
+  --pk-world-sky-bottom: #1d1a22;
+}
+html[data-theme="pinaka"][data-world="vanavasa"] {
+  --pk-world-tint: rgba(76, 140, 110, 0.07);
+  --pk-world-rim: rgba(120, 180, 140, 0.2);
+  --pk-world-sky-top: #090e14;
+  --pk-world-sky-bottom: #122421;
+}
+html[data-theme="pinaka"][data-world="setu"] {
+  --pk-world-tint: rgba(90, 150, 170, 0.06);
+  --pk-world-rim: rgba(227, 187, 102, 0.24);
+  --pk-world-sky-top: #0a0f1c;
+  --pk-world-sky-bottom: #10243a;
+}
+html[data-theme="pinaka"][data-world="lanka"] {
+  --pk-world-tint: rgba(160, 60, 70, 0.07);
+  --pk-world-rim: rgba(227, 150, 102, 0.24);
+  --pk-world-sky-top: #0b0a14;
+  --pk-world-sky-bottom: #2a141c;
+}
+html[data-theme="pinaka"][data-world="vijaya"] {
+  --pk-world-tint: rgba(235, 203, 132, 0.1);
+  --pk-world-rim: rgba(246, 223, 163, 0.3);
+  --pk-world-sky-top: #0b0e18;
+  --pk-world-sky-bottom: #2a2114;
+}

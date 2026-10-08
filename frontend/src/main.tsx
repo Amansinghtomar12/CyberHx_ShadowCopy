@@ -9,6 +9,7 @@ import HoldScreen from './components/HoldScreen';
 import AmbientBackground from './components/AmbientBackground';
 import { captureInvite } from './lib/invite';
 import { subscribeUplink, uplinkState } from './lib/uplink';
+import { bootTheme } from './themes';
 
 // Before anything renders: lift ?invite=<code> off the URL and park it.
 captureInvite();
@@ -47,8 +48,12 @@ function Root() {
   return <App />;
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <Root />
-  </StrictMode>,
-);
+// The skin is decided before the first paint. A theme that fails to load
+// resolves to the default, so this never blocks the platform for long.
+bootTheme().finally(() => {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <Root />
+    </StrictMode>,
+  );
+});

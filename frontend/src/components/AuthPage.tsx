@@ -17,6 +17,8 @@ import { setMood } from './environment/mood';
 import MagneticElement from './environment/MagneticElement';
 import AccessSequence from './AccessSequence';
 import { pendingInvite, clearInvite, type InvitePreview } from '../lib/invite';
+import { isPinaka } from '../themes';
+import { PinakaEnvironment, AuthGateway } from '../themes/pinaka/lazy';
 
 // ── Turnstile Site Key — from environment variable ──
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || '';
@@ -400,10 +402,15 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
   };
 
   const ease = [0.22, 1, 0.36, 1] as const;
+  // Event skin: swaps the hero column and the environment. The card, the
+  // form, Turnstile and Google are untouched.
+  const pinaka = isPinaka();
 
   return (
     <div className="min-h-screen bg-cyber-bg overflow-x-hidden relative">
-      <AmbientBackground intensity="normal" />
+      {pinaka
+        ? <React.Suspense fallback={null}><PinakaEnvironment world="ayodhya" phase="before" intensity="normal" /></React.Suspense>
+        : <AmbientBackground intensity="normal" />}
       <SurfaceLight />
       <CursorRing />
 
@@ -434,6 +441,10 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
               transition={{ duration: 0.5, ease }}
               className="hidden lg:flex lg:flex-col min-w-0 relative"
             >
+              {pinaka ? (
+                <React.Suspense fallback={null}><AuthGateway /></React.Suspense>
+              ) : (
+              <>
               <BackgroundRadar reduceMotion={reduceMotion} />
 
               <div className="relative flex-1 flex flex-col">
@@ -496,6 +507,8 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                   <BuildCredit />
                 </div>
               </div>
+              </>
+              )}
             </motion.section>
 
             {/* ══ AUTH CARD COLUMN ═════════════════════════════════════════ */}
@@ -517,7 +530,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                   <span className="text-h1 text-text-primary tracking-tight leading-none">
                     CYBER<span className="text-cyber-neon">HX</span>
                   </span>
-                  <span className="label-micro">CTF Platform · v2.0</span>
+                  <span className="label-micro">{pinaka ? 'Pinaka CTF 2026 · Scoring platform' : 'CTF Platform · v2.0'}</span>
                 </div>
               </div>
 
@@ -595,12 +608,12 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                         </span>
                       </div>
                       <h2 className="text-h1 text-text-primary tracking-tight leading-tight">
-                        {mode === 'login' ? 'Access terminal' : 'Enter the arena'}
+                        {mode === 'login' ? (pinaka ? 'Enter the arena' : 'Access terminal') : (pinaka ? 'Join the campaign' : 'Enter the arena')}
                       </h2>
                       <p className="mt-2 text-small text-text-muted">
                         {mode === 'login'
-                          ? 'Authenticate to resume your run.'
-                          : 'Register a handle to enter the competition.'}
+                          ? (pinaka ? 'Sign in to take your place in the hall.' : 'Authenticate to resume your run.')
+                          : (pinaka ? 'Register a handle to enter Pinaka CTF 2026.' : 'Register a handle to enter the competition.')}
                       </p>
                     </header>
 
@@ -858,13 +871,13 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                         ) : mode === 'login' ? (
                           <>
                             <Zap className="h-4 w-4" aria-hidden="true" />
-                            Access Terminal
+                            {pinaka ? 'Enter the Arena' : 'Access Terminal'}
                             <ArrowRight className="h-4 w-4 transition-transform duration-[var(--duration-fast)] group-hover:translate-x-1" aria-hidden="true" />
                           </>
                         ) : (
                           <>
                             <Flag className="h-4 w-4" aria-hidden="true" />
-                            Enlist Operative
+                            {pinaka ? 'Join the Campaign' : 'Enlist Operative'}
                             <ArrowRight className="h-4 w-4 transition-transform duration-[var(--duration-fast)] group-hover:translate-x-1" aria-hidden="true" />
                           </>
                         )}

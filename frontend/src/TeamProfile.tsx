@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { supabase } from './lib/supabase';
+import { accent } from './lib/brand';
 import { useAuth } from './hooks/useAuth';
 import { ProgressBars, SolvesTable, ScoreChart } from './SharedComponents';
 import { inviteLink } from './lib/invite';
@@ -368,7 +369,7 @@ export default function TeamProfile() {
   const categoryMap: Record<string, number> = {};
   solves.forEach(s => { categoryMap[s.category] = (categoryMap[s.category] || 0) + s.value; });
   const totalCatPoints = Object.values(categoryMap).reduce((a, b) => a + b, 0) || 1;
-  const COLORS = ['#c6ff00', '#4fb3a4', '#8e86d6', '#c97fa0', '#cfa15c', '#6d9fd4', '#8fb573', '#93a1ad'];
+  const COLORS = [accent(), '#4fb3a4', '#8e86d6', '#c97fa0', '#cfa15c', '#6d9fd4', '#8fb573', '#93a1ad'];
   const categories = Object.entries(categoryMap).map(([name, val], i) => ({
     name, value: (val / totalCatPoints) * 100, color: COLORS[i % COLORS.length]
   }));

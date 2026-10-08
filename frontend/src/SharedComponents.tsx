@@ -1,4 +1,5 @@
 import React from 'react';
+import { accent, accentDim, accentBright } from './lib/brand';
 import {
   AreaChart,
   Area,
@@ -30,9 +31,9 @@ const EASE_OUT_QUINT = [0.22, 1, 0.36, 1] as const;
 /* Literal token values — SVG presentation attributes are the one place where a
    raw hex is safer than var(). These mirror src/index.css exactly. */
 const TOKEN = {
-  neon: '#c6ff00',
-  neonDim: '#8fb800',
-  neonBright: '#ddff6b',
+  get neon() { return accent(); },
+  get neonDim() { return accentDim(); },
+  get neonBright() { return accentBright(); },
   solved: '#a6e04a',
   fail: '#e0705f',
   border: '#1a242d',
