@@ -8,9 +8,8 @@ import { isPinaka } from '../../themes';
 // separate chunk, loaded only when a player actually enters a series. Under
 // the event skin the same props drive the Setu causeway instead; the series
 // data, the node buttons and the unlock rules are identical either way.
-const ChainExperience = React.lazy(() =>
-  isPinaka() ? import('../../themes/pinaka/components/SetuChain') : import('./ChainExperience'),
-);
+const ClassicChainExperience = React.lazy(() => import('./ChainExperience'));
+const SetuChainExperience = React.lazy(() => import('../../themes/pinaka/components/SetuChain'));
 
 interface Props {
   vms: ChainSeriesVM[];
@@ -59,6 +58,7 @@ export default function ChainedBoard({ vms, category, onOpenChallenge }: Props) 
   );
 
   const selected = selectedId ? vms.find((v) => v.id === selectedId) ?? null : null;
+  const ChainExperience = isPinaka() ? SetuChainExperience : ClassicChainExperience;
 
   if (selected) {
     return (

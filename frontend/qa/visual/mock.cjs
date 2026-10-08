@@ -39,7 +39,7 @@ const DEFAULT_EVENT = {
   start_time: EVENT_START, end_time: EVENT_END, is_active: true, is_paused: false, paused_at: null, pause_message: null,
   mode: 'teams', team_size: 4, allow_team_changes: true, registration_open: true, registration_allowlist_only: false,
   freeze_scoreboard: false, freeze_time: null, auto_froze_at: null, hide_scores: false,
-  chain_experience_enabled: true, b2r_enabled: true, created_at: '2026-10-01T00:00:00Z',
+  chain_experience_enabled: true, b2r_enabled: true, theme: 'cyberhx', created_at: '2026-10-01T00:00:00Z',
 };
 
 // ── Catalogue ──────────────────────────────────────────────────────────────
@@ -288,6 +288,8 @@ function createMock(opts = {}) {
     get_score_progression: ({ p_team_ids = [] }) => upto.filter(e => p_team_ids.includes(e.team_id)).map(e => ({ team_id: e.team_id, points: e.points, occurred_at: e.at, event_key: e.event_key })),
     get_challenge_solvers: ({ p_challenge_id }) => solves.filter(e => e.challenge_id === p_challenge_id).map(e => ({ username: e.username, submitted_at: e.at })),
     registration_is_open: () => !!event.registration_open,
+    // The organisers' look; the harness's ?theme= override takes precedence on the device.
+    public_theme: () => event.theme ?? 'cyberhx',
     get_challenges_count: () => ALL.length,
     get_my_team_invite: () => hasTeam ? 'vanara-7f3a2b' : null,
     get_team_hint_unlocks: ({ p_team_id }) => upto.filter(e => e.kind === 'hint' && e.team_id === p_team_id).map(e => ({ unlocked_at: e.at, challenge_title: e.hint.challenge.title, cost: e.hint.cost, username: e.username, hint_id: e.hint.id })),

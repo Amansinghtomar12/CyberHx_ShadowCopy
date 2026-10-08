@@ -15,6 +15,7 @@ import {
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { resetEventScores } from '../../api/submitFlag';
 import DateTimeField from '../DateTimeField';
+import AdminThemeControl from '../../themes/AdminThemeControl';
 import ChainManager from './ChainManager';
 import B2RManager from './B2RManager';
 // HARDENED: Challenge CRUD via admin_upsert_challenge RPC
@@ -2108,6 +2109,8 @@ function EventTab() {
 
   return (
     <div className="max-w-2xl space-y-6">
+      {/* The event skin: presentation only, but the organisers' call. */}
+      <AdminThemeControl />
       <div className="surface p-5 sm:p-gutter">
         <div className="flex flex-wrap items-center justify-between gap-3 pb-5 border-b border-border-subtle">
           <div className="flex items-center gap-3 min-w-0">

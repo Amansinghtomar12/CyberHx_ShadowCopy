@@ -1,1 +1,229 @@
-/* PINAKA — intro. Filled in by its component; scoped under html[data-theme="pinaka"]. */
+/* ============================================================================
+   PINAKA — INTRO
+   The first-visit curtain: a midnight sky, a horizon that brightens from the
+   centre, a city of shikharas and domes rising in two depths, the bow, the
+   name. Sequencing lives in PinakaIntro.tsx (motion/react, from one timing
+   table); this file is the look, the layout and the two ambient loops.
+
+   Scoped to html[data-theme="pinaka"]. Only transform and opacity move. No
+   backdrop-filter and no blur anywhere: the haze is gradients. Reduced
+   motion is handled twice over — the component renders the finished frame,
+   and the loops below switch off under the media query.
+   ========================================================================== */
+
+/* ── The curtain ───────────────────────────────────────────────────────── */
+html[data-theme="pinaka"] .pk-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  overflow: hidden;
+  isolation: isolate;
+  color: var(--pk-parchment);
+  /* night sky: a touch of indigo lifting toward the horizon */
+  background:
+    linear-gradient(180deg, #080b13 0%, #0a0e17 48%, #10131f 78%, #151523 100%);
+  transition: opacity 280ms var(--ease-standard, cubic-bezier(0.4, 0, 0.2, 1));
+}
+html[data-theme="pinaka"] .pk-intro.is-leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Scene (decoration, pointer-transparent) ───────────────────────────── */
+html[data-theme="pinaka"] .pk-intro-scene {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* the horizon's height from the bottom edge, shared by every layer */
+  --pk-intro-ground: clamp(56px, 13vh, 120px);
+  --pk-intro-skyline: clamp(110px, 21vh, 210px);
+}
+
+/* The dawn behind the city: gold haze rising from the horizon, two gradients
+   deep. The core breathes very slowly once the frame is at rest. */
+html[data-theme="pinaka"] .pk-intro-glow {
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  bottom: var(--pk-intro-ground);
+  height: 52vh;
+  background:
+    radial-gradient(62% 58% at 50% 100%, rgba(227, 187, 102, 0.22) 0%, rgba(227, 187, 102, 0.08) 40%, transparent 74%),
+    radial-gradient(120% 40% at 50% 100%, rgba(181, 139, 98, 0.14) 0%, transparent 70%);
+}
+html[data-theme="pinaka"] .pk-intro-glow-core {
+  position: absolute;
+  left: 20%;
+  right: 20%;
+  bottom: 0;
+  height: 40%;
+  background: radial-gradient(50% 70% at 50% 100%, rgba(246, 223, 163, 0.16), transparent 72%);
+  animation: pk-intro-breathe 6s ease-in-out infinite alternate;
+}
+
+/* The two depths of the city share one box, bottom edge on the horizon. */
+html[data-theme="pinaka"] .pk-intro-layer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--pk-intro-ground);
+  height: var(--pk-intro-skyline);
+}
+html[data-theme="pinaka"] .pk-intro-skyline {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+/* far: hazed stone, barely lighter than the sky */
+html[data-theme="pinaka"] .pk-intro-skyline.is-far {
+  fill: #141628;
+  fill-opacity: 0.92;
+}
+/* near: the dark of the wall, a hairline of light along the roofline */
+html[data-theme="pinaka"] .pk-intro-skyline.is-near {
+  fill: #06080f;
+  stroke: rgba(227, 187, 102, 0.3);
+  stroke-width: 1;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+html[data-theme="pinaka"] .pk-intro-skyline.is-near polyline { vector-effect: non-scaling-stroke; }
+
+/* The horizon: a 1px line that scales out from the centre, with a soft 3px
+   band beneath it standing in for bloom. */
+html[data-theme="pinaka"] .pk-intro-horizon {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--pk-intro-ground);
+  height: 1px;
+  transform-origin: 50% 50%;
+  background: linear-gradient(90deg, transparent, rgba(227, 187, 102, 0.4) 22%, #f6dfa3 50%, rgba(227, 187, 102, 0.4) 78%, transparent);
+}
+html[data-theme="pinaka"] .pk-intro-horizon::after {
+  content: "";
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: -1px;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, rgba(246, 223, 163, 0.28) 50%, transparent);
+}
+
+/* The ground below the horizon: dark, falling away. */
+html[data-theme="pinaka"] .pk-intro-ground {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--pk-intro-ground);
+  background: linear-gradient(180deg, #0a0c15 0%, #06080f 100%);
+}
+
+/* ── Stage ─────────────────────────────────────────────────────────────── */
+html[data-theme="pinaka"] .pk-intro-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 4.5rem 1.25rem clamp(150px, 30vh, 300px);
+  /* a very short viewport can still reach the button */
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+html[data-theme="pinaka"] .pk-intro-bow {
+  width: clamp(150px, 32vw, 250px);
+  height: auto;
+  overflow: visible;
+  color: var(--pk-gold);
+  margin-bottom: 0.25rem;
+}
+html[data-theme="pinaka"] .pk-intro-bow-haze { opacity: 0.18; }
+
+/* The Devanagari name, small, above the roman lockup. The prose face has no
+   Devanagari of its own; the system's falls in behind it. */
+html[data-theme="pinaka"] .pk-intro-deva {
+  font-family: var(--pk-font-prose);
+  font-size: clamp(1rem, 2.2vw, 1.25rem);
+  letter-spacing: 0.18em;
+  color: var(--pk-gold-soft);
+  margin-bottom: 0.35rem;
+}
+html[data-theme="pinaka"] .pk-intro-title {
+  font-family: var(--pk-font-display);
+  font-weight: 700;
+  font-size: clamp(2.75rem, 10vw, 5.75rem);
+  line-height: 1;
+  letter-spacing: 0.16em;
+  /* the trailing tracking would otherwise push the word off-centre */
+  padding-left: 0.16em;
+  margin: 0 0 0.9rem;
+}
+html[data-theme="pinaka"] .pk-intro-meta {
+  /* .pk-eyebrow from core.css; a touch larger here, it is the subtitle */
+  font-size: 0.75rem;
+  letter-spacing: 0.4em;
+  color: var(--pk-gold);
+  margin-bottom: 1.1rem;
+}
+html[data-theme="pinaka"] .pk-intro-tagline {
+  font-family: var(--pk-font-prose);
+  font-style: italic;
+  font-size: clamp(1.0625rem, 2vw, 1.25rem);
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+  max-width: 34ch;
+  margin: 0 0 0.6rem;
+  text-wrap: balance;
+}
+html[data-theme="pinaka"] .pk-intro-platform {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  margin: 0 0 1.6rem;
+}
+html[data-theme="pinaka"] .pk-intro-action { display: flex; }
+html[data-theme="pinaka"] .pk-intro-action .btn-primary {
+  box-shadow: 0 1px 0 rgba(255, 244, 214, 0.35) inset, 0 10px 34px -10px rgba(227, 187, 102, 0.7);
+}
+
+/* Skip: top-right, from the first frame, clear of notches. */
+html[data-theme="pinaka"] .pk-intro-skip {
+  position: absolute;
+  top: calc(1rem + env(safe-area-inset-top, 0px));
+  right: calc(1rem + env(safe-area-inset-right, 0px));
+  z-index: 2;
+  color: var(--color-text-secondary);
+}
+html[data-theme="pinaka"] .pk-intro-skip:hover:not(:disabled) { color: var(--pk-parchment); }
+
+/* ── Loops ─────────────────────────────────────────────────────────────── */
+@keyframes pk-intro-breathe {
+  from { opacity: 0.55; }
+  to   { opacity: 1; }
+}
+
+/* ── Short viewports (landscape phones): tighter stack, lower city ─────── */
+@media (max-height: 560px) {
+  html[data-theme="pinaka"] .pk-intro-scene {
+    --pk-intro-ground: 36px;
+    --pk-intro-skyline: 90px;
+  }
+  html[data-theme="pinaka"] .pk-intro-stage { padding-bottom: 110px; padding-top: 3rem; }
+  html[data-theme="pinaka"] .pk-intro-bow { width: 120px; }
+  html[data-theme="pinaka"] .pk-intro-title { margin-bottom: 0.5rem; }
+  html[data-theme="pinaka"] .pk-intro-tagline { display: none; }
+}
+
+/* ── Reduced motion: the finished frame, still ─────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme="pinaka"] .pk-intro { transition: none; }
+  html[data-theme="pinaka"] .pk-intro-glow-core { animation: none; opacity: 1; }
+}

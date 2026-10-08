@@ -17,7 +17,7 @@ import { setMood } from './environment/mood';
 import MagneticElement from './environment/MagneticElement';
 import AccessSequence from './AccessSequence';
 import { pendingInvite, clearInvite, type InvitePreview } from '../lib/invite';
-import { isPinaka } from '../themes';
+import { useTheme } from '../themes';
 import { PinakaEnvironment, AuthGateway } from '../themes/pinaka/lazy';
 
 // ── Turnstile Site Key — from environment variable ──
@@ -404,7 +404,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
   const ease = [0.22, 1, 0.36, 1] as const;
   // Event skin: swaps the hero column and the environment. The card, the
   // form, Turnstile and Google are untouched.
-  const pinaka = isPinaka();
+  const pinaka = useTheme() === 'pinaka';
 
   return (
     <div className="min-h-screen bg-cyber-bg overflow-x-hidden relative">

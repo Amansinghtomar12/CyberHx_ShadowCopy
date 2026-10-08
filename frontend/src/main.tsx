@@ -10,6 +10,7 @@ import AmbientBackground from './components/AmbientBackground';
 import { captureInvite } from './lib/invite';
 import { subscribeUplink, uplinkState } from './lib/uplink';
 import { bootTheme } from './themes';
+import { supabase } from './lib/supabase';
 
 // Before anything renders: lift ?invite=<code> off the URL and park it.
 captureInvite();
@@ -48,9 +49,10 @@ function Root() {
   return <App />;
 }
 
-// The skin is decided before the first paint. A theme that fails to load
-// resolves to the default, so this never blocks the platform for long.
-bootTheme().finally(() => {
+// The skin is decided before the first paint: the organisers' switch is read
+// anonymously (public_theme), cached per device, and a failure to load any
+// theme resolves to the default, so this never blocks the platform for long.
+bootTheme(async () => (await supabase.rpc('public_theme')).data).finally(() => {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <Root />

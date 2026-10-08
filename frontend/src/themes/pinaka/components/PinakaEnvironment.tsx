@@ -973,6 +973,9 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle' }
       data-phase={phase}
       data-mode={effectiveMode}
       data-intensity={intensity}
+      // The measured viewport height, so the CSS horizon glow and the canvas
+      // horizon agree even where 100vh and innerHeight do not (mobile toolbars).
+      style={{ ['--pk-env-vh' as string]: `${vp.h}px` }}
     >
       <div className="pk-env-sky" />
       {(['a', 'b'] as const).map(slot => {

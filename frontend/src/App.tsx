@@ -79,7 +79,8 @@ import MilestoneBanner from './components/MilestoneBanner';
 import { pendingInvite, clearInvite, type InvitePreview } from './lib/invite';
 import { detectMilestones, type Milestone } from './lib/milestones';
 import { buildChainSeriesVM } from './components/chain/chainModel';
-import { isPinaka, registerCategoryIcons } from './themes';
+import { isPinaka, useTheme, noteServerTheme, registerCategoryIcons } from './themes';
+import AdminThemeControl from './themes/AdminThemeControl';
 import { deriveWorld, derivePhase } from './themes/pinaka/hooks';
 import { shouldShowIntro } from './themes/pinaka/intro-gate';
 import {
@@ -443,7 +444,7 @@ export default function App() {
   // Resolved once per page load. The world is a pure function of the view,
   // the board mode and the server-derived event status; nothing below reads
   // it for anything but pixels.
-  const pinaka = isPinaka();
+  const pinaka = useTheme() === 'pinaka';
   const world = deriveWorld(currentView, boardMode, eventStatus);
   const worldPhase = derivePhase(eventStatus);
   const [introOpen, setIntroOpen] = useState(() => pinaka && shouldShowIntro());
@@ -715,7 +716,12 @@ export default function App() {
   // comes back into view.
   const loadEventSettings = useCallback(async () => {
     const { data } = await supabase.from('event_settings').select('*').order('id', { ascending: false }).limit(1).maybeSingle();
-    if (data) setEventSettings(data);
+    if (data) {
+      setEventSettings(data);
+      // The organisers' look rides on the same row, so a switch made in the
+      // dashboard reaches every open tab on this poll.
+      noteServerTheme(data.theme);
+    }
   }, []);
   useEffect(() => {
     void loadEventSettings();
@@ -974,6 +980,8 @@ export default function App() {
                     Admin
                   </button>
                 )}
+                {/* The organisers' switch for the event skin, one click from anywhere. */}
+                {profile?.is_admin && <AdminThemeControl variant="nav" />}
               </div>
             </div>
 
