@@ -54,7 +54,9 @@ html[data-theme="pinaka"] .pk-intro-scene {
   /* The duel's height: the full width of the picture where the screen is
      wide enough (2400:1160), never less than 46% of a tall phone's height,
      never more than 86% of a wide screen's (so up to 16:9 it still spans the
-     full width). Its width follows its height. */
+     full width). Its width follows its height: 100vw on a landscape screen,
+     about 95vh on an upright one. The <img>'s `sizes` (DUEL_SIZES in
+     PinakaIntro.tsx) states the same widths; change the two together. */
   --pk-intro-duel-h: clamp(46vh, calc(100vw * 0.4833), 86vh);
 }
 

@@ -12,7 +12,11 @@
  * full colour, with no filter and no reduced opacity, sitting on the tile its
  * artwork was drawn for (SPONSOR_TILES: its own background, or a light or
  * dark plate) inside a thin gold mount, with the partner's name beneath it.
- * The institutional marks (dark ink) sit on an ivory plate in a gold frame.
+ * The institutional marks (dark ink) sit on ivory plates in a gold frame:
+ * the organiser's plate, headed "Organised by", holds NFSU and its Chennai
+ * campus and nothing else; the Ministry of Home Affairs has a plate of its
+ * own after it, captioned with its name only (no role is published for it,
+ * so none is stated or implied by sharing a heading).
  * Images carry alt="" because the visible name that follows already names
  * them; a screen reader hears each name once.
  *
@@ -26,15 +30,24 @@
  *
  * Motion: a tile lifts (transform) and its glow fades in (opacity) on hover
  * or focus. Nothing moves under prefers-reduced-motion or on the 'still'
- * capability tier (data-still on the root).
+ * capability tier (data-still on the section), and the tier is re-read when
+ * the player changes the effects setting, so turning effects off stops the
+ * lift at once.
  *
- * Loading: eager at low fetch priority. The wall sits far below the fold,
- * but the files are small (≈350 KB in all, cached after the first page), and
- * a lazy load leaves empty plates in a print or a full-page capture.
+ * Loading: lazy, at low fetch priority. The footer wall sits below the fold
+ * on every page, and the gateway wall at the foot of a column a phone never
+ * shows; the marks are ≈0.3 MB that a visitor who never scrolls there should
+ * not pay for. Each plate keeps its colour and size while its file arrives,
+ * so nothing shifts and an unloaded tile is a coloured plate with its name,
+ * not a hole. The price: a print or a full-page capture taken before the
+ * visitor has scrolled near the wall shows the plates and names without the
+ * marks. (AuthGateway also renders nothing below lg, so a phone's sign-in
+ * fetches none of these files at all.)
  */
-import type { CSSProperties } from 'react';
+import { useEffect, useId, useState, type CSSProperties } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { getCapability } from '../../../components/environment/performance';
+import { subscribeFx } from '../../../components/environment/fx';
 import { PINAKA_EVENT, PINAKA_PARTNERS, type Partner } from '../config';
 import { PLATE_CREDITS } from '../assets/plates';
 import { INSTITUTIONAL_MARKS, type InstitutionalMark } from '../assets/institutional';
@@ -44,6 +57,21 @@ import { PINAKA_IMAGES } from '../assets/images';
 const EXTERNAL = { target: '_blank', rel: 'noopener noreferrer' } as const;
 
 type Variant = 'footer' | 'gateway';
+
+/** Every mark on the wall: fetched as it nears the viewport, after the page's own work. */
+const DEFERRED = { loading: 'lazy', fetchPriority: 'low', decoding: 'async' } as const;
+
+/**
+ * Reduced motion from either source: the OS preference or the player's
+ * effects setting. The setting can change on any page (the motion toggle),
+ * so the tier is re-read whenever it does, as AuthGateway's useStill does.
+ */
+function useStill(): boolean {
+  const reduce = useReducedMotion() ?? false;
+  const [dialStill, setDialStill] = useState(() => getCapability().tier === 'still');
+  useEffect(() => subscribeFx(() => setDialStill(getCapability().tier === 'still')), []);
+  return reduce || dialStill;
+}
 
 /* ── A logo on its tile ────────────────────────────────────────────────── */
 
@@ -64,9 +92,7 @@ function LogoTile({ src, tile }: { src?: string; tile: SponsorTile }) {
               alt=""
               aria-hidden="true"
               draggable={false}
-              loading="eager"
-              fetchPriority="low"
-              decoding="async"
+              {...DEFERRED}
             />
           )
           : <span className="pk-sponsor-blank" />}
@@ -126,49 +152,63 @@ function Featured({ partner }: { partner: Partner }) {
 
 /* ── The institutions, on ivory ─────────────────────────────────────────── */
 
+/** One mark, captioned with the name printed in its artwork. */
 function InstitutionalMarkFigure({ mark }: { mark: InstitutionalMark }) {
   return (
-    <li>
-      <figure className="pk-inst-mark">
-        <img
-          className="pk-inst-logo"
-          src={mark.src}
-          width={mark.width}
-          height={mark.height}
-          alt=""
-          aria-hidden="true"
-          draggable={false}
-          loading="eager"
-          fetchPriority="low"
-          decoding="async"
-        />
-        <figcaption className="pk-inst-name">{mark.name}</figcaption>
-      </figure>
-    </li>
+    <figure className="pk-inst-mark">
+      <img
+        className="pk-inst-logo"
+        src={mark.src}
+        width={mark.width}
+        height={mark.height}
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+        {...DEFERRED}
+      />
+      <figcaption className="pk-inst-name">{mark.name}</figcaption>
+    </figure>
   );
 }
 
 /**
- * NFSU and its Chennai campus under "Organised by" (config.organiser is NFSU
- * Chennai); the Ministry of Home Affairs beside them with its name only — no
- * role is stated for it, because none is published.
+ * The organiser: NFSU and its Chennai campus under "Organised by"
+ * (config.organiser is NFSU Chennai). The heading labels this plate, and
+ * nothing else stands on it.
  */
-function InstitutionalPlate() {
+function OrganiserPlate() {
+  const headingId = useId();
   return (
-    <div className="pk-inst">
-      <div className="pk-inst-group">
-        <p className="pk-inst-heading">Organised by</p>
-        <ul className="pk-inst-marks">
-          <InstitutionalMarkFigure mark={INSTITUTIONAL_MARKS.nfsu} />
-          <InstitutionalMarkFigure mark={INSTITUTIONAL_MARKS.nfsuChennai} />
-        </ul>
-      </div>
-      <span className="pk-inst-divider" aria-hidden="true" />
-      <div className="pk-inst-group is-headless">
-        <ul className="pk-inst-marks">
-          <InstitutionalMarkFigure mark={INSTITUTIONAL_MARKS.mha} />
-        </ul>
-      </div>
+    <div className="pk-inst" role="group" aria-labelledby={headingId}>
+      <p className="pk-inst-heading" id={headingId}>Organised by</p>
+      <ul className="pk-inst-marks">
+        <li><InstitutionalMarkFigure mark={INSTITUTIONAL_MARKS.nfsu} /></li>
+        <li><InstitutionalMarkFigure mark={INSTITUTIONAL_MARKS.nfsuChennai} /></li>
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * The Ministry of Home Affairs, on a small ivory plate of its own after the
+ * organiser's: its mark and its name, and nothing more. No role is published
+ * for it, so it carries no heading and shares none.
+ */
+function MinistryPlate() {
+  return (
+    <div className="pk-inst is-solo">
+      <InstitutionalMarkFigure mark={INSTITUTIONAL_MARKS.mha} />
+    </div>
+  );
+}
+
+/** The organiser, then the ministry, then the partner named in association. */
+function Honours({ association }: { association: readonly Partner[] }) {
+  return (
+    <div className="pk-partners-honours">
+      <OrganiserPlate />
+      <MinistryPlate />
+      {association.map(p => <Featured key={p.name} partner={p} />)}
     </div>
   );
 }
@@ -201,9 +241,14 @@ export function PlateCredits({ className = '' }: { className?: string }) {
 
 /* ── The wall ──────────────────────────────────────────────────────────── */
 
+/**
+ * The section's name: what it holds, in the order it holds it. The ministry
+ * is named among the institutions, not as an organiser or a partner.
+ */
+const SECTION_LABEL = 'Organiser, institutions and partners';
+
 export default function PartnerStrip({ variant = 'footer' }: { variant?: Variant }) {
-  const reduce = useReducedMotion() ?? false;
-  const still = reduce || getCapability().tier === 'still';
+  const still = useStill();
 
   // The partner whose role is set ("In association with") is named apart;
   // the rest are the field, in published order.
@@ -220,11 +265,8 @@ export default function PartnerStrip({ variant = 'footer' }: { variant?: Variant
 
   if (variant === 'gateway') {
     return (
-      <section className="pk-partners pk-partners-gateway" aria-label="Organiser and partners" data-still={still ? 'true' : undefined}>
-        <div className="pk-partners-honours">
-          <InstitutionalPlate />
-          {association.map(p => <Featured key={p.name} partner={p} />)}
-        </div>
+      <section className="pk-partners pk-partners-gateway" aria-label={SECTION_LABEL} data-still={still ? 'true' : undefined}>
+        <Honours association={association} />
         <div className="pk-partners-field">
           <p className="pk-partners-heading" aria-hidden="true">Partners</p>
           <SponsorGrid partners={field} />
@@ -236,7 +278,7 @@ export default function PartnerStrip({ variant = 'footer' }: { variant?: Variant
   }
 
   return (
-    <section className="pk-partners pk-partners-footer" aria-label="Organiser and partners" data-still={still ? 'true' : undefined}>
+    <section className="pk-partners pk-partners-footer" aria-label={SECTION_LABEL} data-still={still ? 'true' : undefined}>
       <div className="pk-partners-crest" aria-hidden="true">
         <span className="pk-partners-crest-line" />
         <img
@@ -247,9 +289,7 @@ export default function PartnerStrip({ variant = 'footer' }: { variant?: Variant
           width={53}
           height={44}
           draggable={false}
-          loading="eager"
-          fetchPriority="low"
-          decoding="async"
+          {...DEFERRED}
         />
         <span className="pk-partners-crest-line" />
       </div>
@@ -258,10 +298,7 @@ export default function PartnerStrip({ variant = 'footer' }: { variant?: Variant
         <span className="pk-diamond" aria-hidden="true" />
         <span>Organised by {PINAKA_EVENT.organiser}</span>
       </p>
-      <div className="pk-partners-honours">
-        <InstitutionalPlate />
-        {association.map(p => <Featured key={p.name} partner={p} />)}
-      </div>
+      <Honours association={association} />
       <div className="pk-partners-field">
         <p className="pk-partners-heading" aria-hidden="true">Partners</p>
         <SponsorGrid partners={field} />

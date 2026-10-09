@@ -527,12 +527,20 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
               {/* Compact logo — below lg only */}
               <div className="mb-6 text-center lg:hidden">
                 <div className="inline-flex flex-col items-center gap-2">
+                  {pinaka ? (
+                    /* Event skin: the event's bronze wheel in the mark's
+                       place and size (the fallback holds that space). */
+                    <React.Suspense fallback={<span aria-hidden="true" className="pk-auth-emblem" />}>
+                      <AuthGateway part="emblem" />
+                    </React.Suspense>
+                  ) : (
                   <span
                     aria-hidden="true"
                     className="relative inline-flex h-14 w-14 items-center justify-center rounded-card border border-border-neon bg-neon-wash shadow-neon"
                   >
                     <Flag className="h-7 w-7 text-cyber-neon" />
                   </span>
+                  )}
                   <span className="text-h1 text-text-primary tracking-tight leading-none">
                     CYBER<span className="text-cyber-neon">HX</span>
                   </span>
@@ -948,6 +956,20 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                   </div>
                 </div>
               </div>
+
+              {/* Event skin, below lg: the official Register plate under the
+                  card while it shows Sign in and registration is open. It
+                  opens the card's own Register tab, nothing else. */}
+              {pinaka && (
+                <React.Suspense fallback={null}>
+                  <AuthGateway
+                    part="register"
+                    onRegister={() => { setMode('register'); setError(''); }}
+                    registrationOpen={registrationOpen}
+                    mode={mode}
+                  />
+                </React.Suspense>
+              )}
 
               <p className="mt-5 text-center label-micro leading-relaxed">
                 By continuing you agree to the{' '}

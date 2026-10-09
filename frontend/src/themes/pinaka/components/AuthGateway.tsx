@@ -1,28 +1,33 @@
 /**
- * AuthGateway — the hero column of the sign-in page under the event skin.
+ * AuthGateway — the sign-in page's event art under the skin.
  *
  * WHAT IT IS
- *   A palace entrance opening onto the event's own painting. Two slender
- *   stone pillars at the column's edges, a shallow arch with a keystone and
- *   four lamps; through the gate, the official artwork (the temple city at
- *   sunset, drawn by the environment layer behind the whole page) in full
- *   colour. Inside the gate, in the official art's own colours:
+ *   From lg up (part="hero", the default), the hero column: a palace
+ *   entrance opening onto the event's own painting. Two slender stone pillars
+ *   at the column's edges, a shallow arch with a keystone and four lamps;
+ *   through the gate, the official artwork (the temple city at sunset, drawn
+ *   by the environment layer behind the whole page) in full colour. Inside
+ *   the gate, in the official art's own colours:
  *     · the title lockup, with the bronze dharma wheel turning slowly beside
  *       "PINAKA";
  *     · the taglines and the "Register now" plate, a real button that opens
  *       the card's Register tab;
  *     · the facts of the event, every one of them from config.ts;
  *     · the archer on his rock at the foot of the gate, looking in toward
- *       the words, and the glowing scroll as a small framed relic;
+ *       the words, and the glowing scroll as a small framed relic, wherever
+ *       the first screen has room left for it under the facts;
  *     · at the very foot, the organiser and partner recognition.
+ *   Below lg the page hides that column, and the phone's sign-in carries two
+ *   small pieces of the same art instead: part="emblem", the bronze wheel
+ *   over the title, and part="register", the Register plate under the card
+ *   while the Sign-in tab is showing and registration is open.
  *
  * WHAT IT IS NOT
  *   A dashboard. No stat tiles, no "LIVE" claims, nothing the server did not
- *   say. All the drawing is aria-hidden and pointer-transparent and it lives
- *   in the hero cell only (hidden below lg by the page), so the card, the
- *   form, Turnstile and the Google button are exactly what they were. The one
- *   control here, the Register plate, only does what the card's own Register
- *   tab does.
+ *   say. All the drawing is aria-hidden and pointer-transparent, so the card,
+ *   the form, Turnstile and the Google button are exactly what they were. The
+ *   one control, the Register plate, only does what the card's own Register
+ *   tab does, and is never drawn where the page cannot take that action.
  *
  * READABILITY
  *   The painting behind is bright in places (god-rays, the lit lake). A veil
@@ -35,6 +40,13 @@
  *   breathe; the art fades and rises in once. Nothing moves under reduced
  *   motion or on the 'still' tier (the player's motion dial, read live): the
  *   resting composition is the complete picture.
+ *
+ * WHAT IT FETCHES
+ *   Only what is shown. Each part renders nothing at the widths where the
+ *   page would hide it (a display:none parent does not stop an eager <img>
+ *   from being fetched), the relic and the phone's plate load lazily (the
+ *   relic's slot is display:none where the first screen has no room for
+ *   it), and every picture carries a smaller file for the size it is drawn at.
  *
  * DRAWING
  *   Two inline SVGs with preserveAspectRatio="none" so the pillars take the
@@ -66,9 +78,9 @@ function useStill(): boolean {
 
 /** AuthPage shows the hero column from Tailwind's `lg` breakpoint (64rem). */
 const HERO_SHOWN = '(min-width: 64rem)';
-/** Where the relic has room above the fold (gateway.css draws it from a 40rem
-    column and a 56rem-tall screen); elsewhere its file is not even fetched. */
-const RELIC_SHOWN = '(min-width: 76rem) and (min-height: 56rem)';
+
+/** The accessible name of the Register plate, wherever it is drawn. */
+const REGISTER_LABEL = 'Register for Pinaka CTF 2026';
 
 /* ── Pillar: shaft, three flutes, stepped capital, stepped base ─────────── */
 /* viewBox 60 wide × 1000 tall; the component stretches it to the column. */
@@ -157,10 +169,16 @@ const FACTS: readonly { label: string; value: string }[] = [
 const DECOR = { alt: '', 'aria-hidden': true, draggable: false, decoding: 'async' } as const;
 
 /**
- * True once the image is decoded and can be painted. Loaded is not enough:
- * an async decode can land frames later, and on a page at rest (reduced
- * motion, the still tier) nothing else may ask for that frame. The state
- * change does. A failed decode (no support, a broken file) still reveals.
+ * True once the image can be painted, so it fades in whole (data-ready, see
+ * gateway.css). Decoded is the aim: an async decode can land frames after
+ * the load, and on a page at rest (reduced motion, the still tier) nothing
+ * else may ask for that frame; the state change does. But decode() rejects
+ * when the request it waits on is replaced (the srcset choice changing
+ * mid-load, on a pixel-ratio or width change) and for a broken file, so it
+ * is only ever asked once a request has loaded, and every load event asks
+ * again: whichever request completes reveals the picture, decoded or not,
+ * and the art can never stay invisible. A file that fails to load stays
+ * hidden, which for a decorative picture is the right answer.
  */
 function useDecoded() {
   const ref = useRef<HTMLImageElement>(null);
@@ -170,37 +188,81 @@ function useDecoded() {
     if (!el) return;
     let live = true;
     const show = () => { if (live) setReady(true); };
-    if (typeof el.decode === 'function') el.decode().then(show, () => { if (el.complete) show(); });
-    else if (el.complete && el.naturalWidth > 0) show();
-    else el.addEventListener('load', show, { once: true });
-    return () => { live = false; };
+    const reveal = () => {
+      if (!el.complete || el.naturalWidth === 0) return; // still loading (a load event comes back here) or broken
+      if (typeof el.decode === 'function') el.decode().then(show, show);
+      else show();
+    };
+    el.addEventListener('load', reveal);
+    reveal(); // already loaded (from the cache) before this effect ran
+    return () => {
+      live = false;
+      el.removeEventListener('load', reveal);
+    };
   }, []);
   return [ref, ready] as const;
 }
 
-/** A decorative image that fades in once decoded (data-ready, see gateway.css). */
+/** A decorative image that fades in once it can be painted (data-ready, see gateway.css). */
 function ArtImg(props: Omit<ImgHTMLAttributes<HTMLImageElement>, 'alt'>) {
   const [ref, ready] = useDecoded();
   return <img {...DECOR} {...props} ref={ref} data-ready={ready ? 'true' : 'false'} />;
 }
 
 /**
- * The scroll in its gold frame. The frame itself waits for the picture, so it
- * never shows as an empty gold slab.
+ * The scroll in its gold frame. The frame waits for the picture, so it never
+ * shows as an empty gold slab. Lazy: its slot is display:none wherever the
+ * first screen has no room left under the facts, and a lazy image that is
+ * never laid out is never fetched.
  */
 function Relic() {
   const [img, ready] = useDecoded();
+  const { small, large } = PINAKA_IMAGES.scrollArt;
   return (
     <span className="pk-gateway-relic-frame" data-ready={ready ? 'true' : 'false'}>
       <img
         {...DECOR}
         ref={img}
-        src={PINAKA_IMAGES.scrollArt}
-        width={756}
-        height={1024}
-        loading="eager"
+        src={small}
+        srcSet={`${small} 320w, ${large} 756w`}
+        sizes="9.5rem"
+        width={320}
+        height={433}
+        loading="lazy"
       />
     </span>
+  );
+}
+
+/**
+ * Opens the card's Register tab, then takes the player to the first field of
+ * the form it opened. Two frames: one for React to commit the tab, one for
+ * the field to mount. Centred, so the tab and the heading above it stay in
+ * view; a jump rather than a glide when motion is off.
+ */
+function openRegister(onRegister: (() => void) | undefined, still: boolean) {
+  if (!onRegister) return;
+  onRegister();
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const field = document.getElementById('auth-username');
+    if (!(field instanceof HTMLElement)) return;
+    field.focus({ preventScroll: true });
+    field.scrollIntoView({ block: 'center', behavior: still ? 'auto' : 'smooth' });
+  }));
+}
+
+/** The plate's picture: the 600 px file for the ~17rem it is drawn at, the 1140 px one on dense screens. */
+function RegisterArt({ loading }: { loading: 'eager' | 'lazy' }) {
+  const { small, large } = PINAKA_IMAGES.registerCta;
+  return (
+    <ArtImg
+      src={small}
+      srcSet={`${small} 600w, ${large} 1140w`}
+      sizes="17rem"
+      width={600}
+      height={148}
+      loading={loading}
+    />
   );
 }
 
@@ -214,12 +276,82 @@ export interface AuthGatewayProps {
   registrationOpen?: boolean;
   /** The card's current tab. The plate stands aside while Register is already open. */
   mode?: 'login' | 'register';
+  /**
+   * Which piece of the page to draw: 'hero' (the default), the hero column,
+   * from lg up; below lg, where the page hides that column, 'emblem' (the
+   * wheel over the title) and 'register' (the plate under the card). Each
+   * renders nothing outside its own widths.
+   */
+  part?: 'hero' | 'emblem' | 'register';
 }
 
-export default function AuthGateway({ onRegister, registrationOpen = true, mode }: AuthGatewayProps = {}) {
+export default function AuthGateway({ part = 'hero', ...props }: AuthGatewayProps = {}) {
+  if (part === 'emblem') return <PhoneEmblem />;
+  if (part === 'register') return <PhoneRegister {...props} />;
+  return <Hero {...props} />;
+}
+
+/* ── The phone: a touch of the same art, never in the way of the form ────── */
+
+/**
+ * The bronze wheel over the title, 3.5rem across: the size and place of the
+ * mark it stands in for, so nothing under it moves. Still: at this size a
+ * turn would be a flicker, not a wheel.
+ */
+function PhoneEmblem() {
+  const still = useStill();
+  const heroShown = useMediaQuery(HERO_SHOWN);
+  if (heroShown) return null;
+  const { tiny, small } = PINAKA_IMAGES.wheelEmblem;
+  return (
+    <span className="pk-auth-emblem" data-still={still ? 'true' : undefined} aria-hidden="true">
+      <ArtImg
+        src={tiny}
+        srcSet={`${tiny} 200w, ${small} 700w`}
+        sizes="3.5rem"
+        width={200}
+        height={200}
+        loading="eager"
+      />
+    </span>
+  );
+}
+
+/**
+ * The Register plate under the card, while the card shows Sign in and the
+ * server has not closed registration. Below the fold on a phone, so lazy.
+ * Once pressed, the card is on Register and the plate goes (the card's own
+ * tab is the way back).
+ */
+function PhoneRegister({ onRegister, registrationOpen = true, mode }: Omit<AuthGatewayProps, 'part'>) {
+  const still = useStill();
+  const heroShown = useMediaQuery(HERO_SHOWN);
+  if (heroShown || !onRegister || registrationOpen === false || mode === 'register') return null;
+  return (
+    <motion.div
+      className="pk-auth-cta"
+      data-still={still ? 'true' : undefined}
+      initial={still ? false : { opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={still ? { duration: 0 } : { duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <button
+        type="button"
+        className="pk-gateway-register"
+        aria-label={REGISTER_LABEL}
+        onClick={() => openRegister(onRegister, still)}
+      >
+        <RegisterArt loading="lazy" />
+      </button>
+    </motion.div>
+  );
+}
+
+/* ── The hero column, lg and up ──────────────────────────────────────────── */
+
+function Hero({ onRegister, registrationOpen = true, mode }: Omit<AuthGatewayProps, 'part'>) {
   const still = useStill();
   const shown = useMediaQuery(HERO_SHOWN);
-  const relicShown = useMediaQuery(RELIC_SHOWN);
   const ease = [0.22, 1, 0.36, 1] as const;
   // Opacity and a short rise, once; the resting state outright when still.
   const enter = (delay: number, y = 10, duration = 0.55) => ({
@@ -238,18 +370,8 @@ export default function AuthGateway({ onRegister, registrationOpen = true, mode 
   // column still fetches every eager image in it (the archer, the wheel, the
   // Register plate, the partner and institutional marks): about 0.4 MB a phone
   // would download and never see. So below lg nothing is rendered at all; the
-  // phone's sign-in carries its own emblem and photo credit (AuthPage).
+  // phone's sign-in has its own two pieces (part="emblem", part="register").
   if (!shown) return null;
-
-  function register() {
-    onRegister?.();
-    // Take the player to the first field of the form the plate just opened.
-    // Two frames: one for React to commit the tab, one for the field to mount.
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      const field = document.getElementById('auth-username');
-      if (field instanceof HTMLElement) field.focus();
-    }));
-  }
 
   return (
     <div className="pk-gateway relative flex flex-1 flex-col" data-still={still ? 'true' : undefined}>
@@ -271,32 +393,30 @@ export default function AuthGateway({ onRegister, registrationOpen = true, mode 
       <div className="pk-gateway-body relative flex flex-1 flex-col">
         <div className="pk-gateway-stage">
           {/* The art of the first screen. */}
-          {(
-            <div className="pk-gateway-art" aria-hidden="true">
-              <motion.div className="pk-gateway-hero" {...enter(0.25, 18, 1.1)}>
-                <span className="pk-gateway-aura" />
-                <ArtImg
-                  className="pk-gateway-archer"
-                  src={PINAKA_IMAGES.archer.large}
-                  srcSet={`${PINAKA_IMAGES.archer.small} 640w, ${PINAKA_IMAGES.archer.large} 1069w`}
-                  sizes="32rem"
-                  width={1069}
-                  height={1038}
-                  loading="eager"
-                />
-              </motion.div>
-              <motion.div className="pk-gateway-wheel" {...enter(0.15, 0, 1.2)}>
-                <span className="pk-gateway-wheel-halo" />
-                <ArtImg
-                  className="pk-gateway-wheel-img"
-                  src={PINAKA_IMAGES.wheelEmblem.small}
-                  width={700}
-                  height={700}
-                  loading="eager"
-                />
-              </motion.div>
-            </div>
-          )}
+          <div className="pk-gateway-art" aria-hidden="true">
+            <motion.div className="pk-gateway-hero" {...enter(0.25, 18, 1.1)}>
+              <span className="pk-gateway-aura" />
+              <ArtImg
+                className="pk-gateway-archer"
+                src={PINAKA_IMAGES.archer.large}
+                srcSet={`${PINAKA_IMAGES.archer.small} 640w, ${PINAKA_IMAGES.archer.large} 1069w`}
+                sizes="32rem"
+                width={1069}
+                height={1038}
+                loading="eager"
+              />
+            </motion.div>
+            <motion.div className="pk-gateway-wheel" {...enter(0.15, 0, 1.2)}>
+              <span className="pk-gateway-wheel-halo" />
+              <ArtImg
+                className="pk-gateway-wheel-img"
+                src={PINAKA_IMAGES.wheelEmblem.small}
+                width={700}
+                height={700}
+                loading="eager"
+              />
+            </motion.div>
+          </div>
 
           <motion.div className="pk-gateway-copy" {...enter(0.1)}>
             <Eyebrow>The Gateway to Ayodhya</Eyebrow>
@@ -316,17 +436,12 @@ export default function AuthGateway({ onRegister, registrationOpen = true, mode 
               <button
                 type="button"
                 className="pk-gateway-register"
-                aria-label="Register for Pinaka CTF 2026"
+                aria-label={REGISTER_LABEL}
                 data-hidden={registerHidden ? 'true' : undefined}
                 disabled={registerHidden}
-                onClick={register}
+                onClick={() => openRegister(onRegister, still)}
               >
-                <ArtImg
-                  src={PINAKA_IMAGES.registerCta}
-                  width={1140}
-                  height={281}
-                  loading="eager"
-                />
+                <RegisterArt loading="eager" />
               </button>
             </motion.div>
           )}
@@ -340,12 +455,12 @@ export default function AuthGateway({ onRegister, registrationOpen = true, mode 
             ))}
           </motion.dl>
 
-          {/* The scroll, as a relic laid at the foot of the gate. */}
-          {relicShown && (
-            <motion.div className="pk-gateway-relic" aria-hidden="true" {...enter(0.4, 12, 0.8)}>
-              <Relic />
-            </motion.div>
-          )}
+          {/* The scroll, as a relic laid at the foot of the gate: it takes
+              what is left of the first screen under the facts, and is not
+              drawn (nor fetched) where that is too little. */}
+          <motion.div className="pk-gateway-relic" aria-hidden="true" {...enter(0.4, 12, 0.8)}>
+            <Relic />
+          </motion.div>
         </div>
 
         {/* The organiser and the partners, at the foot of the gate. */}

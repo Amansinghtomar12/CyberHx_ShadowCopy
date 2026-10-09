@@ -5,7 +5,9 @@
    colour and fit come from SPONSOR_TILES via --pk-tile-bg and data-fit /
    data-tone; no partner is named in a selector), inside a thin gold mount,
    with the partner's name beneath it. The institutional marks (dark ink on
-   transparent) sit on an ivory plate in a double gold frame.
+   transparent) sit on ivory plates in a double gold frame: the organiser's,
+   headed "Organised by", and after it the ministry's own small plate,
+   captioned with its name only.
 
    Two shapes:
      .pk-partners-footer   the full wall, on its own dark glass panel so the
@@ -262,11 +264,15 @@ html[data-theme="pinaka"] .pk-sponsor.is-featured .pk-sponsor-name {
 }
 
 /* ── The institutions, on ivory ─────────────────────────────────────────── */
+/* A plate is a column: the heading (the organiser's only), then the marks.
+   In the honours row the plates share a height; a plate's content sits in
+   the middle of it. */
 html[data-theme="pinaka"] .pk-inst {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 1.5rem;
+  gap: 0.625rem;
   padding: 1rem 1.75rem 1.125rem;
   border: 1px solid #b88a3a;
   border-radius: 16px;
@@ -278,14 +284,10 @@ html[data-theme="pinaka"] .pk-inst {
     0 26px 50px -26px rgba(0, 0, 0, 0.9);
   color: #2a2014;
 }
-html[data-theme="pinaka"] .pk-inst-group {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.625rem;
-}
-/* the group without a heading starts where the headed group's marks start */
-html[data-theme="pinaka"] .pk-inst-group.is-headless { padding-top: calc(1rem + 0.625rem); }
+/* The ministry's plate: one mark and its name, no heading. Narrower margins,
+   the same ivory and frame, so it reads as its own plate beside the
+   organiser's rather than a part of it. */
+html[data-theme="pinaka"] .pk-inst.is-solo { padding-inline: 1.25rem; }
 html[data-theme="pinaka"] .pk-inst-heading {
   margin: 0;
   font-family: var(--pk-font-display);
@@ -329,13 +331,6 @@ html[data-theme="pinaka"] .pk-inst-name {
   text-wrap: balance;
   color: #2a2014;                 /* 14:1 on the ivory */
 }
-html[data-theme="pinaka"] .pk-inst-divider {
-  align-self: stretch;
-  width: 1px;
-  margin: 0.25rem 0;
-  background: linear-gradient(180deg, transparent, rgba(184, 138, 58, 0.75) 22%, rgba(184, 138, 58, 0.75) 78%, transparent);
-}
-
 /* ── Honours: the institutions and the association, side by side ───────── */
 html[data-theme="pinaka"] .pk-partners-honours {
   display: flex;
@@ -463,6 +458,9 @@ html[data-theme="pinaka"] .pk-partners-gateway {
   --pk-tile-col-gap: 0.5rem;
   --pk-tile-radius: 9px;
   --pk-mount: 1.5px;
+  /* The hero column gives this plate from about 20rem (just past lg) to
+     38rem; the grid counts its columns from that width, not the screen's. */
+  container: pk-partners / inline-size;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -478,12 +476,11 @@ html[data-theme="pinaka"] .pk-partners-gateway {
 }
 html[data-theme="pinaka"] .pk-partners-gateway .pk-partners-honours { gap: 0.75rem; }
 html[data-theme="pinaka"] .pk-partners-gateway .pk-inst {
-  gap: 1rem;
+  gap: 0.4375rem;
   padding: 0.75rem 1.125rem 0.75rem;
   border-radius: 12px;
 }
-html[data-theme="pinaka"] .pk-partners-gateway .pk-inst-group { gap: 0.4375rem; }
-html[data-theme="pinaka"] .pk-partners-gateway .pk-inst-group.is-headless { padding-top: calc(1rem + 0.4375rem); }
+html[data-theme="pinaka"] .pk-partners-gateway .pk-inst.is-solo { padding-inline: 0.875rem; }
 html[data-theme="pinaka"] .pk-partners-gateway .pk-inst-heading { font-size: 0.625rem; letter-spacing: 0.2em; }
 html[data-theme="pinaka"] .pk-partners-gateway .pk-inst-marks { gap: 1rem; }
 html[data-theme="pinaka"] .pk-partners-gateway .pk-inst-mark { gap: 0.3125rem; }
@@ -509,6 +506,16 @@ html[data-theme="pinaka"] .pk-partners-gateway .pk-partners-heading {
 }
 html[data-theme="pinaka"] .pk-partners-gateway .pk-sponsor-grid {
   grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+/* Six across only while every name fits its column whole ("ThunderCipher",
+   about 75px here, is the longest unbreakable one, and each column needs it
+   plus a little air); a narrower plate takes four, then three, rather than
+   letting the names run into each other. Widths are the plate's content box. */
+@container pk-partners (width < 32rem) {
+  html[data-theme="pinaka"] .pk-partners-gateway .pk-sponsor-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@container pk-partners (width < 21.5rem) {
+  html[data-theme="pinaka"] .pk-partners-gateway .pk-sponsor-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 html[data-theme="pinaka"] .pk-partners-gateway .pk-sponsor { gap: 0.375rem; }
 html[data-theme="pinaka"] .pk-partners-gateway .pk-sponsor-name {
@@ -575,9 +582,12 @@ html[data-theme="pinaka"] .pk-partners-credit-link:hover {
     --pk-tile-col-gap: 0.625rem;
     --pk-tile-radius: 10px;
   }
+  /* The bottom padding clears the gold corner brackets (they reach 36px up
+     from the panel's edge), so the credit line's last row never runs into
+     them. */
   html[data-theme="pinaka"] .pk-partners-footer {
     gap: 1.375rem;
-    padding: 1rem 1rem 1.25rem;
+    padding: 1rem 1rem 2.5rem;
     border-radius: 18px;
   }
   html[data-theme="pinaka"] .pk-partners-footer .pk-sponsor-grid {
@@ -586,22 +596,9 @@ html[data-theme="pinaka"] .pk-partners-credit-link:hover {
   html[data-theme="pinaka"] .pk-partners-line { flex-direction: column; gap: 0.25rem; font-size: 1rem; }
   html[data-theme="pinaka"] .pk-partners-line .pk-diamond { display: none; }
   html[data-theme="pinaka"] .pk-sponsor-name { font-size: 0.6875rem; letter-spacing: 0.03em; }
-  /* the institutions stack: NFSU above, the ministry below a gold rule */
-  html[data-theme="pinaka"] .pk-inst {
-    flex-direction: column;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.875rem 1rem 1rem;
-  }
-  html[data-theme="pinaka"] .pk-inst-group.is-headless { padding-top: 0; }
+  /* the plates stack: the organiser's, the ministry's, the association */
+  html[data-theme="pinaka"] .pk-inst { padding: 0.875rem 1rem 1rem; }
   html[data-theme="pinaka"] .pk-inst-marks { gap: 1.25rem; }
-  html[data-theme="pinaka"] .pk-inst-divider {
-    align-self: center;
-    width: 60%;
-    height: 1px;
-    margin: 0;
-    background: linear-gradient(90deg, transparent, rgba(184, 138, 58, 0.75) 22%, rgba(184, 138, 58, 0.75) 78%, transparent);
-  }
   html[data-theme="pinaka"] .pk-partners-honours { flex-direction: column; align-items: center; }
   /* stacked, the captions may run a little wider than their logos */
   html[data-theme="pinaka"] .pk-partners-footer .pk-inst-mark { width: auto; }
@@ -618,8 +615,20 @@ html[data-theme="pinaka"] .pk-partners-credit-link:hover {
   html[data-theme="pinaka"] .pk-partners-credits { line-height: 1.75; }
 }
 
-/* ── Forced colours: the mounts and plates give way to system outlines ── */
+/* ── Forced colours ─────────────────────────────────────────────────────
+   The mounts give way to a system outline, but a logo's plate is part of
+   the logo: navy marks drawn for white (Unstop, Altered Security), the dark
+   institutional ink drawn for ivory and the inset files' own flat ground
+   all vanish or show bars if the system recolours it. So the plates keep
+   their colours (forced-color-adjust: none, inherited by the image and the
+   captions, which stay dark ink on ivory at 14:1) inside a CanvasText edge.
+   The panels' gradients are dropped by the system, which would leave the
+   painting showing through behind the names; they take the system Canvas. */
 @media (forced-colors: active) {
+  html[data-theme="pinaka"] .pk-partners-footer,
+  html[data-theme="pinaka"] .pk-partners-gateway { background: Canvas; }
   html[data-theme="pinaka"] .pk-sponsor-mount { background: CanvasText; }
+  html[data-theme="pinaka"] .pk-sponsor-plate,
+  html[data-theme="pinaka"] .pk-inst { forced-color-adjust: none; }
   html[data-theme="pinaka"] .pk-inst { border-color: CanvasText; }
 }

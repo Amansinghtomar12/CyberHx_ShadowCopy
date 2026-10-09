@@ -1,31 +1,42 @@
 /* ============================================================================
    PINAKA — GATEWAY
-   The hero column of the sign-in page: a palace entrance in carved stone
-   opening onto the event's painting (drawn by the environment layer behind
-   the page), and inside it the official art in full colour: the bronze
-   wheel beside the name, the archer on his rock, the scroll as a relic, the
-   "Register now" plate. All of the drawing is aria-hidden and pointer-
-   transparent; the form column next to it is untouched.
+   The sign-in page's event art. From lg up, the hero column: a palace
+   entrance in carved stone opening onto the event's painting (drawn by the
+   environment layer behind the page), and inside it the official art in full
+   colour: the bronze wheel beside the name, the archer on his rock, the
+   scroll as a relic, the "Register now" plate. Below lg, the phone's two
+   pieces of the same art: the wheel over the title (.pk-auth-emblem) and the
+   plate under the card (.pk-auth-cta). All of the drawing is aria-hidden and
+   pointer-transparent; the form is untouched.
 
    Scoped to html[data-theme="pinaka"]. Only transform and opacity move: the
-   wheel's slow turn, the lamps' breathing and the one-time entrance (set in
-   AuthGateway.tsx). All of it stops under prefers-reduced-motion and on the
-   'still' tier (data-still on .pk-gateway, set by the component).
+   wheel's slow turn, the lamps' breathing, the plate's press and the
+   one-time entrances (set in AuthGateway.tsx). All of it stops under
+   prefers-reduced-motion and on the 'still' tier (data-still on .pk-gateway
+   and on the phone's pieces, set by the component).
 
    Layers inside the column, bottom to top:
      (the environment's painting, behind the whole page)
      .pk-gateway-veil    feathered darkness under the words
      .pk-gateway-scene   the stone: pillars, arch, lamps
-     .pk-gateway-body    the stage (art, then words) and the partner foot
+     .pk-gateway-body    the stage (art, then words, then the relic) and the
+                         partner foot
    ========================================================================== */
 
 /* ── Column ───────────────────────────────────────────────────────────────── */
 /* A size container: the art scales with the column (cqi), which runs from
-   about 28rem at the lg breakpoint to 48rem on wide screens. */
+   about 28rem at the lg breakpoint to 48rem on wide screens.
+   --pk-gw-stage is the first screen of the column (the stage's least
+   height, reaching the fold); --pk-gw-wheel the wheel's size, smaller on a
+   short screen. The archer is sized from both, so he always stands clear
+   of the wheel. (cqi in a custom property resolves where it is used, against
+   this container.) */
 html[data-theme="pinaka"] .pk-gateway {
   min-height: 100%;
   isolation: isolate;
   container: pk-gateway / inline-size;
+  --pk-gw-stage: clamp(34rem, calc(100svh - 10rem), 54rem);
+  --pk-gw-wheel: clamp(7rem, min(calc(50cqi - 10.5rem), calc(34svh - 5rem)), 13.5rem);
 }
 
 /* The scene fills the column and takes no pointer. Everything in it is
@@ -158,7 +169,7 @@ html[data-theme="pinaka"] .pk-gateway-stage {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  min-height: clamp(34rem, calc(100svh - 10rem), 54rem);
+  min-height: var(--pk-gw-stage);
 }
 html[data-theme="pinaka"] .pk-gateway-stage > :not(.pk-gateway-art) {
   position: relative;
@@ -182,12 +193,15 @@ html[data-theme="pinaka"] .pk-gateway-art {
 /* Full colour, as drawn. His figure and bow keep to the right of the words
    (the bow's inner edge is 40% into the picture); the rock dissolves to the
    left and below, and the cape, which the picture crops on its right edge,
-   dissolves into the column's edge, so no edge of the file ever shows. */
+   dissolves into the column's edge, so no edge of the file ever shows. His
+   height is capped so the tip of the bow stays 1.25rem under the wheel
+   (which starts 0.875rem into the stage): on a laptop's short screen he
+   stands a little smaller rather than behind the wheel. */
 html[data-theme="pinaka"] .pk-gateway-hero {
   position: absolute;
   right: -0.75rem;
   bottom: 0;
-  height: clamp(20rem, 62cqi, 30rem);
+  height: max(16rem, min(clamp(20rem, 62cqi, 30rem), calc(var(--pk-gw-stage) - var(--pk-gw-wheel) - 2.125rem)));
   aspect-ratio: 1069 / 1038;
 }
 html[data-theme="pinaka"] .pk-gateway-archer {
@@ -225,8 +239,9 @@ html[data-theme="pinaka"] .pk-gateway-wheel {
   top: calc(7rem + 0.875rem);
   right: 3.25rem;
   /* 216px on the widest column, shrinking faster than the name does so the
-     two never touch; gone below 34rem (see the narrow column). */
-  width: clamp(7rem, calc(50cqi - 10.5rem), 13.5rem);
+     two never touch, and a little on a short screen so the archer keeps his
+     size under it; gone below 34rem (see the narrow column). */
+  width: var(--pk-gw-wheel);
   aspect-ratio: 1;
 }
 html[data-theme="pinaka"] .pk-gateway-wheel-halo {
@@ -314,6 +329,8 @@ html[data-theme="pinaka"] .pk-gateway-tagline.is-secondary {
 }
 
 /* ── Register now: the official plate, as a real button ──────────────────── */
+/* The same plate in the hero (.pk-gateway-cta) and under the phone's card
+   (.pk-auth-cta); its motion is keyed to whichever of the two holds it. */
 html[data-theme="pinaka"] .pk-gateway-cta {
   margin-top: 1.25rem;
 }
@@ -321,7 +338,7 @@ html[data-theme="pinaka"] .pk-gateway-register {
   position: relative;
   display: block;
   width: clamp(14rem, 35cqi, 16.5rem);
-  aspect-ratio: 1140 / 281;
+  aspect-ratio: 600 / 148;
   padding: 0;
   border: 0;
   border-radius: 0.875rem;
@@ -349,20 +366,24 @@ html[data-theme="pinaka"] .pk-gateway-register::before {
   opacity: 0;
   pointer-events: none;
 }
-html[data-theme="pinaka"] .pk-gateway-register:hover::before,
 html[data-theme="pinaka"] .pk-gateway-register:focus-visible::before { opacity: 1; }
 html[data-theme="pinaka"] .pk-gateway-register:focus-visible {
   outline: 2px solid #ffd98a;
   outline-offset: 4px;
 }
-html[data-theme="pinaka"] .pk-gateway:not([data-still="true"]) .pk-gateway-register {
+html[data-theme="pinaka"] :is(.pk-gateway, .pk-auth-cta):not([data-still="true"]) .pk-gateway-register {
   transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
-html[data-theme="pinaka"] .pk-gateway:not([data-still="true"]) .pk-gateway-register::before {
+html[data-theme="pinaka"] :is(.pk-gateway, .pk-auth-cta):not([data-still="true"]) .pk-gateway-register::before {
   transition: opacity 0.35s ease;
 }
-html[data-theme="pinaka"] .pk-gateway:not([data-still="true"]) .pk-gateway-register:hover { transform: scale(1.035); }
-html[data-theme="pinaka"] .pk-gateway:not([data-still="true"]) .pk-gateway-register:active { transform: scale(0.99); }
+html[data-theme="pinaka"] :is(.pk-gateway, .pk-auth-cta):not([data-still="true"]) .pk-gateway-register:active { transform: scale(0.99); }
+/* Hover only where there is one: on a touch screen a tap would leave the
+   plate swollen and lit. */
+@media (hover: hover) {
+  html[data-theme="pinaka"] .pk-gateway-register:hover::before { opacity: 1; }
+  html[data-theme="pinaka"] :is(.pk-gateway, .pk-auth-cta):not([data-still="true"]) .pk-gateway-register:hover { transform: scale(1.035); }
+}
 /* On the Register tab it has done its work: it keeps its place in the column
    (nothing below it jumps) but is gone from sight, focus and the a11y tree. */
 html[data-theme="pinaka"] .pk-gateway-register[data-hidden="true"] {
@@ -396,19 +417,36 @@ html[data-theme="pinaka"] .pk-gateway-fact dt { color: var(--pk-gold); }
 html[data-theme="pinaka"] .pk-gateway-fact dd { margin: 0; line-height: 1.4; text-wrap: pretty; }
 
 /* ── The relic: the scroll, framed in gold, laid at the foot of the gate ─── */
-/* In the flow (pushed to the stage floor), so it can never sit on the facts:
-   when there is no room it waits below them and the stage grows. Shown only
-   where the column is wide and the screen tall enough (56rem: a 1440x900
-   desktop) for it to stand above the fold beside the archer. */
-html[data-theme="pinaka"] .pk-gateway-relic {
-  display: none;
-  margin-top: auto;
-  margin-left: 0.75rem;
-  padding-top: 1rem;
+/* It takes what is left of the first screen under the facts. Its slot is the
+   stage's last flex item, grown into the free space (flex: 1 1 0) and sized
+   by that alone (a size container whose one child is out of flow), so it
+   never pushes the stage, the archer or the foot. The frame stands on the
+   stage floor, as tall as the slot allows up to its full size (a 143 px wide
+   frame, on a 1440 x 900 desktop); where the slot is too short for a relic
+   worth the name (under 8.5rem) it is not drawn, and its lazy picture is
+   never fetched. Only in the wide column, where the archer stands beside the
+   words; in the narrow one he stands below them and there is no floor left. */
+html[data-theme="pinaka"] .pk-gateway-relic { display: none; }
+@container pk-gateway (min-width: 40rem) {
+  html[data-theme="pinaka"] .pk-gateway-relic {
+    display: block;
+    flex: 1 1 0;
+    align-self: stretch;
+    min-height: 0;
+    container: pk-relic / size;
+  }
 }
 html[data-theme="pinaka"] .pk-gateway-relic-frame {
+  position: absolute;
+  left: 0.75rem;
+  bottom: 0;
   display: block;
-  width: clamp(8rem, 18.5cqi, 8.875rem);
+  /* the picture's own proportions on the content box; the 5px of gold
+     around it sit outside. 1.25rem of the slot stays clear under the facts. */
+  box-sizing: content-box;
+  aspect-ratio: 320 / 433;
+  height: min(calc(100% - 1.25rem - 10px), 11.25rem);
+  width: auto;
   padding: 5px;
   border-radius: 6px;
   transform: rotate(-4deg);
@@ -428,25 +466,27 @@ html[data-theme="pinaka"] .pk-gateway:not([data-still="true"]) .pk-gateway-relic
 html[data-theme="pinaka"] .pk-gateway-relic-frame img {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
   border-radius: 3px;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6);
   user-select: none;
   -webkit-user-drag: none;
 }
-@media (min-height: 56rem) {
-  @container pk-gateway (min-width: 40rem) {
-    html[data-theme="pinaka"] .pk-gateway-relic { display: block; }
-  }
+@container pk-relic (max-height: 8.5rem) {
+  html[data-theme="pinaka"] .pk-gateway-relic-frame { display: none; }
 }
 
 /* ── Art that waits for its picture ──────────────────────────────────────── */
-/* The archer, the wheel and the Register plate's picture fade in once decoded
-   (data-ready, set by the component), so nothing ever paints half-arrived. */
+/* The archer, the wheels and the Register plate's picture fade in once they
+   can be painted (data-ready, set by the component), so nothing ever paints
+   half-arrived. */
 html[data-theme="pinaka"] .pk-gateway-archer[data-ready="false"],
 html[data-theme="pinaka"] .pk-gateway-wheel-img[data-ready="false"],
-html[data-theme="pinaka"] .pk-gateway-register img[data-ready="false"] { opacity: 0; }
-html[data-theme="pinaka"] .pk-gateway:not([data-still="true"]) :is(.pk-gateway-archer, .pk-gateway-wheel-img, .pk-gateway-register img) {
+html[data-theme="pinaka"] .pk-gateway-register img[data-ready="false"],
+html[data-theme="pinaka"] .pk-auth-emblem img[data-ready="false"] { opacity: 0; }
+html[data-theme="pinaka"] .pk-gateway:not([data-still="true"]) :is(.pk-gateway-archer, .pk-gateway-wheel-img, .pk-gateway-register img),
+html[data-theme="pinaka"] .pk-auth-cta:not([data-still="true"]) .pk-gateway-register img,
+html[data-theme="pinaka"] .pk-auth-emblem:not([data-still="true"]) img {
   transition: opacity 0.5s ease-out;
 }
 
@@ -456,7 +496,31 @@ html[data-theme="pinaka"] .pk-gateway-foot {
   padding-top: 2rem;
 }
 
-/* ── A narrow column (lg up to about 1280px wide) ─────────────────────────── */
+/* ── A short screen, wide column (laptops up to 832px tall) ──────────────── */
+/* 1366 x 768, 1280 x 800: the first screen holds the lockup, the taglines,
+   the plate, the facts and, under them, the relic. The vertical rhythm
+   tightens one step so the relic has a floor to stand on above the fold:
+   the same faces in the same order, nothing left out, every gap still
+   wider than the line it follows. */
+@media (max-height: 52rem) {
+  @container pk-gateway (min-width: 40rem) {
+    html[data-theme="pinaka"] .pk-gateway-lockup { margin-top: 0.75rem; }
+    html[data-theme="pinaka"] .pk-gateway-deva { font-size: 1.125rem; }
+    html[data-theme="pinaka"] .pk-gateway-name {
+      margin-top: 0.25rem;
+      font-size: clamp(3.25rem, min(12cqi, 10.5svh), 6rem);
+    }
+    html[data-theme="pinaka"] .pk-gateway-edition { margin-top: 0.5rem; }
+    html[data-theme="pinaka"] .pk-gateway-tagline { margin-top: 0.875rem; font-size: 1.3125rem; }
+    html[data-theme="pinaka"] .pk-gateway-tagline.is-secondary { margin-top: 0.25rem; font-size: 1.0625rem; }
+    html[data-theme="pinaka"] .pk-gateway-cta { margin-top: 1rem; }
+    html[data-theme="pinaka"] .pk-gateway-register { width: 15rem; }
+    html[data-theme="pinaka"] .pk-gateway-facts { margin-top: 1rem; padding: 0.5rem 1rem 0.625rem; gap: 0.375rem; }
+    html[data-theme="pinaka"] .pk-gateway-fact { padding-top: 0.375rem; }
+  }
+}
+
+/* ── A narrow column (lg up to about 1216px wide) ─────────────────────────── */
 /* Too narrow for the archer to stand beside the words: he steps down below
    them, smaller. Narrower still (the lg breakpoint itself), the wheel would
    cover the name, so it is left out. */
@@ -472,6 +536,42 @@ html[data-theme="pinaka"] .pk-gateway-foot {
   html[data-theme="pinaka"] .pk-gateway-wheel { display: none; }
 }
 
+/* ── The phone: the wheel over the title ─────────────────────────────────── */
+/* In the place and at the size of the mark it stands in for (3.5rem), so the
+   card below does not move. A warm glow under it, a gradient. */
+html[data-theme="pinaka"] .pk-auth-emblem {
+  position: relative;
+  display: block;
+  width: 3.5rem;
+  height: 3.5rem;
+}
+html[data-theme="pinaka"] .pk-auth-emblem::before {
+  content: "";
+  position: absolute;
+  inset: -34%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 214, 140, 0.34) 30%, rgba(255, 176, 84, 0.13) 60%, transparent 100%);
+  pointer-events: none;
+}
+html[data-theme="pinaka"] .pk-auth-emblem img {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* ── The phone: the Register plate under the card ────────────────────────── */
+/* Centred under the card, clear of it; 17rem wide (about 67px of art), less
+   on the narrowest phones. */
+html[data-theme="pinaka"] .pk-auth-cta {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+html[data-theme="pinaka"] .pk-auth-cta .pk-gateway-register { width: min(17rem, 78vw); }
+
 /* ── Reduced motion: everything at rest, the picture complete ────────────── */
 @media (prefers-reduced-motion: reduce) {
   html[data-theme="pinaka"] .pk-gateway-lamp,
@@ -481,7 +581,8 @@ html[data-theme="pinaka"] .pk-gateway-foot {
   html[data-theme="pinaka"] .pk-gateway-relic-frame,
   html[data-theme="pinaka"] .pk-gateway-archer,
   html[data-theme="pinaka"] .pk-gateway-wheel-img,
-  html[data-theme="pinaka"] .pk-gateway-register img { transition: none !important; }
+  html[data-theme="pinaka"] .pk-gateway-register img,
+  html[data-theme="pinaka"] .pk-auth-emblem img { transition: none !important; }
   html[data-theme="pinaka"] .pk-gateway-register:hover,
   html[data-theme="pinaka"] .pk-gateway-register:active { transform: none !important; }
 }
@@ -493,6 +594,7 @@ html[data-theme="pinaka"] .pk-gateway-foot {
 @media (forced-colors: active) {
   html[data-theme="pinaka"] .pk-gateway-art,
   html[data-theme="pinaka"] .pk-gateway-relic,
-  html[data-theme="pinaka"] .pk-gateway-veil { display: none; }
+  html[data-theme="pinaka"] .pk-gateway-veil,
+  html[data-theme="pinaka"] .pk-auth-emblem::before { display: none; }
   html[data-theme="pinaka"] .pk-gateway-register { border: 1px solid ButtonText; }
 }
