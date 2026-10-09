@@ -14,15 +14,19 @@
  *   the navigation.
  *
  * WHAT IT COSTS
- *   One SVG (≈ 12 KB of path data, imported once), collapsible to a single
- *   plate that a player can leave collapsed for the whole event (the choice
- *   persists per device). The map keeps the viewBox's 9:8 shape and sizes to
- *   its panel: beside the head from 700px of panel, beneath it below that,
- *   and in a sideways-scrolling box when the panel is narrower than the
- *   smallest readable map. Labels and markers are drawn in CSS pixels (each
- *   station group is scaled by 720 / rendered width), so they stay 11px
- *   whatever size the map is; the coast and the road use non-scaling
- *   hairlines for the same reason.
+ *   Two stacked SVGs (≈ 12 KB of path data, imported once) in one plate,
+ *   collapsible to a single line that a player can leave collapsed for the
+ *   whole event (the choice persists per device). The land, the coast, the
+ *   water and the road are the lower drawing, rasterised once; the lit
+ *   stretch, the stations and the travellers are the upper one, on its own
+ *   compositing layer, so a pulsing ring repaints a few circles and labels
+ *   and never the coastline or the clipped shore under it. The map keeps the
+ *   viewBox's 9:8 shape and sizes to its panel: beside the head from 700px
+ *   of panel, beneath it below that, and in a sideways-scrolling box when
+ *   the panel is narrower than the smallest readable map. Labels and markers
+ *   are drawn in CSS pixels (each station group is scaled by 720 / rendered
+ *   width), so they stay 11px whatever size the map is; the coast and the
+ *   road use non-scaling hairlines for the same reason.
  *
  * MOTION
  *   The current station's ring pulses by opacity; the team arrow's halo
@@ -32,7 +36,7 @@
  *   getPointAtLength, so the arrow follows the curve and turns with it).
  *   All of it stops under reduced motion and while the panel is off screen.
  */
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { getCapability } from '../../../components/environment/performance';
@@ -200,7 +204,7 @@ export default function JourneyMap({ world, phase, progress, personal, collapsed
   const landClipId = `${mapId}-land`;
 
   const hostRef = useRef<HTMLDivElement>(null);
-  const svgRef = useRef<SVGSVGElement>(null);
+  const plateRef = useRef<HTMLDivElement>(null);
   const routeRef = useRef<SVGPathElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const teamRef = useRef<SVGGElement>(null);
@@ -221,11 +225,12 @@ export default function JourneyMap({ world, phase, progress, personal, collapsed
 
   // Labels and markers are drawn in CSS pixels inside groups scaled by
   // k = viewBox width / rendered width, so an 11px label is 11px at any map
-  // size. Measured once on mount and again whenever the panel resizes.
+  // size. Measured once on mount and again whenever the panel resizes (the
+  // plate and both SVGs share one width).
   const [k, setK] = useState(2);
   useLayoutEffect(() => {
     if (isCollapsed) return;
-    const el = svgRef.current;
+    const el = plateRef.current;
     if (!el) return;
     const measure = () => {
       const w = el.getBoundingClientRect().width;
@@ -319,7 +324,6 @@ export default function JourneyMap({ world, phase, progress, personal, collapsed
     `Campaign map of India and Sri Lanka. Chapter ${current.chapter}, ${current.title}, at ${station.place}. ` +
     `The team's arrow is ${pct} percent along the road, ${where}.` +
     (hasYou ? ` You are ${youPct} percent along the road.` : '');
-  const svgStyle = { '--pk-k': k.toFixed(4) } as CSSProperties;
 
   /* ── Expanded ── */
   return (
@@ -354,14 +358,16 @@ export default function JourneyMap({ world, phase, progress, personal, collapsed
       </div>
 
       <div className="pk-journey-scroll" id={mapId} ref={scrollRef}>
+        {/* The plate: one image to assistive technology (the sentence above),
+            two drawings to the browser, stacked in one grid cell. */}
+        <div ref={plateRef} className="pk-journey-plate" role="img" aria-label={sentence}>
+        {/* 1. The land and the road: still, rasterised once. */}
         <svg
-          ref={svgRef}
-          className="pk-journey-svg"
+          className="pk-journey-svg pk-journey-svg-land"
           viewBox={MAP_VIEWBOX}
           preserveAspectRatio="xMidYMid meet"
-          role="img"
-          aria-label={sentence}
-          style={svgStyle}
+          aria-hidden="true"
+          focusable="false"
         >
           <defs>
             <clipPath id={landClipId}>
@@ -393,6 +399,18 @@ export default function JourneyMap({ world, phase, progress, personal, collapsed
 
           {/* the road, in bronze */}
           <path ref={routeRef} className="pk-journey-track" d={ROUTE_D} vectorEffect="non-scaling-stroke" />
+        </svg>
+
+        {/* 2. What moves: the lit stretch, the stations, the travellers. Its
+            own layer (journey.css), so the pulse and the halo repaint only
+            this drawing. Same viewBox, so the coordinates are the same. */}
+        <svg
+          className="pk-journey-svg pk-journey-svg-road"
+          viewBox={MAP_VIEWBOX}
+          preserveAspectRatio="xMidYMid meet"
+          aria-hidden="true"
+          focusable="false"
+        >
           {/* the lit stretch: the board share, as a drawn length */}
           <path
             className="pk-journey-fill"
@@ -446,6 +464,7 @@ export default function JourneyMap({ world, phase, progress, personal, collapsed
             </g>
           </g>
         </svg>
+        </div>
       </div>
     </section>
     </div>

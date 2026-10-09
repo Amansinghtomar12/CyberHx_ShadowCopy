@@ -10,24 +10,37 @@ import { PLATES } from './assets/plates';
 import { preloadPlate } from './assets/plates/sources';
 
 /**
- * The world behind the first themed screen. When the skin is re-applied live
- * (an admin switches it on, a player picks it in Settings) the environment
- * may already have published one on <html>; otherwise it is Ayodhya: the
- * sign-in page, the profile, the team, Settings and the admin panel all live
- * there, and it is the only world a visitor who is not signed in can see.
- * The board's own world depends on the event status the app has yet to
- * fetch, so its plate is requested by the environment's eager <img> in the
- * first commit instead; only ever one plate is preloaded here, never six.
+ * The world behind the first themed screen, when it is known. When the skin
+ * is re-applied live (an admin switches it on, a player picks it in Settings)
+ * the environment has already published one on <html>. On a cold load it is
+ * Ayodhya for a visitor who is not signed in: the sign-in page is the only
+ * screen they can reach. A signed-in visitor lands on the board, whose world
+ * depends on the event status and mode the app has yet to fetch, so nothing
+ * is guessed for them: the environment's eager <img> asks for the right
+ * plate in the first commit. Only ever one plate is preloaded here, never six.
  */
-function firstWorld(): World {
+function firstWorld(): World | null {
   const w = document.documentElement.dataset.world;
-  return w && Object.prototype.hasOwnProperty.call(WORLDS, w) ? (w as World) : 'ayodhya';
+  if (w && Object.prototype.hasOwnProperty.call(WORLDS, w)) return w as World;
+  return hasStoredSession() ? null : 'ayodhya';
+}
+
+/** Whether supabase-js has a session on this device (its `sb-<ref>-auth-token` key). */
+function hasStoredSession(): boolean {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) return true;
+    }
+  } catch { /* storage unavailable: assume signed out */ }
+  return false;
 }
 
 export async function bootPinaka(): Promise<void> {
   // The photographic plate is asked for first, at the width this device will
   // use, so it is decoded by the time the environment mounts under the UI.
-  preloadPlate(PLATES[firstWorld()]);
+  const world = firstWorld();
+  if (world) preloadPlate(PLATES[world]);
 
   // Vite turns the stylesheet into its own CSS chunk and resolves once the
   // <link> has loaded, so the first paint already wears the theme. The glyph

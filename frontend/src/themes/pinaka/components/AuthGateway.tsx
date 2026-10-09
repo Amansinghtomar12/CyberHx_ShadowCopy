@@ -40,6 +40,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { getCapability } from '../../../components/environment/performance';
 import { PINAKA_EVENT } from '../config';
+import { useMediaQuery } from '../hooks';
 import { PLATES } from '../assets/plates';
 import { plateFocal, plateSource } from '../assets/plates/sources';
 import { Eyebrow } from './BowMotifs';
@@ -52,15 +53,22 @@ function useStill(): boolean {
 }
 
 /* ── Plate: the photograph behind the gate ──────────────────────────────── */
+/** AuthPage shows the hero column from Tailwind's `lg` breakpoint (64rem). */
+const HERO_SHOWN = '(min-width: 64rem)';
+
 /**
  * Decorative (alt="", aria-hidden), never draggable, decoded off the main
  * thread, fetched eagerly because it is the first thing on the page. It
  * fades in once loaded (the attribute, so a cached image that completed
  * before React listened still counts); the drift runs once, on the high
  * tier, and the animation and its will-change are dropped when it ends.
+ * On a phone the whole hero column is display:none, which does not stop a
+ * browser fetching an eager <img> inside it, so the image is only rendered
+ * where the column is shown.
  */
 function HeroPlate({ still }: { still: boolean }) {
   const plate = PLATES.hero;
+  const shown = useMediaQuery(HERO_SHOWN);
   const source = plateSource(plate);
   const focal = plateFocal(plate);
   const img = useRef<HTMLImageElement>(null);
@@ -71,7 +79,7 @@ function HeroPlate({ still }: { still: boolean }) {
   useEffect(() => {
     const el = img.current;
     if (el && el.complete && el.naturalWidth > 0) setReady(true);
-  }, []);
+  }, [shown]);
 
   return (
     <div
@@ -80,7 +88,7 @@ function HeroPlate({ still }: { still: boolean }) {
       data-ready={ready ? 'true' : 'false'}
       data-drift={drift ? (drifted ? 'done' : 'on') : 'off'}
     >
-      <img
+      {shown && <img
         ref={img}
         src={source.src}
         srcSet={source.srcSet}
@@ -96,7 +104,7 @@ function HeroPlate({ still }: { still: boolean }) {
         style={{ objectPosition: focal, transformOrigin: focal }}
         onLoad={() => setReady(true)}
         onAnimationEnd={() => setDrifted(true)}
-      />
+      />}
     </div>
   );
 }

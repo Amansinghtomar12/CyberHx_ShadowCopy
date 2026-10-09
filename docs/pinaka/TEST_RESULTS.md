@@ -355,7 +355,37 @@ the intro, the photo credit line, and CTF7 removed from the partner list.
 
 ### 9.2 Functional and visual passes
 
-{{PLATES_QA}}
+Full runs of the harness on the final code (mock backend, desktop 1440×900 and phone 390×844 at DPR 2):
+
+| Run | ok | failed | skipped | page errors | console errors | failed requests | mock gaps |
+|---|---|---|---|---|---|---|---|
+| classic (`cyberhx`), desktop + phone | 66 | 0 | 4 (two phone-only scenes, two intro scenes) | 0 | 0 | 0 | 0 |
+| Pinaka, desktop + phone | 68 | 0 | 2 (phone-only scenes on desktop) | 0 | 0 | 0 | 0 |
+| Pinaka, reduced motion, 9 scenes × 2 viewports | 18 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+Every plate request in the themed runs succeeded (0 failed requests), the
+reduced-motion pass renders the plates as stills (no drift, no travellers'
+tween), and the classic runs fetch no plate.
+
+**Default-theme DOM parity** (the same 17 scenes dumped on this branch with
+the classic look and diffed against the saved dumps of `main @ ce23b64`):
+exactly the profile of the previous round and nothing new. The admin
+dashboard differs by the organisers' button and panel (intended); the
+challenge cards and the chain nodes differ only in the glow utility class
+name (same computed colour); everything else differs only by the dev-server
+script tag and the running clock. `settings`, `scoreboard-live`,
+`user-profile`, `team-profile`, `teams-list`, `users-list`, `auth-login`,
+`board-waiting`, `uplink-down`: no difference.
+
+**Screenshots read** (all under `frontend/qa/visual/out/pinaka/`): the
+plates sit behind every world (Deepotsav ghats before the event, the Agumbe
+forest on the live board, the shoals on the chained board, Sigiriya on the
+scoreboard, the sunset ghats after the close, Hampi behind the sign-in hero
+and the intro); the UI stays readable over all of them (the plate veil and
+the measured contrast in §6); the map is India and Sri Lanka with the
+route, the team's arrow and the viewer's mark at their fractions, the
+legend states matching the arrow; the credit line is present in the footer,
+in the desktop hero and under the phone sign-in card.
 
 ### 9.3 Review
 

@@ -7,9 +7,10 @@
  * sources are recorded here and in docs/pinaka/ASSETS.md; the untouched
  * originals are not in the repository.
  *
- * Presentation only: nothing here reads data. Consumers pick `w960` under
- * ~1000px viewports or on the low tier and `w1920` otherwise, and position the
- * image with `object-position: ${focal.x * 100}% ${focal.y * 100}%`.
+ * Presentation only: nothing here reads data. Consumers go through
+ * sources.ts (`w960` on viewports up to 960 px and on the low tier, a
+ * 960/1920 `srcset` otherwise) and position the image with
+ * `object-position: ${focal.x * 100}% ${focal.y * 100}%`.
  */
 import type { World } from '../../config';
 

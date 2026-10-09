@@ -676,22 +676,31 @@ function LayerSvg({ geom }: { geom: LayerGeom }) {
   );
 }
 
-function LayerCanvas({ geom }: { geom: LayerGeom }) {
+function LayerCanvas({ geom, dpr }: { geom: LayerGeom; dpr: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
   // Layout effect: the strip is painted before the browser shows the commit,
   // so a freshly mounted scene never flashes empty under its fade-in.
   useLayoutEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
-    paintLayer(canvas, geom, canvasDpr());
+    paintLayer(canvas, geom, dpr);
     return () => { canvas.width = 0; canvas.height = 0; };
-  }, [geom]);
+  }, [geom, dpr]);
   return <canvas ref={ref} className="pk-env-canvas" />;
 }
 
-function SceneLayer({ world, depth, mode, vw, vh }: { world: World; depth: Depth; mode: Mode; vw: number; vh: number }) {
+/**
+ * One strip of a scene. Over a photograph the strip is shown at 0.58 as soft
+ * silhouettes, where 1× is indistinguishable from the high tier's 1.5× and
+ * the backing store is less than half (≈ 4 MB rather than 10 MB per 1080p
+ * strip, twice that while a crossfade holds two scenes).
+ */
+function SceneLayer({ world, depth, mode, vw, vh, plated }: {
+  world: World; depth: Depth; mode: Mode; vw: number; vh: number; plated: boolean;
+}) {
   const geom = useMemo(() => layerGeometry(world, depth, vw, vh), [world, depth, vw, vh]);
-  return mode === 'static' ? <LayerSvg geom={geom} /> : <LayerCanvas geom={geom} />;
+  if (mode === 'static') return <LayerSvg geom={geom} />;
+  return <LayerCanvas geom={geom} dpr={plated ? Math.min(1, canvasDpr()) : canvasDpr()} />;
 }
 
 /* ── Plate ───────────────────────────────────────────────────────────────── */
@@ -1197,7 +1206,7 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle', 
               >
                 {/* A plate stands in for the far and mid strips: they are not painted at all while it is there. */}
                 {scene && !(plate && PLATE_REPLACES.has(depth)) && (
-                  <SceneLayer world={scene.world} depth={depth} mode={effectiveMode} vw={vp.w} vh={vp.h} />
+                  <SceneLayer world={scene.world} depth={depth} mode={effectiveMode} vw={vp.w} vh={vp.h} plated={!!plate} />
                 )}
               </div>
             ))}
