@@ -333,3 +333,30 @@ container). Semantics were checked against the DOM.
 * A device that chose a look in Settings keeps it until it chooses otherwise
   (or `VITE_THEME_UNTIL` passes); the admin panel says so and offers "Follow
   the organisers".
+
+## 9. Follow-up round: photographic plates and the real-geography map — 2026-10-09
+
+Scope: six licensed photographs behind the worlds and the hero (see
+ASSETS.md § Photographic plates for sources, licences and treatment), the
+campaign map rebuilt on Natural Earth geography with two travellers driven by
+solve progress and a station legend, the hero plate on the sign-in page and
+the intro, the photo credit line, and CTF7 removed from the partner list.
+
+### 9.1 Static checks
+
+| Check | Result |
+|---|---|
+| `npm run lint` (`tsc --noEmit`) | exit 0, 0 errors |
+| `npm run build` | exit 0 |
+| `dist/assets/index-*.js` (default theme main chunk) | 1,551,711 B (437.66 KB gzip) — +74 B against the previous round (the one new prop on the board); **no `.webp` reference in the main chunk or in `index.html`** |
+| theme chunks that grew | `PinakaEnvironment` 19.0 KB (7.5 KB gzip), `JourneyMap` 16.8 KB (6.6 KB gzip, of which `journey/geo.ts` is 11.4 KB of path data) |
+| plates (on demand, theme only) | twelve WebP files, 576 KB in total; a screen loads one (two during a world crossfade); the low tier only ever fetches the 960 px file |
+| `package.json`, `vercel.json`, `index.html` | no diff against `origin/main` (the plates are same-origin assets under `img-src 'self'`) |
+
+### 9.2 Functional and visual passes
+
+{{PLATES_QA}}
+
+### 9.3 Review
+
+{{PLATES_REVIEW}}
