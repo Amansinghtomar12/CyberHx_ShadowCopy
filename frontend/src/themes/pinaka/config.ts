@@ -6,6 +6,7 @@
  * dates only label the narrative. Verify them against pinakactf.com before
  * the event: they were taken from the public site on 2026-10-08.
  */
+import { SPONSOR_LOGOS } from './assets/sponsors';
 
 export const PINAKA_THEME_COLOR = '#0a0e17';
 
@@ -44,17 +45,19 @@ export const PINAKA_EVENT = {
 export interface Partner { name: string; role?: string; logo?: string; url?: string }
 
 export const PINAKA_PARTNERS: readonly Partner[] = [
-  { name: 'INE Security', role: 'In association with' },
-  { name: 'Altered Security' },
-  { name: 'Red Team Hacker Academy' },
-  { name: 'CWL · CyberWarFare Labs' },
-  { name: 'BlackPerl DFIR' },
-  { name: 'Stellar Data Recovery' },
-  { name: '.XYZ Domains' },
-  { name: 'MetaCTF · Skillbit' },
-  { name: 'KnightSquad' },
-  { name: 'ThunderCipher' },
-  { name: 'CyberInfoga' },
+  { name: 'INE Security', role: 'In association with', logo: SPONSOR_LOGOS['INE Security'] },
+  { name: 'Altered Security', logo: SPONSOR_LOGOS['Altered Security'] },
+  { name: 'Red Team Hacker Academy', logo: SPONSOR_LOGOS['Red Team Hacker Academy'] },
+  { name: 'CWL · CyberWarFare Labs', logo: SPONSOR_LOGOS['CWL · CyberWarFare Labs'] },
+  { name: 'BlackPerl DFIR', logo: SPONSOR_LOGOS['BlackPerl DFIR'] },
+  { name: 'Stellar Data Recovery', logo: SPONSOR_LOGOS['Stellar Data Recovery'] },
+  { name: 'Unstop', logo: SPONSOR_LOGOS['Unstop'] },
+  { name: '.XYZ Domains', logo: SPONSOR_LOGOS['.XYZ Domains'] },
+  { name: 'MetaCTF · Skillbit', logo: SPONSOR_LOGOS['MetaCTF · Skillbit'] },
+  { name: 'KnightSquad', logo: SPONSOR_LOGOS['KnightSquad'] },
+  { name: 'ThunderCipher', logo: SPONSOR_LOGOS['ThunderCipher'] },
+  { name: 'CyberInfoga', logo: SPONSOR_LOGOS['CyberInfoga'] },
+  { name: 'XSS Rat', logo: SPONSOR_LOGOS['XSS Rat'] },
 ];
 
 /** The five narrative environments. Each view of the platform lives in one. */

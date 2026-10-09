@@ -8,13 +8,27 @@
  * WHAT IT DRAWS, BOTTOM TO TOP
  *   sky      a gradient between the world's two sky tokens; the phase cools
  *            it before the event, warms the horizon after
- *   scene    two slots, each holding a horizon glow and three parallax depth
- *            layers of procedurally generated silhouettes. A world change
- *            renders the new scene into the hidden slot and crossfades, so
- *            there is never a flash and never a re-layout
+ *   scene    two slots, each holding a horizon glow, the world's photographic
+ *            plate and the parallax depth layers of procedurally generated
+ *            silhouettes. A world change renders the new scene into the
+ *            hidden slot, waits for its plate, then crossfades, so there is
+ *            never a flash and never a re-layout
  *   motes    one animated canvas: gold motes, leaf flecks or embers, plus a
  *            few wide haze bands on the high tier
  *   veil     the readability guarantee — the UI always wins
+ *
+ * THE PLATE
+ *   One colour-graded photograph per world (assets/plates), a same-origin
+ *   <img> covering the viewport with object-position at the plate's focal
+ *   point. It stands in for the far and mid silhouette strips, which are not
+ *   painted while a plate is shown (two fewer canvases, and their backing
+ *   store, per scene); the near strip stays over it at reduced opacity for
+ *   depth. A plate that has not loaded is never shown half-way: the new scene
+ *   is promoted only once its image has settled (load, error, or a short
+ *   wait), the image fades in on load, and a failed load falls back to the
+ *   full set of silhouettes. On the high tier the plate drifts very slowly
+ *   (scale 1.06 → 1 over 40 s, transform only, will-change dropped once it
+ *   has settled); no drift on medium or low, nothing at all when still.
  *
  * EVERY SILHOUETTE IS ORIGINAL AND DETERMINISTIC
  *   The city, the forest, the causeway and the fortress are built from a
@@ -23,25 +37,36 @@
  *   same skyline and the static tier can emit the same shapes as inline SVG.
  *
  * TIERS
- *   high    canvases at DPR ≤ 1.5, 90 motes, haze, scroll + pointer parallax
+ *   high    canvases at DPR ≤ 1.5, 90 motes, haze, scroll + pointer parallax,
+ *           plate drift
  *   medium  canvases at DPR ≤ 1.5, 36 motes, no haze, scroll parallax only
  *   static  'still' / 'low' / fx off / reduced motion: no canvases at all,
- *           inline SVG silhouettes, no loops, no transitions
+ *           inline SVG silhouettes, the plate as a still, no loops, no
+ *           transitions ('low' is also served the 960 px plate only)
  *
  * Presentation only: props in, pixels out. Nothing here reads data.
  */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { getCapability } from '../../../components/environment/performance';
 import { subscribeFx } from '../../../components/environment/fx';
 import { WORLDS, type World } from '../config';
 import { useWorldAttributes, type EventPhase } from '../hooks';
+import { PLATES, type Plate, type PlateKey } from '../assets/plates';
+import { plateFocal, plateSource } from '../assets/plates/sources';
 
 export interface PinakaEnvironmentProps {
   world: World;
   phase: EventPhase;
   /** 'subtle' (default) keeps the veil strong; 'normal' (auth) lifts it a little. */
   intensity?: 'subtle' | 'normal';
+  /**
+   * Which photographic plate stands behind the scene. Defaults to the
+   * world's own; a mount point may ask for another (the sign-in page could
+   * take 'hero'); `null` shows the procedural silhouettes alone. Read when a
+   * scene is created, so change it with the world, not on its own.
+   */
+  plate?: PlateKey | null;
 }
 
 /** The world's display title, for the integrator's aria text. */
@@ -52,8 +77,14 @@ export function worldLabel(world: World): string {
 type Mode = 'high' | 'medium' | 'static';
 type Depth = 'far' | 'mid' | 'near';
 type Slot = 'a' | 'b';
+/** The plate moves with the far layer; the keys of `depthEls` name either. */
+type Layer = Depth | 'plate';
+/** 'none' when the scene has no plate; 'failed' falls back to every strip. */
+type PlateStatus = 'loading' | 'ready' | 'failed' | 'none';
 
 const DEPTHS: readonly Depth[] = ['far', 'mid', 'near'];
+/** The strips a plate stands in for. */
+const PLATE_REPLACES: ReadonlySet<Depth> = new Set<Depth>(['far', 'mid']);
 
 /* ── Layout constants ──────────────────────────────────────────────────────
  * Each depth layer is a strip pinned to the bottom of the viewport, wider and
@@ -71,7 +102,18 @@ const POINTER_MAX_X = 6;
 const POINTER_MAX_Y = 3;
 /** How long the scene crossfade takes; must match environment.css. */
 const FADE_MS = 1200;
+/**
+ * How long a new scene waits for its plate before it is shown anyway (the
+ * plate then fades in on its own when it arrives). Long enough for a cold
+ * fetch on a slow link, short enough that a stalled image never holds the
+ * world change hostage.
+ */
+const PLATE_WAIT_MS = 2500;
 const FRAME_MS = 1000 / 30;
+
+function layerDepth(layer: Layer): Depth {
+  return layer === 'plate' ? 'far' : layer;
+}
 
 function layerHeight(depth: Depth, vh: number): number {
   return Math.round(vh * VISIBLE[depth]) + BLEED_Y;
@@ -634,22 +676,91 @@ function LayerSvg({ geom }: { geom: LayerGeom }) {
   );
 }
 
-function LayerCanvas({ geom }: { geom: LayerGeom }) {
+function LayerCanvas({ geom, dpr }: { geom: LayerGeom; dpr: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
   // Layout effect: the strip is painted before the browser shows the commit,
   // so a freshly mounted scene never flashes empty under its fade-in.
   useLayoutEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
-    paintLayer(canvas, geom, canvasDpr());
+    paintLayer(canvas, geom, dpr);
     return () => { canvas.width = 0; canvas.height = 0; };
-  }, [geom]);
+  }, [geom, dpr]);
   return <canvas ref={ref} className="pk-env-canvas" />;
 }
 
-function SceneLayer({ world, depth, mode, vw, vh }: { world: World; depth: Depth; mode: Mode; vw: number; vh: number }) {
+/**
+ * One strip of a scene. Over a photograph the strip is shown at 0.58 as soft
+ * silhouettes, where 1× is indistinguishable from the high tier's 1.5× and
+ * the backing store is less than half (≈ 4 MB rather than 10 MB per 1080p
+ * strip, twice that while a crossfade holds two scenes).
+ */
+function SceneLayer({ world, depth, mode, vw, vh, plated }: {
+  world: World; depth: Depth; mode: Mode; vw: number; vh: number; plated: boolean;
+}) {
   const geom = useMemo(() => layerGeometry(world, depth, vw, vh), [world, depth, vw, vh]);
-  return mode === 'static' ? <LayerSvg geom={geom} /> : <LayerCanvas geom={geom} />;
+  if (mode === 'static') return <LayerSvg geom={geom} />;
+  return <LayerCanvas geom={geom} dpr={plated ? Math.min(1, canvasDpr()) : canvasDpr()} />;
+}
+
+/* ── Plate ───────────────────────────────────────────────────────────────── */
+
+/**
+ * The photograph behind a scene. Decorative (alt="", aria-hidden), never
+ * draggable, decoded off the main thread, fetched eagerly because the scene
+ * that holds it is waiting for it. It reports once: ready or failed. The
+ * wrapper is what parallax moves; the image is what the drift scales, about
+ * the focal point, so the slow push ends on the subject.
+ */
+function PlateLayer({ plate, status, active, layerRef, onSettle }: {
+  plate: Plate;
+  status: PlateStatus;
+  active: boolean;
+  layerRef: (el: HTMLDivElement | null) => void;
+  onSettle: (status: 'ready' | 'failed') => void;
+}) {
+  const img = useRef<HTMLImageElement>(null);
+  // The drift ran its 40 s: drop the animation (its final frame is the
+  // identity) and the will-change with it.
+  const [drifted, setDrifted] = useState(false);
+  const source = useMemo(() => plateSource(plate), [plate]);
+  const settle = useRef(onSettle);
+  settle.current = onSettle;
+
+  // A plate the preload (or an earlier scene) already fetched can be complete
+  // before the load event reaches React; the attribute says so either way.
+  useEffect(() => {
+    const el = img.current;
+    if (el && el.complete && el.naturalWidth > 0) settle.current('ready');
+  }, [source]);
+
+  return (
+    <div
+      ref={layerRef}
+      className="pk-env-plate"
+      data-ready={status === 'ready' ? 'true' : 'false'}
+      data-drift={drifted ? 'done' : 'on'}
+      style={{ ['--pk-plate-focal' as string]: plateFocal(plate) }}
+    >
+      <img
+        ref={img}
+        src={source.src}
+        srcSet={source.srcSet}
+        sizes={source.sizes}
+        width={plate.width}
+        height={plate.height}
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+        decoding="async"
+        loading="eager"
+        fetchPriority={active ? 'high' : 'auto'}
+        onLoad={() => settle.current('ready')}
+        onError={() => settle.current('failed')}
+        onAnimationEnd={() => setDrifted(true)}
+      />
+    </div>
+  );
 }
 
 /* ── Motes ───────────────────────────────────────────────────────────────── */
@@ -852,7 +963,27 @@ function createMotes(
 
 /* ── Component ───────────────────────────────────────────────────────────── */
 
-export default function PinakaEnvironment({ world, phase, intensity = 'subtle' }: PinakaEnvironmentProps) {
+/** What a scene slot holds: its world, which plate, and how far that plate has come. */
+interface Scene {
+  world: World;
+  plateKey: PlateKey | null;
+  plate: PlateStatus;
+}
+
+interface Slots {
+  a: Scene | null;
+  b: Scene | null;
+  /** The scene on screen. */
+  active: Slot;
+  /** A scene rendered but not yet shown: it is waiting for its plate. */
+  pending: Slot | null;
+}
+
+function other(slot: Slot): Slot {
+  return slot === 'a' ? 'b' : 'a';
+}
+
+export default function PinakaEnvironment({ world, phase, intensity = 'subtle', plate: plateProp }: PinakaEnvironmentProps) {
   useWorldAttributes(world, phase);
 
   const reduce = useReducedMotion() ?? false;
@@ -894,21 +1025,58 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle' }
     return () => { window.clearTimeout(timer); window.removeEventListener('resize', onResize); };
   }, []);
 
-  // Two scene slots. The active one holds the current world; a change writes
-  // the new world into the other slot and swaps which is active, so the CSS
-  // crossfade has both scenes in the DOM for its whole duration.
-  const [slots, setSlots] = useState<{ a: World | null; b: World | null; active: Slot }>(() => ({ a: world, b: null, active: 'a' }));
-  if (slots[slots.active] !== world) {
-    const next: Slot = slots.active === 'a' ? 'b' : 'a';
-    setSlots({ a: next === 'a' ? world : slots.a, b: next === 'b' ? world : slots.b, active: next });
+  // Two scene slots. The active one holds the world on screen; a change
+  // writes the new world into the other slot as *pending*, rendered but
+  // hidden, and promotes it to active once its plate has settled, so the CSS
+  // crossfade has both complete scenes in the DOM for its whole duration and
+  // a half-loaded photograph is never on screen.
+  const newScene = (w: World): Scene => {
+    const plateKey = plateProp === null ? null : (plateProp ?? w);
+    return { world: w, plateKey, plate: plateKey ? 'loading' : 'none' };
+  };
+  const [slots, setSlots] = useState<Slots>(() => ({ a: newScene(world), b: null, active: 'a', pending: null }));
+  const shown = slots.pending ?? slots.active;
+  if (slots[shown]?.world !== world) {
+    if (slots[slots.active]?.world === world) {
+      // Flipped back before the pending scene had arrived: abandon it.
+      setSlots({ ...slots, [slots.pending as Slot]: null, pending: null });
+    } else {
+      const target = other(slots.active);
+      setSlots({ ...slots, [target]: newScene(world), pending: target });
+    }
   }
-  // Once the retired scene has faded, release it: its canvases are the most
-  // expensive thing on this page and nobody can see them any more.
+
+  // The plate of a scene reported in. Only the scene that still holds that
+  // world is updated: a late event from a scene already replaced is ignored.
+  const settlePlate = useCallback((slot: Slot, w: World, status: 'ready' | 'failed') => {
+    setSlots(prev => {
+      const scene = prev[slot];
+      if (!scene || scene.world !== w || scene.plate === status || scene.plate === 'none') return prev;
+      return { ...prev, [slot]: { ...scene, plate: status } };
+    });
+  }, []);
+
+  // Promote the pending scene once its plate has settled, or after a short
+  // wait regardless (the plate then fades in on its own when it arrives).
   useEffect(() => {
-    const retired: Slot = slots.active === 'a' ? 'b' : 'a';
+    const p = slots.pending;
+    if (!p) return;
+    const scene = slots[p];
+    if (!scene) return;
+    const promote = () => setSlots(prev => (prev.pending === p ? { ...prev, active: p, pending: null } : prev));
+    if (scene.plate !== 'loading') { promote(); return; }
+    const t = window.setTimeout(promote, PLATE_WAIT_MS);
+    return () => window.clearTimeout(t);
+  }, [slots]);
+
+  // Once the retired scene has faded, release it: its canvases and plate are
+  // the most expensive things on this page and nobody can see them any more.
+  useEffect(() => {
+    if (slots.pending) return;
+    const retired = other(slots.active);
     if (slots[retired] === null) return;
     const t = window.setTimeout(() => {
-      setSlots(s => (s.active === retired || s[retired] === null ? s : { ...s, [retired]: null }));
+      setSlots(s => (s.pending || s.active === retired || s[retired] === null ? s : { ...s, [retired]: null }));
     }, FADE_MS + 200);
     return () => window.clearTimeout(t);
   }, [slots]);
@@ -931,7 +1099,7 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle' }
       for (const key in els) {
         const el = els[key];
         if (!el) continue;
-        const depth = key.slice(2) as Depth;
+        const depth = layerDepth(key.slice(2) as Layer);
         const sy = -Math.min(scrollY * SCROLL_K[depth], SCROLL_MAX);
         el.style.transform = `translate3d(${(cx * POINTER_K[depth]).toFixed(2)}px, ${(sy + cy * POINTER_K[depth]).toFixed(2)}px, 0)`;
       }
@@ -986,6 +1154,8 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle' }
     motesSys.current?.setWorld(world);
   }, [world]);
 
+  const activeScene = slots[slots.active];
+
   return (
     <div
       aria-hidden="true"
@@ -995,23 +1165,37 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle' }
       data-mode={effectiveMode}
       data-still={still ? 'true' : undefined}
       data-intensity={intensity}
+      // How far the plate on screen has come; the veil is heavier over a photograph.
+      data-plate={activeScene?.plate ?? 'none'}
       // The measured viewport height, so the CSS horizon glow and the canvas
       // horizon agree even where 100vh and innerHeight do not (mobile toolbars).
       style={{ ['--pk-env-vh' as string]: `${vp.h}px` }}
     >
       <div className="pk-env-sky" />
       {(['a', 'b'] as const).map(slot => {
-        const w = slots[slot];
+        const scene = slots[slot];
+        const plate = scene?.plateKey && scene.plate !== 'failed' ? PLATES[scene.plateKey] : null;
         return (
           <div
             key={slot}
             className="pk-env-scene"
             data-slot={slot}
-            data-world={w ?? undefined}
+            data-world={scene?.world}
+            data-plate={scene?.plate}
             data-active={slots.active === slot ? 'true' : 'false'}
           >
             {/* The horizon glow belongs to its scene so it crossfades with it. */}
             <div className="pk-env-sun" />
+            {scene && plate && (
+              <PlateLayer
+                key={`${scene.world}:${scene.plateKey}`}
+                plate={plate}
+                status={scene.plate}
+                active={slots.active === slot}
+                layerRef={el => { depthEls.current[`${slot}-plate`] = el; }}
+                onSettle={status => settlePlate(slot, scene.world, status)}
+              />
+            )}
             {DEPTHS.map(depth => (
               <div
                 key={depth}
@@ -1020,7 +1204,10 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle' }
                 ref={el => { depthEls.current[`${slot}-${depth}`] = el; }}
                 style={{ height: layerHeight(depth, vp.h) }}
               >
-                {w && <SceneLayer world={w} depth={depth} mode={effectiveMode} vw={vp.w} vh={vp.h} />}
+                {/* A plate stands in for the far and mid strips: they are not painted at all while it is there. */}
+                {scene && !(plate && PLATE_REPLACES.has(depth)) && (
+                  <SceneLayer world={scene.world} depth={depth} mode={effectiveMode} vw={vp.w} vh={vp.h} plated={!!plate} />
+                )}
               </div>
             ))}
           </div>
@@ -1029,6 +1216,7 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle' }
       {effectiveMode !== 'static' && <canvas ref={motesRef} className="pk-env-motes" />}
       {/* Readability guarantee: the UI always wins against the environment. */}
       <div className="pk-env-veil" />
+      <div className="pk-env-plate-veil" />
       <div className="pk-env-vignette" />
     </div>
   );

@@ -205,6 +205,45 @@ Text colours against the three surfaces they appear on. The ground is
 Two tokens were raised during the review to get here: `--color-text-faint`
 (was 3.5:1) and `--color-status-locked` (was 3.4:1 on its wash).
 
+### Contrast over the photographic plates (measured on screenshots) — 2026-10-09
+
+Method: the harness scene is run through `runScene` at 1440×900, the text
+layer is hidden with `visibility: hidden` once the plate reports
+`data-ready="true"`, the bare backdrop is screenshotted, and every pixel under
+each text element's bounding box is compared (PIL, WCAG relative luminance)
+with that element's own computed colour. The minimum is the number reported.
+The gateway was measured twice: during the drift (~3 s in, scale 1.054) and
+under `prefers-reduced-motion` (the resting transform, which is also the
+state after the 40 s drift has ended).
+
+| Screen | Element (colour) | min during drift | min at rest |
+|---|---|---|---|
+| Sign-in hero | "The Gateway to Ayodhya" eyebrow (gold-deep `#c49a45`) | 7.29 | 7.35 |
+| Sign-in hero | पिनाक (gold-soft) | 12.39 | 12.40 |
+| Sign-in hero | PINAKA (foil; measured against parchment `#f3e8d1`) | 13.80 | 13.94 |
+| Sign-in hero | CTF 2026 (gold-deep) | 7.29 | 7.29 |
+| Sign-in hero | tagline (parchment) | 12.81 | 12.95 |
+| Sign-in hero | secondary tagline (text-secondary `#cdc0a6`) | 8.36 | 8.55 |
+| Sign-in hero | fact labels (gold-deep), three rows | 7.07–7.29 | 7.05–7.28 |
+| Sign-in hero | fact values (parchment), three rows | 10.92–12.75 | 10.62–12.88 |
+| Sign-in hero | partner plate: eyebrow (gold-deep, over the dawn glow) | **4.69** | **4.70** |
+| Sign-in hero | partner plate: organiser line / marks / platform line / credits | 7.10 / 6.13 / 6.79 / 7.06 | 7.24 / 6.18 / 6.84 / 7.06 |
+| Intro | पिनाक / CTF 2026 / tagline / platform line / Skip | 11.26 / 10.25 / 9.42 / **6.10** / 10.67 | — (same frame) |
+
+Every line clears 4.5:1 in its own colour; the lowest point is the gold-deep
+eyebrow at the top of the partner plate, which sits on the existing dawn
+glow as well as the photograph. The drift state was also read from the DOM:
+`data-drift="on"`, `animation-name: pk-gateway-plate-drift`,
+`will-change: transform`, `matrix(1.0538, …)` at 3 s; `data-drift="done"`,
+`animation-name: none`, `will-change: auto`, `transform: none` at 44.5 s;
+under reduced motion `data-drift="off"` from the first frame with the plate
+at opacity 1. The default theme was re-shot (`auth-login`, `board-live`,
+desktop) after the change: zero `pk-*` elements, zero plate images and zero
+theme stylesheet or preload links in its DOM, and the pixel difference
+against the previous run (4.8 % / 2.1 %) equals the run-to-run noise of two
+consecutive default-theme runs (4.9 % / 2.1 %: the animated hero radar and
+the lattice).
+
 ### Keyboard and focus (automated, on the mock)
 
 Sixteen automated checks (Playwright, mock backend, desktop), all passing on the final commit:
@@ -294,3 +333,60 @@ container). Semantics were checked against the DOM.
 * A device that chose a look in Settings keeps it until it chooses otherwise
   (or `VITE_THEME_UNTIL` passes); the admin panel says so and offers "Follow
   the organisers".
+
+## 9. Follow-up round: photographic plates and the real-geography map — 2026-10-09
+
+Scope: six licensed photographs behind the worlds and the hero (see
+ASSETS.md § Photographic plates for sources, licences and treatment), the
+campaign map rebuilt on Natural Earth geography with two travellers driven by
+solve progress and a station legend, the hero plate on the sign-in page and
+the intro, the photo credit line, and CTF7 removed from the partner list.
+
+### 9.1 Static checks
+
+| Check | Result |
+|---|---|
+| `npm run lint` (`tsc --noEmit`) | exit 0, 0 errors |
+| `npm run build` | exit 0 |
+| `dist/assets/index-*.js` (default theme main chunk) | 1,551,711 B (437.66 KB gzip) — +74 B against the previous round (the one new prop on the board); **no `.webp` reference in the main chunk or in `index.html`** |
+| theme chunks that grew | `PinakaEnvironment` 19.0 KB (7.5 KB gzip), `JourneyMap` 16.8 KB (6.6 KB gzip, of which `journey/geo.ts` is 11.4 KB of path data) |
+| plates (on demand, theme only) | twelve WebP files, 576 KB in total; a screen loads one (two during a world crossfade); the low tier only ever fetches the 960 px file |
+| `package.json`, `vercel.json`, `index.html` | no diff against `origin/main` (the plates are same-origin assets under `img-src 'self'`) |
+
+### 9.2 Functional and visual passes
+
+Full runs of the harness on the final code (mock backend, desktop 1440×900 and phone 390×844 at DPR 2):
+
+| Run | ok | failed | skipped | page errors | console errors | failed requests | mock gaps |
+|---|---|---|---|---|---|---|---|
+| classic (`cyberhx`), desktop + phone | 66 | 0 | 4 (two phone-only scenes, two intro scenes) | 0 | 0 | 0 | 0 |
+| Pinaka, desktop + phone | 68 | 0 | 2 (phone-only scenes on desktop) | 0 | 0 | 0 | 0 |
+| Pinaka, reduced motion, 9 scenes × 2 viewports | 18 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+Every plate request in the themed runs succeeded (0 failed requests), the
+reduced-motion pass renders the plates as stills (no drift, no travellers'
+tween), and the classic runs fetch no plate.
+
+**Default-theme DOM parity** (the same 17 scenes dumped on this branch with
+the classic look and diffed against the saved dumps of `main @ ce23b64`):
+exactly the profile of the previous round and nothing new. The admin
+dashboard differs by the organisers' button and panel (intended); the
+challenge cards and the chain nodes differ only in the glow utility class
+name (same computed colour); everything else differs only by the dev-server
+script tag and the running clock. `settings`, `scoreboard-live`,
+`user-profile`, `team-profile`, `teams-list`, `users-list`, `auth-login`,
+`board-waiting`, `uplink-down`: no difference.
+
+**Screenshots read** (all under `frontend/qa/visual/out/pinaka/`): the
+plates sit behind every world (Deepotsav ghats before the event, the Agumbe
+forest on the live board, the shoals on the chained board, Sigiriya on the
+scoreboard, the sunset ghats after the close, Hampi behind the sign-in hero
+and the intro); the UI stays readable over all of them (the plate veil and
+the measured contrast in §6); the map is India and Sri Lanka with the
+route, the team's arrow and the viewer's mark at their fractions, the
+legend states matching the arrow; the credit line is present in the footer,
+in the desktop hero and under the phone sign-in card.
+
+### 9.3 Review
+
+{{PLATES_REVIEW}}

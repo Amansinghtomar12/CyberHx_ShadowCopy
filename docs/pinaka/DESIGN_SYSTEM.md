@@ -93,10 +93,13 @@ and the base reduced-motion contract. The theme adds:
 | Bowstring countdown | world banner | 1 s tick, SVG dash | static ring |
 | Journey gleam | journey map path | 6 s loop, transform | none |
 | Setu thread gleam, water drift | chained board | CSS keyframes, transform | static |
-| Intro | first visit | ≤ 4.5 s, skippable from frame one, auto-dismiss | static title frame |
+| Intro | first visit | ≤ 4.5 s, skippable from frame one, auto-dismiss; the plate fades in over 1.2 s from mount | static title frame, plate at rest |
+| Plate drift | environment, sign-in hero | high tier only: scale 1.06 → 1 over 40 s, once, transform only, `will-change` dropped at the end | none |
+| Plate fade-in | environment, sign-in hero, intro | 0.9 s opacity once the file has loaded | none (shown when loaded) |
 
 No `backdrop-filter` on full-screen layers; no `filter: blur()` on moving
-elements; nothing animates layout.
+elements; nothing animates layout. The photographs' soft edges are CSS
+masks, never a blur.
 
 ## 5. The five worlds
 
@@ -112,7 +115,47 @@ The world is derived in `hooks.ts#deriveWorld` from the view, the board mode
 and the server-derived event status, and published on `<html data-world>`.
 Only `tokens.css` reads it (sky and rim tokens); components take it as a prop.
 
-## 6. What the theme is not allowed to do
+## 6. Photographic plates
+
+Six colour-graded, same-origin photographs (`assets/plates`, inventory and
+licences in `ASSETS.md`) stand behind the generated artwork; they never
+carry information and the UI always wins over them. Each is an `<img>` with
+`srcset` (960/1920) from `plateSource()`, `object-fit: cover` on its focal
+point from `plateFocal()`, `alt=""`, `aria-hidden`, not draggable, decoded
+asynchronously; the low tier is served the 960 file only; forced colours
+drop every plate. Attribution is part of the design: the CC BY-SA deeds ask
+for it wherever a plate is shown, so it is rendered, not just documented.
+
+**Sign-in gateway.** The hero plate (Hampi at dusk, the Virupaksha tower
+lower-left) is the hero column's own backdrop: clipped to the column,
+feathered at all four edges (a mask, so it dissolves under the pillars
+instead of ending in a rectangle), under the stone and under two dark
+gradients — from the top, where the lockup is, and from the left, where
+every line of text is — leaving the photograph brightest at the lower right.
+Measured on the backdrop with the text hidden: the lockup, the taglines, the
+fact rows and the partner plate all keep ≥ 4.5:1 against the photograph in
+their own colours (parchment, secondary, gold-deep labels, muted). The drift
+is the environment's (high tier, once, 40 s). The column's size, the form
+column, Turnstile and the Google button are untouched; below `lg` the column
+is not rendered.
+
+**Intro.** The same plate, dim, behind the city: opacity ≈ 0.58 once loaded,
+under a wash that is darkest across the middle (a radial gradient behind the
+lockup and the lines beneath it) and heavier at the top and bottom, its
+edges dissolved by a radial mask. The skyline, horizon and ground stay drawn
+over it. It fades in over 1.2 s from mount, with the first beat, so it never
+delays the ≤ 4.4 s sequence; Skip, Escape and the backdrop click are
+unchanged; the still path shows it at rest from the first frame. Measured:
+the platform line (muted) is the lowest at 6.1:1, the tagline 9.4:1.
+
+**Partner strip.** Under the organiser and partner names, in both the footer
+and the gateway variant, one credit line in the small muted mono of the
+platform line: "Photographs · *title* by *author* (*licence*) · …", every
+title linked to its source page and every licence to its deed
+(`target="_blank" rel="noopener noreferrer"`). It wraps (two lines on a
+desktop, a short paragraph on a phone) and truncates nothing.
+
+## 7. What the theme is not allowed to do
 
 Change a control's size, position, label semantics or tab order; hide an
 error; put a canvas or overlay over Turnstile, the Google button, the flag

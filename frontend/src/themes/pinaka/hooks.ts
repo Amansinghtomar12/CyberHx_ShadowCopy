@@ -4,7 +4,7 @@
  * None of this fetches anything. Every input is a value the platform already
  * holds (the current view, the board mode, the server-derived event status).
  */
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import type { World } from './config';
 
 export type EventStatus = 'waiting' | 'live' | 'ended' | 'inactive';
@@ -62,4 +62,25 @@ export function useWorldAttributes(world: World, phase: EventPhase): void {
       delete el.dataset.phase;
     };
   }, [world, phase]);
+}
+
+const NO_MEDIA = () => () => {};
+
+/**
+ * Whether a media query matches, live. Presentation only: used to leave out
+ * work the layout would hide anyway (an image inside a display:none column
+ * is still fetched by the browser). False where matchMedia is missing.
+ */
+export function useMediaQuery(query: string): boolean {
+  const subscribe = useMemo(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return NO_MEDIA;
+    return (onChange: () => void) => {
+      const mql = window.matchMedia(query);
+      mql.addEventListener('change', onChange);
+      return () => mql.removeEventListener('change', onChange);
+    };
+  }, [query]);
+  const getSnapshot = () =>
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(query).matches;
+  return useSyncExternalStore(subscribe, getSnapshot, () => false);
 }

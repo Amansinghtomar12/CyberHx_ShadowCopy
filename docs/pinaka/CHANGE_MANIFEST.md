@@ -12,7 +12,7 @@ environment secrets, or any existing API contract. One additive migration
 ```
 frontend/src/themes/index.ts                       theme resolution, server switch, live apply, icon registry
 frontend/src/themes/AdminThemeControl.tsx           "Open Pinaka" button (header, phone menu) and panel (Admin → Event); lazy, admins only
-frontend/src/themes/pinaka/boot.ts                 loads the stylesheet, fonts, glyphs (theme only)
+frontend/src/themes/pinaka/boot.ts                 loads the stylesheet, fonts, glyphs; preloads the first world's plate (theme only)
 frontend/src/themes/pinaka/config.ts               event facts, partners, worlds, copy, storage keys
 frontend/src/themes/pinaka/hooks.ts                deriveWorld / derivePhase / useWorldAttributes
 frontend/src/themes/pinaka/intro-gate.ts           shouldShowIntro()
@@ -33,6 +33,10 @@ frontend/src/themes/pinaka/components/AuthGateway.tsx
 frontend/src/themes/pinaka/components/PodiumFrame.tsx
 frontend/src/themes/pinaka/components/ProfileJourney.tsx
 frontend/src/themes/pinaka/components/ThemeSwitch.tsx
+frontend/src/themes/pinaka/components/journey/geo.ts   journey-map geography: Natural Earth coastlines (public domain), five stations, one road; pure data
+frontend/src/themes/pinaka/assets/plates/index.ts  PLATES / PLATE_CREDITS: the six photographic plates, focal points, licences and sources
+frontend/src/themes/pinaka/assets/plates/sources.ts   plateSource / plateFocal / preloadPlate — the one place that picks a plate's file for an <img> or a preload
+frontend/src/themes/pinaka/assets/plates/*.webp    twelve same-origin WebP files (1920×1080 + 960×540 per plate, 552 KB in all; see ASSETS.md)
 frontend/src/themes/pinaka/README.md               module contract
 frontend/src/lib/brand.ts                          tokenValue(): read a CSS token as a literal (charts)
 frontend/qa/visual/{harness,mock,scenes}.cjs, README.md   screenshot harness (dev tool, not shipped)
@@ -45,7 +49,7 @@ docs/pinaka/*.md                                   this documentation set (AUDIT
 | File | What changed | Default-theme effect |
 |---|---|---|
 | `src/main.tsx` | `bootTheme(() => supabase.rpc('public_theme'))` then `createRoot(...).render(...)`; an RPC error is thrown so it counts as "no answer" | one anonymous RPC before first paint (cached per device; a first visit waits ≤ 700 ms for it; the skin's own chunks get ≤ 2.5 s, after which the page paints and the skin lands in place) |
-| `src/App.tsx` | imports; `CATEGORY_ICON` wrapped in `registerCategoryIcons()`; `pinaka` (from `useTheme()`), `world/worldPhase/introOpen` locals; environment swap; intro mount; nav badge + the admins' `AdminThemeControl` button; `noteServerTheme(data.theme)` in the event-settings poll; `JourneyMap` below `CommandHeader` (whenever the board renders, so the waiting and closed states are named too); the nav badge hides until the header has room for it (`xl`, `2xl` for admins); `PartnerStrip` in the footer; `ArrowSolveLight` beside `BreachConfirm` (both keyed); `.page-shell` is `inert` while the intro is up and an effect hands focus to the nav brand once it has closed; two lime literals → `color-mix(... var(--color-neon) ...)` with the same alpha | none for players (identical elements and pixels); admins gain one header button |
+| `src/App.tsx` | imports; `CATEGORY_ICON` wrapped in `registerCategoryIcons()`; `pinaka` (from `useTheme()`), `world/worldPhase/introOpen` locals; environment swap; intro mount; nav badge + the admins' `AdminThemeControl` button; `noteServerTheme(data.theme)` in the event-settings poll; `JourneyMap` below `CommandHeader` (whenever the board renders, so the waiting and closed states are named too), with `progress` (the board's solved share) and `personal` (the player's own, from `solvedIds`); the nav badge hides until the header has room for it (`xl`, `2xl` for admins); `PartnerStrip` in the footer (organiser, partners and the photographs' credit line); `ArrowSolveLight` beside `BreachConfirm` (both keyed); `.page-shell` is `inert` while the intro is up and an effect hands focus to the nav brand once it has closed; two lime literals → `color-mix(... var(--color-neon) ...)` with the same alpha | none for players (identical elements and pixels); admins gain one header button |
 | `src/components/AuthPage.tsx` | environment swap; hero column → `AuthGateway` under the theme; four copy strings ternaried | none |
 | `src/Scoreboard.tsx` | `PodiumFrame` around the three podium cards; `pk-lanka-hall` class on the page wrapper; one label; `seriesColor()` reads the accent via `lib/brand` | none (same hex on the default theme) |
 | `src/components/chain/ChainedBoard.tsx` | two lazy renderers; `SetuChain` chosen at render under the theme; one lime glow → `color-mix` | none |
@@ -58,6 +62,18 @@ docs/pinaka/*.md                                   this documentation set (AUDIT
 | `src/TeamProfile.tsx` | chart accent via `lib/brand` | none |
 | `src/SharedComponents.tsx` | `TOKEN.neon/neonDim/neonBright` become getters via `lib/brand` | none |
 | `src/lib/brand.ts` (new) | token reads for chart literals, cached until the theme switches (`resetTokenCache()`, called by `applyTheme`) | same hex values as before on the default theme |
+
+### Theme files touched by the plates round (all inside the removable unit)
+
+`components/PinakaEnvironment.tsx` + `styles/environment.css` (the world's
+plate behind each scene, promoted only once loaded, a second veil over it),
+`components/AuthGateway.tsx` + `styles/gateway.css` (the hero plate as the
+column's backdrop), `components/PinakaIntro.tsx` + `styles/intro.css` (the
+hero plate dim behind the city), `components/PartnerStrip.tsx` +
+`styles/partners.css` (the credit line), `components/JourneyMap.tsx` +
+`styles/journey.css` (the map from `journey/geo.ts`), `boot.ts` (one plate
+preload). No platform file outside the table above changed for it except the
+`personal` prop on `JourneyMap` in `App.tsx`.
 
 ## Unavoidable deviations from "presentation only"
 

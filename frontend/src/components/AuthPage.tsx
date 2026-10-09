@@ -18,7 +18,7 @@ import MagneticElement from './environment/MagneticElement';
 import AccessSequence from './AccessSequence';
 import { pendingInvite, clearInvite, type InvitePreview } from '../lib/invite';
 import { useTheme } from '../themes';
-import { PinakaEnvironment, AuthGateway } from '../themes/pinaka/lazy';
+import { PinakaEnvironment, AuthGateway, PlateCredits } from '../themes/pinaka/lazy';
 
 // ── Turnstile Site Key — from environment variable ──
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || '';
@@ -954,6 +954,14 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
               {/* The hero carries this on desktop; repeat it here for the
                   widths where the hero is hidden. */}
               <BuildCredit className="mt-4 justify-center lg:hidden" />
+              {/* Event skin: the photograph behind this page is credited in
+                  the hero on desktop; on narrower screens the hero is hidden,
+                  so the credit sits here. */}
+              {pinaka && (
+                <React.Suspense fallback={null}>
+                  <PlateCredits className="mt-4 lg:hidden" />
+                </React.Suspense>
+              )}
             </motion.div>
           </div>
         </div>

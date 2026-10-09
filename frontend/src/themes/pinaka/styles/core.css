@@ -10,6 +10,16 @@
 html[data-theme="pinaka"] body {
   background-color: var(--color-surface-base);
   color: var(--color-text-primary);
+  background-image: url('../assets/images/site-bg-1280.webp');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+@media (min-width: 1440px) {
+  html[data-theme="pinaka"] body {
+    background-image: url('../assets/images/site-bg-2560.webp');
+  }
 }
 html[data-theme="pinaka"] ::selection {
   background-color: var(--pk-gold);
@@ -35,8 +45,24 @@ html[data-theme="pinaka"] .text-glow { text-shadow: 0 0 18px var(--pk-gold-glow)
 /* ── Navigation bar: a bronze rail with a gold hairline ─────────────────── */
 html[data-theme="pinaka"] nav.sticky {
   background-color: rgba(9, 11, 20, 0.78);
+  background-image:
+    url('../assets/images/navbar-corner-left.webp'),
+    url('../assets/images/navbar-corner-right.webp');
+  background-position: left center, right center;
+  background-repeat: no-repeat, no-repeat;
+  background-size: auto 28px, auto 28px;
   border-bottom-color: var(--pk-gold-line);
   box-shadow: 0 1px 0 rgba(246, 223, 163, 0.06) inset, 0 8px 28px -14px rgba(227, 187, 102, 0.28);
+}
+html[data-theme="pinaka"] nav.sticky::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url('../assets/images/navbar-texture.webp');
+  background-size: 200px auto;
+  background-repeat: repeat;
+  opacity: 0.06;
+  pointer-events: none;
 }
 html[data-theme="pinaka"] nav.sticky::after {
   content: "";
