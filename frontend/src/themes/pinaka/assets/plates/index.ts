@@ -2,8 +2,10 @@
  * Pinaka theme — world plates.
  *
  * One picture per world plus the hero behind the sign-in page and the intro:
- * the official event paintings (the temple-city key art for Ayodhya and the
- * hero, Lanka ablaze for Lanka) and colour-graded photographs for the rest.
+ * the official event paintings — the temple-city key art for Ayodhya, the
+ * bridge to the far shore (Setu), the return (Vijaya) and the hero, Lanka
+ * ablaze for Lanka — and one colour-graded photograph, the forest of
+ * Vanavasa.
  * Every file is a same-origin asset bundled by Vite (a 1920 px and a 960 px
  * WebP, cover-cropped around `focal`). Licences and
  * sources are recorded here and in docs/pinaka/ASSETS.md; the untouched
@@ -20,12 +22,8 @@ import temple1920 from './temple-1920.webp';
 import temple960 from './temple-960.webp';
 import vanavasa1920 from './vanavasa-1920.webp';
 import vanavasa960 from './vanavasa-960.webp';
-import setu1920 from './setu-1920.webp';
-import setu960 from './setu-960.webp';
 import lankaArt1920 from './lanka-art-1920.webp';
 import lankaArt960 from './lanka-art-960.webp';
-import vijaya1920 from './vijaya-1920.webp';
-import vijaya960 from './vijaya-960.webp';
 
 /** The official Pinaka CTF 2026 key art: the golden temple-city on the water. */
 const TEMPLE_ART: Plate = {
@@ -87,22 +85,7 @@ export const PLATES: Record<PlateKey, Plate> = {
       photo: true,
     },
   },
-  setu: {
-    w1920: setu1920,
-    w960: setu960,
-    width: 1920,
-    height: 1080,
-    alt: "The chain of limestone shoals between Dhanushkodi and Mannar island, photographed from the International Space Station",
-    focal: { x: 0.46, y: 0.42 },
-    credit: {
-      title: "Limestone shoals between mainland India and Sri Lanka",
-      author: "NASA / ISS Expedition 71",
-      license: "Public domain (NASA)",
-      licenseUrl: "https://www.nasa.gov/nasa-brand-center/images-and-media/",
-      sourceUrl: "https://images.nasa.gov/details/iss071e700080",
-      photo: true,
-    },
-  },
+  setu: TEMPLE_ART,
   lanka: {
     w1920: lankaArt1920,
     w960: lankaArt960,
@@ -119,22 +102,7 @@ export const PLATES: Record<PlateKey, Plate> = {
       photo: false,
     },
   },
-  vijaya: {
-    w1920: vijaya1920,
-    w960: vijaya960,
-    width: 1920,
-    height: 1080,
-    alt: "The sun on the horizon behind the silhouetted domes and spires of Ram ki Paidi, Ayodhya, with birds in the sky",
-    focal: { x: 0.63, y: 0.35 },
-    credit: {
-      title: "Ram ki Paidi",
-      author: "AyodhyaDiary",
-      license: "CC BY-SA 4.0",
-      licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0",
-      sourceUrl: "https://commons.wikimedia.org/wiki/File:Ram_ki_Paidi.jpg",
-      photo: true,
-    },
-  },
+  vijaya: TEMPLE_ART,
   hero: TEMPLE_ART,
 };
 
