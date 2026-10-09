@@ -197,6 +197,19 @@ export function effectiveTheme(): ThemeId {
 
 let current: ThemeId | null = null;
 const listeners = new Set<(t: ThemeId) => void>();
+/** Once the skin has been on in this session, the Look switch stays offered. */
+let seenPinaka = false;
+
+/**
+ * Whether the Look switch (Settings → Experience) should be shown at all: the
+ * skin is in play by the build, the organisers, this device, this tab, or it
+ * was earlier in this session (so a device that picks Classic can pick the
+ * skin back without a URL).
+ */
+export function themeOffered(): boolean {
+  return buildTheme() === 'pinaka' || getServerTheme() === 'pinaka' || getTheme() === 'pinaka'
+    || getThemeOverride() !== null || getPreviewTheme() !== null || seenPinaka;
+}
 
 export function getTheme(): ThemeId {
   return current ?? (current = effectiveTheme());
@@ -250,6 +263,7 @@ let applying: Promise<void> | null = null;
 
 /** Commit a theme to the document and tell every subscriber. */
 function commit(next: ThemeId): void {
+  if (next === 'pinaka') seenPinaka = true;
   document.documentElement.dataset.theme = next;
   // Charts read tokens as literals through lib/brand; the values just changed.
   resetTokenCache();

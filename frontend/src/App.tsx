@@ -945,7 +945,7 @@ export default function App() {
                 {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
 
-              <h1 className="shrink-0">
+              <h1 className={pinaka ? 'shrink-0' : 'min-w-0'}>
                 <button
                   type="button"
                   className="group flex items-center gap-2.5 focus-ring rounded-inset"

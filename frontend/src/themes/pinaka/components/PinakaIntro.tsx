@@ -25,7 +25,8 @@
  * Motion is transform, opacity and SVG path length only. The haze is a
  * gradient, never a blur: there is no filter on any full-screen layer.
  */
-import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent } from 'react';
+import { flushSync } from 'react-dom';
 import { motion, useReducedMotion } from 'motion/react';
 import { getCapability } from '../../../components/environment/performance';
 import { PINAKA_EVENT } from '../config';
@@ -244,12 +245,29 @@ export default function PinakaIntro({ onDone }: { onDone: () => void }) {
     closing.current = true;
     setLeaving(true);
     timers.current.push(window.setTimeout(() => {
-      // Hand focus to the page the curtain was covering, so a keyboard user
+      // Commit the close first (the page is inert until then), then hand
+      // focus to the page the curtain was covering, so a keyboard user
       // resumes at the top of the nav rather than at <body>.
-      const target = document.querySelector<HTMLElement>('.page-shell h1 button, .page-shell nav button');
-      target?.focus({ preventScroll: true });
-      onDoneRef.current();
+      flushSync(() => onDoneRef.current());
+      const focusBrand = () =>
+        document.querySelector<HTMLElement>('.page-shell h1 button, .page-shell nav button')?.focus({ preventScroll: true });
+      focusBrand();
+      // Once more after the browser has settled the unmount, in case the
+      // removal of the focused curtain button reset focus after our move.
+      window.setTimeout(focusBrand, 0);
     }, still ? 0 : LEAVE_MS));
+  }
+
+  // Tab stays on the curtain: the page behind is inert, so without this the
+  // focus would fall off the end into the browser chrome.
+  function onKeyDown(e: ReactKeyboardEvent<HTMLDivElement>) {
+    if (e.key !== 'Tab') return;
+    const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled])'));
+    if (!items.length) return;
+    const i = items.indexOf(document.activeElement as HTMLElement);
+    const next = e.shiftKey ? (i <= 0 ? items.length - 1 : i - 1) : (i < 0 || i === items.length - 1 ? 0 : i + 1);
+    e.preventDefault();
+    items[next].focus({ preventScroll: true });
   }
 
   function onBackdrop(e: MouseEvent<HTMLDivElement>) {
@@ -273,6 +291,7 @@ export default function PinakaIntro({ onDone }: { onDone: () => void }) {
       aria-modal="false"
       aria-label="Welcome to Pinaka CTF"
       onClick={onBackdrop}
+      onKeyDown={onKeyDown}
     >
       {/* First in the DOM as it is first on the screen: visible from the first
           frame, before anything has moved. */}

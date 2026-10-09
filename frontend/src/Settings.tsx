@@ -20,7 +20,7 @@ import {
 import { useAuth } from './hooks/useAuth';
 import SoundToggle from './components/SoundToggle';
 import FxToggle from './components/FxToggle';
-import { buildTheme, getTheme, getThemeOverride, getServerTheme } from './themes';
+import { themeOffered } from './themes';
 import { ThemeSwitch } from './themes/pinaka/lazy';
 import { ADMIN_EMAIL, FORGOT_NO_RESET, WRONG_CURRENT } from './lib/support';
 import { COUNTRIES } from './lib/countries';
@@ -420,7 +420,7 @@ export default function Settings() {
               <FxToggle />
               {/* Only offered where the event skin is in play: the build
                   defaults to it, this device chose it, or chose to leave it. */}
-              {(buildTheme() === 'pinaka' || getServerTheme() === 'pinaka' || getTheme() === 'pinaka' || getThemeOverride() !== null) && (
+              {themeOffered() && (
                 <React.Suspense fallback={null}><ThemeSwitch /></React.Suspense>
               )}
             </div>

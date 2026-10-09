@@ -717,7 +717,7 @@ export default function Scoreboard({ myTeamId = null, eventStatus = 'live', star
   const pinaka = isPinaka();
 
   return (
-    <div className={`flex-1 w-full min-w-0 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 sm:py-12 ${pinaka ? 'pk-lanka-hall' : ''}`}>
+    <div className={`flex-1 w-full min-w-0 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 sm:py-12${pinaka ? ' pk-lanka-hall' : ''}`}>
       {/* ── header ───────────────────────────────────────────────── */}
       <header className="mb-8 sm:mb-section flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
