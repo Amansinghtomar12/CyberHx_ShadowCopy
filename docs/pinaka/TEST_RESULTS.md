@@ -22,12 +22,12 @@ below was measured in this repository; "not run" means exactly that.
 |---|---|
 | `npm run lint` (`tsc --noEmit`) | exit 0, 0 errors |
 | `npm run build` | exit 0, 3036 modules, 7.9–10.0 s |
-| `dist/assets/index-*.js` | 1,551,349 B (437.50 KB gzip) — **+8,291 B raw, +3.2 KB gzip** against the baseline |
+| `dist/assets/index-*.js` | 1,551,637 B (437.63 KB gzip) — **+8,579 B raw, +3.4 KB gzip** against the baseline |
 | `dist/assets/index-*.css` | 112,062 B (20.28 KB gzip) — +2,042 B, +0.3 KB gzip (Tailwind utilities first used by theme components; Tailwind emits them once, into the main stylesheet) |
 | theme code in the main chunk | `grep -c "pk-env\|pk-intro"` = 0; the Cinzel font URL appears only in `config-*.js` |
 | `package.json`, `vercel.json`, `index.html` | no diff against `origin/main` |
 
-The eager cost (+3.2 KB gzip) is the theme resolver with the organisers' switch
+The eager cost (+3.4 KB gzip) is the theme resolver with the organisers' switch
 (`themes/index.ts`), the lazy entry points, `hooks.ts`, `intro-gate.ts`,
 `lib/brand.ts` and the mount-point conditionals. The design target in
 `AUDIT.md` was ±1 KB; the server-driven switch (RPC at boot, poll, in-place
@@ -44,7 +44,7 @@ else is fetched only under the theme:
 | `JourneyMap` | 5.40 KB | 2.12 KB |
 | `AuthGateway` | 4.72 KB | 1.32 KB |
 | `CategoryGlyph` | 3.27 KB | 1.16 KB |
-| `AdminThemeControl` (admins only) | 3.22 KB | 1.45 KB |
+| `AdminThemeControl` (admins only) | 3.22 KB | 1.44 KB |
 | `ProfileJourney` | 2.85 KB | 1.43 KB |
 | `ThemeSwitch` | 2.56 KB | 1.26 KB |
 | `PodiumFrame` | 1.98 KB | 0.81 KB |
@@ -98,7 +98,20 @@ asked for an endpoint it does not know (`mockGaps`).
 | Profiles, settings (11, 12, 14) | `user-profile`, `team-profile`, `settings`, `settings-security`, `teams-list`, `users-list` | identity header, stats, solves table, settings forms, the Look switch |
 | Admin (15) | `admin-dashboard` (challenges + event tabs), `board-admin-paused` | guards, stats, tabs, the Pinaka panel, danger styling on "Reset event scores" |
 
-Result: {{FUNCTIONAL}}
+Result: every scene passed in both themes, at both viewports, with 0 page errors, 0 console errors, 0 mock gaps and 0 failed requests (`report.json`: Pinaka 68 ok / 0 failed / 2 skipped (phone-only scenes on desktop); classic 66 ok / 0 failed / 4 skipped (the two phone-only scenes and the two intro scenes, which do not exist on the classic look)). The reduced-motion pass (9 scenes × 2 viewports) also passed 18 / 18.
+
+### Default-theme DOM parity against `main`
+
+The same 17 scenes were driven on `main @ ce23b64` (served on a second port) and on this branch with the classic look, and the body HTML compared after normalising clocks, React ids and inline styles. Identical except:
+
+| Scene | Difference | Why |
+|---|---|---|
+| `admin-dashboard` | +22 lines | the admins' "Open Pinaka" button and the *Pinaka experience* panel (intended) |
+| `board-live`, `challenge-modal`, `hint-confirm`, `solve` | the challenge cards' glow class name | `shadow-[0_0_14px_rgba(198,255,0,0.18)]` → `shadow-[0_0_14px_color-mix(in_srgb,var(--color-neon)_18%,transparent)]`; `--color-neon` is `#c6ff00` on the classic look, so the computed shadow is the same |
+| `chain-experience`, `b2r-chained` | the chain nodes' glow class name | same substitution in `ChainExperience` |
+| every scene | the dev-server script tag's `?t=` and the running clock | noise |
+
+`auth-login`, `board-waiting`, `scoreboard-live`, `settings`, `teams-list`, `users-list`, `team-profile`, `user-profile`, `invite-dialog`, `uplink-down`: no difference at all.
 
 What this does **not** cover, because the harness replaces the backend: the
 real `submit-flag` edge function, real Turnstile and Google OAuth round trips,
@@ -113,7 +126,13 @@ mobile) and `--theme pinaka --rm` (reduced motion) on the final commit. Every
 screenshot was opened and read; the defects found on the way, and their fixes,
 are in §4.1.
 
-{{VISUAL}}
+| Run | Scenes | ok | failed | skipped | page errors | console errors | mock gaps |
+|---|---|---|---|---|---|---|---|
+| classic, desktop + phone | 35 × 2 | 66 | 0 | 4 | 0 | 0 | 0 |
+| Pinaka, desktop + phone | 35 × 2 | 68 | 0 | 2 | 0 | 0 | 0 |
+| Pinaka, reduced motion, desktop + phone | 9 × 2 | 18 | 0 | 0 | 0 | 0 | 0 |
+
+Capability tiers seen by the harness: `high` on desktop, `medium` on the phone profile (coarse pointer), `still` under reduced motion — so the canvas environment, the static fallback and the no-motion path were all rendered. Screenshots live in `frontend/qa/visual/out/` (not committed; regenerate with the commands in `qa/visual/README.md`). The scenes touched by the last code changes (intro, sign-in, board, settings, scoreboard, profile, admin, chain) were re-run on the final commit in both themes.
 
 ### 4.1 Defects found by reading the screenshots, all fixed
 
@@ -129,7 +148,16 @@ are in §4.1.
 
 ## 5. Performance
 
-{{PERF}}
+Measured with Playwright on the mock backend, desktop viewport, both skins on the same software-rendered headless Chromium (no GPU, `swiftshader`), after ten view changes (Challenges ↔ Scoreboard, i.e. ten world changes under the theme):
+
+| | classic | Pinaka |
+|---|---|---|
+| tier | high | high |
+| JS heap before / after ten view changes | 28.7 MB → 69.2 MB | 40.3 MB → 34.4 MB |
+| long tasks (> 50 ms) during the ten changes | 17 | 13 |
+| wall time for the ten changes (incl. 700 ms waits) | 15.1 s | 15.3 s |
+
+Frame-rate figures from this container are not reported: without a GPU both skins render at a handful of frames per second, which says nothing about devices. What the table shows is that the theme is not heavier than the classic look on the same machine, and that ten world changes release their canvases (the heap settles lower than it started).
 
 Lighthouse: **not run** — the mock backend is a Playwright route handler, so
 a Lighthouse pass could only measure the sign-in page, and the container has
@@ -179,7 +207,26 @@ Two tokens were raised during the review to get here: `--color-text-faint`
 
 ### Keyboard and focus (automated, on the mock)
 
-{{KEYBOARD}}
+Sixteen automated checks (Playwright, mock backend, desktop), all passing on the final commit:
+
+| Check | Result |
+|---|---|
+| Intro: the page behind the curtain is `inert` while it is up | pass |
+| Intro: six Tabs keep focus on the curtain's own buttons (Tab wraps) | pass |
+| Intro: Skip is the first button in DOM order | pass |
+| Intro: Escape closes it and focus lands on the nav brand button | pass |
+| Intro: the page is no longer `inert` afterwards | pass |
+| Settings → Look: exactly one radio is in the tab order | pass |
+| Settings → Look: ArrowRight picks Classic, applies it in place, focus stays on the radio | pass |
+| Settings → Look: ArrowLeft returns to Pinaka in place | pass |
+| Settings → Look: no page reload (one navigation entry) | pass |
+| Admin → Event: the preview link is `/?preview=pinaka`, `target="_blank"`, `rel="noopener"` | pass |
+| Header: the organisers' switch is present and focusable | pass |
+| `?preview=pinaka`: skin on in that tab, parameter stripped, only the session key written, and it outranks a device pin | pass |
+| Setu causeway: opening the briefing moves focus to its Close button | pass |
+| Setu causeway: the briefing sits at the modal tier (`z-index: 110`) | pass |
+| Setu causeway: Escape closes the briefing and focus returns to the Briefing button | pass |
+| Setu causeway: Tab from the Back button reaches the next control (the briefing download) | pass |
 
 ### Semantics, by inspection
 

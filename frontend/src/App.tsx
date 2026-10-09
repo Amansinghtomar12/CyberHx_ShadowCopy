@@ -449,6 +449,15 @@ export default function App() {
   const world = deriveWorld(currentView, boardMode, eventStatus);
   const worldPhase = derivePhase(eventStatus);
   const [introOpen, setIntroOpen] = useState(() => pinaka && shouldShowIntro());
+  // Event skin: once the curtain has closed (and the page is no longer inert),
+  // a keyboard user resumes at the top of the nav rather than at <body>.
+  const introWasOpen = useRef(false);
+  useEffect(() => {
+    if (introOpen) { introWasOpen.current = true; return; }
+    if (!introWasOpen.current) return;
+    introWasOpen.current = false;
+    document.querySelector<HTMLElement>('.page-shell h1 button')?.focus({ preventScroll: true });
+  }, [introOpen]);
 
   // Your score, derived rather than fetched. Mirrors the database exactly --
   // GREATEST(total_points - hint_spend, 0) -- so the number in the header and

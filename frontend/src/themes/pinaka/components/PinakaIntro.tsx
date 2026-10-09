@@ -26,7 +26,6 @@
  * gradient, never a blur: there is no filter on any full-screen layer.
  */
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent } from 'react';
-import { flushSync } from 'react-dom';
 import { motion, useReducedMotion } from 'motion/react';
 import { getCapability } from '../../../components/environment/performance';
 import { PINAKA_EVENT } from '../config';
@@ -244,18 +243,9 @@ export default function PinakaIntro({ onDone }: { onDone: () => void }) {
     if (closing.current) return;
     closing.current = true;
     setLeaving(true);
-    timers.current.push(window.setTimeout(() => {
-      // Commit the close first (the page is inert until then), then hand
-      // focus to the page the curtain was covering, so a keyboard user
-      // resumes at the top of the nav rather than at <body>.
-      flushSync(() => onDoneRef.current());
-      const focusBrand = () =>
-        document.querySelector<HTMLElement>('.page-shell h1 button, .page-shell nav button')?.focus({ preventScroll: true });
-      focusBrand();
-      // Once more after the browser has settled the unmount, in case the
-      // removal of the focused curtain button reset focus after our move.
-      window.setTimeout(focusBrand, 0);
-    }, still ? 0 : LEAVE_MS));
+    // The app hands focus back to the page once the curtain has gone (the
+    // page is inert until then); see the introOpen effect in App.tsx.
+    timers.current.push(window.setTimeout(() => onDoneRef.current(), still ? 0 : LEAVE_MS));
   }
 
   // Tab stays on the curtain: the page behind is inert, so without this the
