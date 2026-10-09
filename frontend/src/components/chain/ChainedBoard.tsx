@@ -2,14 +2,12 @@ import React, { Suspense, useMemo, useState } from 'react';
 import { Flame, ChevronRight, Layers, Loader2, Download } from 'lucide-react';
 import { safeHttpUrl } from '../../lib/url';
 import type { ChainSeriesVM } from './chainModel';
-import { isPinaka } from '../../themes';
 
 // The chain experience (canvas renderer + steel/fire image assets) is a
-// separate chunk, loaded only when a player actually enters a series. Under
-// the event skin the same props drive the Setu causeway instead; the series
-// data, the node buttons and the unlock rules are identical either way.
-const ClassicChainExperience = React.lazy(() => import('./ChainExperience'));
-const SetuChainExperience = React.lazy(() => import('../../themes/pinaka/components/SetuChain'));
+// separate chunk, loaded only when a player actually enters a series. The
+// chain is the same under every skin: the steel links are what a chained
+// series looks like here, and the event theme does not replace them.
+const ChainExperience = React.lazy(() => import('./ChainExperience'));
 
 interface Props {
   vms: ChainSeriesVM[];
@@ -58,7 +56,6 @@ export default function ChainedBoard({ vms, category, onOpenChallenge }: Props) 
   );
 
   const selected = selectedId ? vms.find((v) => v.id === selectedId) ?? null : null;
-  const ChainExperience = isPinaka() ? SetuChainExperience : ClassicChainExperience;
 
   if (selected) {
     return (

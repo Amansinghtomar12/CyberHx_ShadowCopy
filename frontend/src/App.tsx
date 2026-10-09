@@ -1657,19 +1657,19 @@ export default function App() {
               </main>
             </>
           ) : currentView === 'scoreboard' ? (
-            <>
+            <div className="flex flex-1 flex-col min-w-0">
               {chapterTag}
               <Scoreboard myTeamId={profile?.team_id ?? null} eventStatus={eventStatus} startTime={eventSettings?.start_time ?? null} />
-            </>
+            </div>
           ) : currentView === 'teams' ? (
             <TeamsList />
           ) : currentView === 'users' ? (
             <UsersList />
           ) : currentView === 'teamProfile' ? (
-            <>
+            <div className="flex flex-1 flex-col min-w-0">
               {chapterTag}
               <TeamProfile />
-            </>
+            </div>
           ) : currentView === 'userProfile' ? (
             <UserProfile />
           ) : currentView === 'admin' ? (
