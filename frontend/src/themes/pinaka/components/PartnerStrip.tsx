@@ -22,6 +22,9 @@
  */
 import { PINAKA_EVENT, PINAKA_PARTNERS, type Partner } from '../config';
 import { PLATE_CREDITS } from '../assets/plates';
+import { INSTITUTIONAL_LOGOS } from '../assets/institutional';
+import { FEATURED_LOGOS } from '../assets/sponsors';
+import { PINAKA_IMAGES } from '../assets/images';
 
 const EXTERNAL = { target: '_blank', rel: 'noopener noreferrer' } as const;
 
@@ -90,6 +93,10 @@ export default function PartnerStrip({ variant = 'footer' }: { variant?: 'footer
   if (variant === 'gateway') {
     return (
       <div className="pk-partners pk-partners-gateway" aria-label="Event organiser and partners">
+        <div className="pk-partners-institutional" aria-label="Institutional partners">
+          <img src={INSTITUTIONAL_LOGOS.nfsuEmblemOnly} alt="NFSU" height={44} loading="lazy" decoding="async" className="pk-institutional-logo" />
+          <img src={INSTITUTIONAL_LOGOS.mha} alt="Ministry of Home Affairs" height={44} loading="lazy" decoding="async" className="pk-institutional-logo" />
+        </div>
         <span className="pk-eyebrow">{PINAKA_EVENT.platformRole}</span>
         <p className="pk-partners-organiser">
           <span className="pk-partners-event">{PINAKA_EVENT.name}</span>
@@ -100,7 +107,8 @@ export default function PartnerStrip({ variant = 'footer' }: { variant?: 'footer
         </p>
         {association.map(p => (
           <p key={p.name} className="pk-partners-association">
-            {p.role} <Mark partner={p} />
+            {p.role}{' '}
+            <img src={FEATURED_LOGOS.ine} alt={p.name} height={36} loading="lazy" decoding="async" className="pk-featured-logo" />
           </p>
         ))}
         <Marks partners={field} className="is-wrapped" />
@@ -112,6 +120,7 @@ export default function PartnerStrip({ variant = 'footer' }: { variant?: 'footer
 
   return (
     <div className="pk-partners pk-partners-footer" aria-label="Event organiser and partners">
+      <img className="pk-footer-shield" src={PINAKA_IMAGES.footerShield} alt="" aria-hidden="true" height={32} loading="lazy" decoding="async" />
       <p className="pk-partners-line">
         <span>{PINAKA_EVENT.name}</span>
         <span className="pk-diamond" aria-hidden="true" />

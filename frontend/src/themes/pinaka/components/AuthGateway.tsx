@@ -43,6 +43,7 @@ import { PINAKA_EVENT } from '../config';
 import { useMediaQuery } from '../hooks';
 import { PLATES } from '../assets/plates';
 import { plateFocal, plateSource } from '../assets/plates/sources';
+import { PINAKA_IMAGES } from '../assets/images';
 import { Eyebrow } from './BowMotifs';
 import PartnerStrip from './PartnerStrip';
 
@@ -213,6 +214,24 @@ export default function AuthGateway() {
         <span className="pk-gateway-lamp" data-pos="l2" />
         <span className="pk-gateway-lamp" data-pos="r1" />
         <span className="pk-gateway-lamp" data-pos="r2" />
+        <img
+          className="pk-gateway-archer"
+          src={PINAKA_IMAGES.archer.large}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          loading="eager"
+          decoding="async"
+        />
+        <img
+          className="pk-gateway-wheel"
+          src={PINAKA_IMAGES.wheelEmblem.small}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          loading="eager"
+          decoding="async"
+        />
       </div>
 
       {/* ── Inside the gate ── */}
@@ -233,6 +252,19 @@ export default function AuthGateway() {
           <p className="pk-gateway-tagline">{PINAKA_EVENT.tagline}</p>
           <p className="pk-gateway-tagline is-secondary">{PINAKA_EVENT.taglineSecondary}</p>
         </motion.div>
+
+        <motion.img
+          className="pk-gateway-scroll-art"
+          src={PINAKA_IMAGES.scrollArt}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          decoding="async"
+          loading="eager"
+          initial={reduce ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.6, ease, delay: reduce ? 0 : 0.22 }}
+        />
 
         <motion.dl
           className="pk-gateway-facts"

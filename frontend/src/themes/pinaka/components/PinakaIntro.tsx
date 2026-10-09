@@ -41,6 +41,7 @@ import { PINAKA_EVENT } from '../config';
 import { PINAKA_STORAGE_KEYS } from '../keys';
 import { PLATES } from '../assets/plates';
 import { plateFocal, plateSource } from '../assets/plates/sources';
+import { PINAKA_IMAGES } from '../assets/images';
 // Whether to play at all is decided by ../intro-gate (shouldShowIntro), which
 // the app can read without downloading this chunk.
 
@@ -354,6 +355,25 @@ export default function PinakaIntro({ onDone }: { onDone: () => void }) {
       {/* ── Scene: the photograph, sky, horizon, the city rising. Decoration only. ── */}
       <div className="pk-intro-scene" aria-hidden="true">
         <Plate still={still} />
+
+        <motion.div
+          className="pk-intro-duel"
+          initial={still ? false : { opacity: 0, scale: 1.04 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={still ? { duration: 0 } : { delay: T.skylineFar - 0.2, duration: 1.8, ease: EASE }}
+        >
+          <picture>
+            <source srcSet={PINAKA_IMAGES.duel.large} media="(min-width: 1024px)" />
+            <img
+              src={PINAKA_IMAGES.duel.small}
+              alt=""
+              aria-hidden="true"
+              draggable={false}
+              decoding="async"
+              loading="eager"
+            />
+          </picture>
+        </motion.div>
 
         <motion.div
           className="pk-intro-glow"

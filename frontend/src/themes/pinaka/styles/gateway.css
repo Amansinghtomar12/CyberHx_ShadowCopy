@@ -243,6 +243,18 @@ html[data-theme="pinaka"] .pk-gateway-edition {
   color: var(--pk-gold-deep);
 }
 
+/* ── Scroll art: decorative divider between taglines and facts ──────────── */
+html[data-theme="pinaka"] .pk-gateway-scroll-art {
+  display: block;
+  width: clamp(140px, 28vw, 220px);
+  height: auto;
+  margin: 1.5rem 0 0.25rem;
+  opacity: 0.25;
+  filter: sepia(0.5) brightness(1.4) saturate(0.6);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
 /* ── Taglines, in the prose face ─────────────────────────────────────────── */
 html[data-theme="pinaka"] .pk-gateway-tagline {
   margin: 1.75rem 0 0;
@@ -281,9 +293,48 @@ html[data-theme="pinaka"] .pk-gateway-fact:first-child { border-top-color: var(-
 html[data-theme="pinaka"] .pk-gateway-fact dt { color: var(--pk-gold-deep); }
 html[data-theme="pinaka"] .pk-gateway-fact dd { margin: 0; }
 
+/* ── Archer: silhouette figure on the right side of the gate ────────────── */
+html[data-theme="pinaka"] .pk-gateway-archer {
+  position: absolute;
+  right: 0;
+  bottom: 8%;
+  height: 62%;
+  width: auto;
+  object-fit: contain;
+  object-position: bottom right;
+  opacity: 0.18;
+  mix-blend-mode: screen;
+  filter: sepia(0.5) brightness(0.7) saturate(1.2);
+  -webkit-mask-image: linear-gradient(0deg, transparent 0%, #000 12%, #000 75%, transparent 100%);
+  mask-image: linear-gradient(0deg, transparent 0%, #000 12%, #000 75%, transparent 100%);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* ── Wheel emblem: centred above the lockup, behind the arch ───────────── */
+html[data-theme="pinaka"] .pk-gateway-wheel {
+  position: absolute;
+  left: 50%;
+  top: 22%;
+  width: clamp(100px, 18vw, 180px);
+  height: auto;
+  transform: translateX(-50%);
+  opacity: 0.1;
+  filter: sepia(0.6) brightness(1.2) saturate(0.8);
+  mix-blend-mode: screen;
+  user-select: none;
+  -webkit-user-drag: none;
+  animation: pk-gateway-wheel-glow 8s ease-in-out infinite alternate;
+}
+@keyframes pk-gateway-wheel-glow {
+  from { opacity: 0.08; filter: sepia(0.6) brightness(1.1) saturate(0.8); }
+  to   { opacity: 0.16; filter: sepia(0.6) brightness(1.4) saturate(1); }
+}
+
 /* ── Reduced motion: the lamps hold still, the photograph does not move ──── */
 @media (prefers-reduced-motion: reduce) {
   html[data-theme="pinaka"] .pk-gateway-lamp { animation: none; opacity: 0.9; }
+  html[data-theme="pinaka"] .pk-gateway-wheel { animation: none; opacity: 0.12; }
   html[data-theme="pinaka"] .pk-gateway-plate img {
     transition: none;
     animation: none;
