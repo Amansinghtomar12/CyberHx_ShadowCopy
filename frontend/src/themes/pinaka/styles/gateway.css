@@ -243,14 +243,24 @@ html[data-theme="pinaka"] .pk-gateway-edition {
   color: var(--pk-gold-deep);
 }
 
-/* ── Scroll art: decorative divider between taglines and facts ──────────── */
+/* ── Scroll art: a framed relic hung at the top right of the gate ───────── */
+/* Out of the text flow, so the facts stay above the fold; full colour in a
+   thin gold frame, tilted a few degrees as if pinned to the stone. */
 html[data-theme="pinaka"] .pk-gateway-scroll-art {
+  position: absolute;
+  top: 8.75rem;
+  right: 5.25rem;
   display: block;
-  width: clamp(140px, 28vw, 220px);
+  width: clamp(120px, 12vw, 172px);
   height: auto;
-  margin: 1.5rem 0 0.25rem;
-  opacity: 0.25;
-  filter: sepia(0.5) brightness(1.4) saturate(0.6);
+  border: 1px solid rgba(246, 223, 163, 0.55);
+  border-radius: 6px;
+  box-shadow:
+    0 0 0 4px rgba(10, 12, 20, 0.6),
+    0 0 0 5px rgba(227, 187, 102, 0.35),
+    0 18px 40px -12px rgba(0, 0, 0, 0.8),
+    0 0 46px -6px rgba(246, 200, 110, 0.45);
+  transform: rotate(3deg);
   user-select: none;
   -webkit-user-drag: none;
 }
@@ -293,48 +303,63 @@ html[data-theme="pinaka"] .pk-gateway-fact:first-child { border-top-color: var(-
 html[data-theme="pinaka"] .pk-gateway-fact dt { color: var(--pk-gold-deep); }
 html[data-theme="pinaka"] .pk-gateway-fact dd { margin: 0; }
 
-/* ── Archer: silhouette figure on the right side of the gate ────────────── */
+/* ── Archer: full colour, on his rock at the upper right of the gate ────── */
+/* Beside the lockup, above the fold. The left edge and the foot of the rock
+   feather out so nothing sits hard behind the words; a warm rim light ties
+   him to the sunset behind. Only where the column is wide enough to hold him
+   beside the title (AuthGateway renders him only from 80rem). */
 html[data-theme="pinaka"] .pk-gateway-archer {
   position: absolute;
-  right: 0;
-  bottom: 8%;
-  height: 62%;
+  right: 1.25rem;
+  top: 9rem;
+  height: clamp(320px, 27vw, 400px);
   width: auto;
   object-fit: contain;
   object-position: bottom right;
-  opacity: 0.18;
-  mix-blend-mode: screen;
-  filter: sepia(0.5) brightness(0.7) saturate(1.2);
-  -webkit-mask-image: linear-gradient(0deg, transparent 0%, #000 12%, #000 75%, transparent 100%);
-  mask-image: linear-gradient(0deg, transparent 0%, #000 12%, #000 75%, transparent 100%);
+  filter: drop-shadow(0 0 24px rgba(246, 190, 100, 0.28)) saturate(1.08);
+  -webkit-mask-image:
+    linear-gradient(90deg, transparent 0%, #000 22%),
+    linear-gradient(0deg, transparent 0%, #000 9%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(90deg, transparent 0%, #000 22%),
+    linear-gradient(0deg, transparent 0%, #000 9%);
+  mask-composite: intersect;
   user-select: none;
   -webkit-user-drag: none;
 }
 
-/* ── Wheel emblem: centred above the lockup, behind the arch ───────────── */
+/* ── Wheel emblem: a bronze halo behind the archer ───────────────────────── */
 html[data-theme="pinaka"] .pk-gateway-wheel {
   position: absolute;
-  left: 50%;
-  top: 22%;
-  width: clamp(100px, 18vw, 180px);
+  right: 0;
+  top: 5rem;
+  width: clamp(230px, 20vw, 290px);
   height: auto;
-  transform: translateX(-50%);
-  opacity: 0.1;
-  filter: sepia(0.6) brightness(1.2) saturate(0.8);
-  mix-blend-mode: screen;
+  opacity: 0.62;
+  filter: drop-shadow(0 0 30px rgba(246, 200, 110, 0.4));
   user-select: none;
   -webkit-user-drag: none;
-  animation: pk-gateway-wheel-glow 8s ease-in-out infinite alternate;
+  animation: pk-gateway-wheel-turn 180s linear infinite;
 }
-@keyframes pk-gateway-wheel-glow {
-  from { opacity: 0.08; filter: sepia(0.6) brightness(1.1) saturate(0.8); }
-  to   { opacity: 0.16; filter: sepia(0.6) brightness(1.4) saturate(1); }
+@keyframes pk-gateway-wheel-turn {
+  to { transform: rotate(360deg); }
+}
+/* The halo turns behind the archer; on the 'still' tier it holds. */
+html[data-theme="pinaka"] .pk-gateway-wheel { z-index: 0; }
+html[data-theme="pinaka"] .pk-gateway-archer { z-index: 1; }
+html[data-theme="pinaka"] .pk-gateway[data-still="true"] .pk-gateway-wheel { animation: none; }
+/* The archer and the words read over the art: a soft shadow under the text. */
+html[data-theme="pinaka"] .pk-gateway-tagline,
+html[data-theme="pinaka"] .pk-gateway-fact dd,
+html[data-theme="pinaka"] .pk-gateway-fact dt {
+  text-shadow: 0 1px 12px rgba(6, 8, 16, 0.9), 0 0 2px rgba(6, 8, 16, 0.8);
 }
 
 /* ── Reduced motion: the lamps hold still, the photograph does not move ──── */
 @media (prefers-reduced-motion: reduce) {
   html[data-theme="pinaka"] .pk-gateway-lamp { animation: none; opacity: 0.9; }
-  html[data-theme="pinaka"] .pk-gateway-wheel { animation: none; opacity: 0.12; }
+  html[data-theme="pinaka"] .pk-gateway-wheel { animation: none; }
   html[data-theme="pinaka"] .pk-gateway-plate img {
     transition: none;
     animation: none;

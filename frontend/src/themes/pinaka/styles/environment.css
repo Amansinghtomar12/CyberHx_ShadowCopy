@@ -200,10 +200,14 @@ html[data-theme="pinaka"] .pk-env-depth {
 }
 html[data-theme="pinaka"] .pk-env:not([data-mode="static"]) .pk-env-depth,
 html[data-theme="pinaka"] .pk-env:not([data-mode="static"]) .pk-env-plate { will-change: transform; }
-/* Over a photograph the near silhouettes are depth, not the subject. */
-html[data-theme="pinaka"] .pk-env-scene[data-plate="loading"] .pk-env-depth[data-depth="near"],
-html[data-theme="pinaka"] .pk-env-scene[data-plate="ready"] .pk-env-depth[data-depth="near"] {
+/* While the picture loads the near silhouettes hold the horizon; once it is
+   there it is the whole scene, so they fade out of the way. */
+html[data-theme="pinaka"] .pk-env-scene[data-plate="loading"] .pk-env-depth[data-depth="near"] {
   opacity: 0.58;
+}
+html[data-theme="pinaka"] .pk-env-scene[data-plate="ready"] .pk-env-depth[data-depth="near"] {
+  opacity: 0;
+  transition: opacity var(--pk-env-fade) var(--pk-env-ease);
 }
 /* The photograph carries its own light; the horizon glow steps back a little. */
 html[data-theme="pinaka"] .pk-env-scene[data-plate="ready"] .pk-env-sun { --pk-sun-alpha: 0.55; }
@@ -226,40 +230,35 @@ html[data-theme="pinaka"] .pk-env-motes {
 }
 
 /* ── 5. Veil and vignette ──────────────────────────────────────────────── */
-/* The world is beautiful and the text has to win anyway: darker behind the
-   nav, darker again at the foot where the near silhouettes are busiest. */
+/* The picture is the point; the text still has to win. Darkness only where
+   the UI is dense: a band behind the nav, the sidebar's edge on the left and
+   the foot of the page. The middle and the sky are left to glow. */
 html[data-theme="pinaka"] .pk-env-veil {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(85% 100% at 22% 45%, rgba(6, 8, 16, 0.5) 0%, transparent 70%),
-    radial-gradient(110% 75% at 50% 45%, transparent 0%, rgba(6, 8, 16, 0.46) 84%),
-    linear-gradient(to bottom, rgba(6, 8, 16, 0.58), transparent 24%, transparent 70%, rgba(4, 6, 12, 0.66));
+    linear-gradient(to right, rgba(6, 8, 16, 0.5) 0%, rgba(6, 8, 16, 0.18) 22%, transparent 40%),
+    linear-gradient(to bottom, rgba(6, 8, 16, 0.6) 0%, rgba(6, 8, 16, 0.12) 14%, transparent 30%, transparent 72%, rgba(4, 6, 12, 0.55) 100%);
   transition: opacity var(--pk-env-fade) var(--pk-env-ease);
 }
-html[data-theme="pinaka"] .pk-env[data-intensity="normal"] .pk-env-veil { opacity: 0.62; }
-/* Over a photograph the veil alone is not enough: the plates are graded to
-   14–22 % mean luminance but their highlights (lit ghats, a sunlit rock face)
-   are not, and text sits on them without a card on several screens. This
-   second veil is even across the middle, heavier at the top where the nav
-   is, and only on while the active scene holds a plate. The sign-in page
-   ('normal') keeps more of the picture: its text is in a card and a hero
-   column that measured fine with less. */
+html[data-theme="pinaka"] .pk-env[data-intensity="normal"] .pk-env-veil { opacity: 0.5; }
+/* An even wash over a picture, light: the art is graded for colour, and the
+   cards carry their own dark glass. Lighter still on the sign-in page. */
 html[data-theme="pinaka"] .pk-env-plate-veil {
   position: absolute;
   inset: 0;
   opacity: 0;
-  background: linear-gradient(to bottom, rgba(6, 8, 16, 0.52) 0%, rgba(6, 8, 16, 0.34) 22%, rgba(6, 8, 16, 0.3) 72%, rgba(6, 8, 16, 0.42) 100%);
+  background: linear-gradient(to bottom, rgba(6, 8, 16, 0.3) 0%, rgba(6, 8, 16, 0.14) 24%, rgba(6, 8, 16, 0.12) 70%, rgba(6, 8, 16, 0.26) 100%);
   transition: opacity var(--pk-env-fade) var(--pk-env-ease);
 }
 html[data-theme="pinaka"] .pk-env[data-plate="loading"] .pk-env-plate-veil,
 html[data-theme="pinaka"] .pk-env[data-plate="ready"] .pk-env-plate-veil { opacity: 1; }
 html[data-theme="pinaka"] .pk-env[data-intensity="normal"][data-plate="loading"] .pk-env-plate-veil,
-html[data-theme="pinaka"] .pk-env[data-intensity="normal"][data-plate="ready"] .pk-env-plate-veil { opacity: 0.7; }
+html[data-theme="pinaka"] .pk-env[data-intensity="normal"][data-plate="ready"] .pk-env-plate-veil { opacity: 0.5; }
 html[data-theme="pinaka"] .pk-env-vignette {
   position: absolute;
   inset: 0;
-  background: radial-gradient(115% 85% at 50% 45%, transparent 42%, rgba(4, 6, 12, 0.55) 100%);
+  background: radial-gradient(125% 95% at 50% 45%, transparent 55%, rgba(4, 6, 12, 0.42) 100%);
 }
 
 /* ── Reduced motion: no transitions, no parallax, a complete still picture ── */

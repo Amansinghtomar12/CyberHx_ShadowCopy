@@ -5,24 +5,20 @@
  * the two always agree and the bytes the preload fetched are the bytes the
  * image then uses. Presentation only: no data is read here.
  *
- * Two files per plate, 960 and 1920 px wide (16:9 photographs, and the
- * official art at its own aspect). The plate always covers the viewport, so
- * the width it is drawn at is not the viewport's width: on a portrait phone
- * a landscape plate is drawn several screens wide and cropped to a slice.
- * `sizes` therefore states the real drawn width (the cover scale of the
- * environment's plate box, which bleeds 24 px each side and 96 px below),
- * and the browser picks by that width × pixel ratio. A 1440 × 900 desktop
- * and a 390 × 844 phone at 2× both take the 1920 file; the 960 file alone
- * would be enlarged four times on that phone and read as a smudge. The low
- * tier (≤ 2 GB or ≤ 2 cores, or no WebGL) is served the 960 outright, at any
- * width, to keep its decoded backing store small.
+ * Two files per plate: 960×540 and 1920×1080. A viewport up to 960 CSS px
+ * wide (phones, small tablets) is served the 960 outright, whatever its
+ * pixel ratio: under the veil, the vignette and the near strip the extra
+ * resolution is invisible, and a 3× phone would otherwise be sent the 1920
+ * (sizes="100vw" × DPR) and decode 8 MB of backing store per plate. So is
+ * the low tier (≤ 2 GB or ≤ 2 cores, or no WebGL), at any width. Everyone
+ * else gets `srcset` + `sizes="100vw"`, and the browser chooses by viewport
+ * width × pixel ratio (a 1440 px desktop takes the 1920).
  */
 import { getCapability } from '../../../../components/environment/performance';
 import type { Plate } from './index';
 
-/** The environment's plate box bleeds past the viewport by this much (see environment.css). */
-const BLEED_X = 24;
-const BLEED_Y = 96;
+/** The plate always covers the viewport. */
+export const PLATE_SIZES = '100vw';
 
 export interface PlateSource {
   src: string;
@@ -30,21 +26,21 @@ export interface PlateSource {
   sizes?: string;
 }
 
-/** The CSS width the plate is drawn at when it covers this viewport. */
-function drawnWidth(plate: Plate): string {
-  if (typeof window === 'undefined') return '100vw';
-  const w = window.innerWidth + BLEED_X * 2;
-  const h = window.innerHeight + BLEED_Y;
-  return `${Math.round(Math.max(w, (h * plate.width) / plate.height))}px`;
+/** The widest viewport that is served the 960 file outright. */
+export const PLATE_SMALL_MAX_PX = 960;
+
+function narrowViewport(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+  return window.matchMedia(`(max-width: ${PLATE_SMALL_MAX_PX}px)`).matches;
 }
 
 /** The `src`/`srcset`/`sizes` an <img> (or a preload) should carry for this plate, on this device. */
 export function plateSource(plate: Plate): PlateSource {
-  if (getCapability().tier === 'low') return { src: plate.w960 };
+  if (getCapability().tier === 'low' || narrowViewport()) return { src: plate.w960 };
   return {
     src: plate.w1920,
     srcSet: `${plate.w960} 960w, ${plate.w1920} 1920w`,
-    sizes: drawnWidth(plate),
+    sizes: PLATE_SIZES,
   };
 }
 

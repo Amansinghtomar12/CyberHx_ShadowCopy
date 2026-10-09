@@ -8,37 +8,27 @@
  * WHAT IT DRAWS, BOTTOM TO TOP
  *   sky      a gradient between the world's two sky tokens; the phase cools
  *            it before the event, warms the horizon after
- *   scene    two slots, each holding the world's plate in full colour, and
- *            over it the light of that plate: god rays fanning out of the
- *            painted sun and a bloom on the sun itself, graded per world
- *            (Ayodhya gold, Vanavasa green-gold, Setu teal-gold, Lanka
- *            ember, Vijaya dawn). A world change renders the new scene into
- *            the hidden slot, waits for its plate, then crossfades, so there
- *            is never a flash and never a re-layout
- *   relic    the celestial dharma wheel: the official bronze emblem, large
- *            and in full colour high in the sky, turning once in four
- *            minutes; strongest over Ayodhya and Vijaya, softer in the
- *            forest and over the sea, absent over burning Lanka
- *   motes    one animated canvas: luminous gold motes, green-gold flecks or
- *            rising embers, with a few soft bokeh discs and haze bands on
- *            the high tier
- *   veil     the readability guarantee: darkness only where the interface
- *            is dense (the nav band, the sidebar band on wide screens, the
- *            foot); the centre and the sky are left to glow, and the panels
- *            over them are frosted glass (core.css)
+ *   scene    two slots, each holding a horizon glow, the world's photographic
+ *            plate and the parallax depth layers of procedurally generated
+ *            silhouettes. A world change renders the new scene into the
+ *            hidden slot, waits for its plate, then crossfades, so there is
+ *            never a flash and never a re-layout
+ *   motes    one animated canvas: gold motes, leaf flecks or embers, plus a
+ *            few wide haze bands on the high tier
+ *   veil     the readability guarantee — the UI always wins
  *
  * THE PLATE
- *   One picture per world (assets/plates): the official event artwork for
- *   Ayodhya and Lanka, licensed photographs elsewhere. A same-origin <img>
- *   covering the viewport with object-position at the plate's focal point.
- *   Over a plate no silhouette strip is painted at all (no canvases, no
- *   backing store); the procedural silhouettes are the fallback for a plate
- *   that fails to load, or a mount that asks for none. A plate that has not
- *   loaded is never shown half-way: the new scene is promoted only once its
- *   image has settled (load, error, or a short wait), and the image fades in
- *   on load. On the high tier the plate drifts very slowly (scale 1.06 → 1
- *   over 40 s, transform only, will-change dropped once it has settled); no
- *   drift on medium or low, nothing at all when still.
+ *   One colour-graded photograph per world (assets/plates), a same-origin
+ *   <img> covering the viewport with object-position at the plate's focal
+ *   point. It stands in for the far and mid silhouette strips, which are not
+ *   painted while a plate is shown (two fewer canvases, and their backing
+ *   store, per scene); the near strip stays over it at reduced opacity for
+ *   depth. A plate that has not loaded is never shown half-way: the new scene
+ *   is promoted only once its image has settled (load, error, or a short
+ *   wait), the image fades in on load, and a failed load falls back to the
+ *   full set of silhouettes. On the high tier the plate drifts very slowly
+ *   (scale 1.06 → 1 over 40 s, transform only, will-change dropped once it
+ *   has settled); no drift on medium or low, nothing at all when still.
  *
  * EVERY SILHOUETTE IS ORIGINAL AND DETERMINISTIC
  *   The city, the forest, the causeway and the fortress are built from a
@@ -47,11 +37,11 @@
  *   same skyline and the static tier can emit the same shapes as inline SVG.
  *
  * TIERS
- *   high    110 motes (bokeh and haze included), rays that sweep and
- *           breathe, the relic turning, scroll + pointer parallax, plate drift
- *   medium  44 motes, still rays, the relic turning, scroll parallax only
+ *   high    canvases at DPR ≤ 1.5, 90 motes, haze, scroll + pointer parallax,
+ *           plate drift
+ *   medium  canvases at DPR ≤ 1.5, 36 motes, no haze, scroll parallax only
  *   static  'still' / 'low' / fx off / reduced motion: no canvases at all,
- *           the plate, rays and relic as a still picture, no loops, no
+ *           inline SVG silhouettes, the plate as a still, no loops, no
  *           transitions ('low' is also served the 960 px plate only)
  *
  * Presentation only: props in, pixels out. Nothing here reads data.
@@ -64,16 +54,11 @@ import { WORLDS, type World } from '../config';
 import { useWorldAttributes, type EventPhase } from '../hooks';
 import { PLATES, type Plate, type PlateKey } from '../assets/plates';
 import { plateFocal, plateSource } from '../assets/plates/sources';
-import { PINAKA_IMAGES } from '../assets/images';
 
 export interface PinakaEnvironmentProps {
   world: World;
   phase: EventPhase;
-  /**
-   * 'subtle' (default) keeps the bands of veil behind the app's chrome;
-   * 'normal' (the sign-in page) lifts them, so the painting is at its most
-   * vivid there.
-   */
+  /** 'subtle' (default) keeps the veil strong; 'normal' (auth) lifts it a little. */
   intensity?: 'subtle' | 'normal';
   /**
    * Which photographic plate stands behind the scene. Defaults to the
@@ -92,12 +77,14 @@ export function worldLabel(world: World): string {
 type Mode = 'high' | 'medium' | 'static';
 type Depth = 'far' | 'mid' | 'near';
 type Slot = 'a' | 'b';
-/** The plate and its light move with the far layer; the keys of `depthEls` name any of them. */
-type Layer = Depth | 'plate' | 'rays';
-/** 'none' when the scene has no plate; 'failed' falls back to the silhouettes. */
+/** The plate moves with the far layer; the keys of `depthEls` name either. */
+type Layer = Depth | 'plate';
+/** 'none' when the scene has no plate; 'failed' falls back to every strip. */
 type PlateStatus = 'loading' | 'ready' | 'failed' | 'none';
 
 const DEPTHS: readonly Depth[] = ['far', 'mid', 'near'];
+/** The strips a plate stands in for. */
+const PLATE_REPLACES: ReadonlySet<Depth> = new Set<Depth>(['far', 'mid']);
 
 /* ── Layout constants ──────────────────────────────────────────────────────
  * Each depth layer is a strip pinned to the bottom of the viewport, wider and
@@ -125,7 +112,7 @@ const PLATE_WAIT_MS = 2500;
 const FRAME_MS = 1000 / 30;
 
 function layerDepth(layer: Layer): Depth {
-  return layer === 'plate' || layer === 'rays' ? 'far' : layer;
+  return layer === 'plate' ? 'far' : layer;
 }
 
 function layerHeight(depth: Depth, vh: number): number {
@@ -703,51 +690,17 @@ function LayerCanvas({ geom, dpr }: { geom: LayerGeom; dpr: number }) {
 }
 
 /**
- * One strip of a scene: the fallback when the scene has no plate (or its
- * plate failed). Over a plate nothing is painted at all.
+ * One strip of a scene. Over a photograph the strip is shown at 0.58 as soft
+ * silhouettes, where 1× is indistinguishable from the high tier's 1.5× and
+ * the backing store is less than half (≈ 4 MB rather than 10 MB per 1080p
+ * strip, twice that while a crossfade holds two scenes).
  */
-function SceneLayer({ world, depth, mode, vw, vh }: {
-  world: World; depth: Depth; mode: Mode; vw: number; vh: number;
+function SceneLayer({ world, depth, mode, vw, vh, plated }: {
+  world: World; depth: Depth; mode: Mode; vw: number; vh: number; plated: boolean;
 }) {
   const geom = useMemo(() => layerGeometry(world, depth, vw, vh), [world, depth, vw, vh]);
   if (mode === 'static') return <LayerSvg geom={geom} />;
-  return <LayerCanvas geom={geom} dpr={canvasDpr()} />;
-}
-
-/* ── Light: where the sun stands on screen ───────────────────────────────── */
-
-interface SunPoint {
-  /** Viewport px. */
-  x: number;
-  y: number;
-  /** Radius the rays need to reach the farthest corner of the viewport. */
-  r: number;
-}
-
-/**
- * Where a plate's light source lands on screen. The plate box bleeds
- * BLEED_X past each side and BLEED_Y below the viewport and is covered by
- * the image at its focal point (object-fit: cover), so the painted sun is
- * found with the same arithmetic the browser uses. Without a plate (or one
- * without a sun) the light is the world's palette sun, low on the horizon.
- */
-function sunPoint(world: World, plate: Plate | null, vw: number, vh: number): SunPoint {
-  let x = vw * PALETTE[world].sunX;
-  let y = vh * 0.7;
-  if (plate?.sun) {
-    const cw = vw + BLEED_X * 2;
-    const ch = vh + BLEED_Y;
-    const s = Math.max(cw / plate.width, ch / plate.height);
-    const w = plate.width * s;
-    const h = plate.height * s;
-    x = (cw - w) * plate.focal.x - BLEED_X + plate.sun.x * w;
-    y = (ch - h) * plate.focal.y + plate.sun.y * h;
-  }
-  const r = Math.max(
-    Math.hypot(x, y), Math.hypot(vw - x, y),
-    Math.hypot(x, vh - y), Math.hypot(vw - x, vh - y),
-  );
-  return { x: Math.round(x), y: Math.round(y), r: Math.round(r * 1.04) };
+  return <LayerCanvas geom={geom} dpr={plated ? Math.min(1, canvasDpr()) : canvasDpr()} />;
 }
 
 /* ── Plate ───────────────────────────────────────────────────────────────── */
@@ -759,12 +712,10 @@ function sunPoint(world: World, plate: Plate | null, vw: number, vh: number): Su
  * wrapper is what parallax moves; the image is what the drift scales, about
  * the focal point, so the slow push ends on the subject.
  */
-function PlateLayer({ plate, status, active, vpKey, layerRef, onSettle }: {
+function PlateLayer({ plate, status, active, layerRef, onSettle }: {
   plate: Plate;
   status: PlateStatus;
   active: boolean;
-  /** Changes with the viewport: `sizes` states the width the plate is drawn at. */
-  vpKey: string;
   layerRef: (el: HTMLDivElement | null) => void;
   onSettle: (status: 'ready' | 'failed') => void;
 }) {
@@ -772,8 +723,7 @@ function PlateLayer({ plate, status, active, vpKey, layerRef, onSettle }: {
   // The drift ran its 40 s: drop the animation (its final frame is the
   // identity) and the will-change with it.
   const [drifted, setDrifted] = useState(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- vpKey stands for the viewport plateSource reads
-  const source = useMemo(() => plateSource(plate), [plate, vpKey]);
+  const source = useMemo(() => plateSource(plate), [plate]);
   const settle = useRef(onSettle);
   settle.current = onSettle;
 
