@@ -269,11 +269,11 @@ export function BowstringCountdown({
         </g>
       </svg>
       <div className="pk-countdown-face" aria-hidden="true">
-        {d > 0 && <span className="pk-countdown-days" style={{ fontSize: Math.max(10, size * 0.09) }}>{d}d</span>}
+        {d > 0 && <span className="pk-countdown-days" style={{ fontSize: Math.max(12, size * 0.11) }}>{d}d</span>}
         <span className="pk-countdown-time" style={{ fontSize: timeSize }}>
           {pad(h)}:{pad(m)}:{pad(s)}
         </span>
-        {label && <span className="pk-countdown-label" style={{ fontSize: Math.max(9, size * 0.08) }}>{label}</span>}
+        {label && <span className="pk-countdown-label" style={{ fontSize: Math.max(11, size * 0.1) }}>{label}</span>}
       </div>
     </div>
   );

@@ -12,7 +12,7 @@
  * control that would do nothing.
  */
 import { Monitor } from 'lucide-react';
-import type { ComponentType } from 'react';
+import type { ComponentType, KeyboardEvent } from 'react';
 import { applyTheme, buildTheme, canSwitchTheme, effectiveTheme, getServerTheme, setThemeOverride, useTheme, type ThemeId } from '../../index';
 import { BowMark } from './BowMotifs';
 
@@ -36,8 +36,20 @@ export default function ThemeSwitch({ className = '' }: { className?: string }) 
     void applyTheme(effectiveTheme());
   }
 
+  // One tab stop; the arrow keys move the choice, as a radio group does.
+  function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    const i = Math.max(0, OPTIONS.findIndex(o => o.id === theme));
+    let next = -1;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (i + 1) % OPTIONS.length;
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (i - 1 + OPTIONS.length) % OPTIONS.length;
+    if (next < 0) return;
+    e.preventDefault();
+    choose(OPTIONS[next].id);
+    e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next]?.focus();
+  }
+
   return (
-    <div className={`surface p-4 ${className}`} role="radiogroup" aria-label="Look">
+    <div className={`surface p-4 ${className}`} role="radiogroup" aria-label="Look" onKeyDown={onKeyDown}>
       <div className="flex items-start justify-between gap-4">
         <span className="min-w-0">
           <span className="block text-small font-bold text-cyber-text">Look</span>
@@ -54,6 +66,7 @@ export default function ThemeSwitch({ className = '' }: { className?: string }) 
               type="button"
               role="radio"
               aria-checked={on}
+              tabIndex={on ? 0 : -1}
               onClick={() => choose(o.id)}
               className={`focus-ring flex items-start gap-3 rounded-control border p-3 text-left transition-colors ${
                 on ? 'border-border-neon bg-neon-wash' : 'border-border-base bg-surface-inset hover:bg-surface-raised'

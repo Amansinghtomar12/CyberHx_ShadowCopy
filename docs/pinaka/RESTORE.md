@@ -12,10 +12,11 @@ routing. Every one of the switches below only changes what the page looks like.
 |---|---|---|
 | 1 | `VITE_THEME_UNTIL` (ISO date) in the build env | after this moment the skin is forced off, every other source ignored |
 | 2 | `VITE_THEME_SWITCH=0` in the build env | per-device overrides ignored |
-| 3 | `?theme=pinaka` / `?theme=cyberhx` / `?theme=auto` in the URL | persisted to `localStorage['cyberhx.theme']` for that device, then removed from the URL |
-| 4 | `localStorage['cyberhx.theme']` | the device's own choice (Settings → Experience → Look) |
-| 5 | **`event_settings.theme` on the server** | **the organisers' switch** — read anonymously through `public_theme()` at boot (cached per device in `localStorage['cyberhx.theme.server']`) and refreshed by the 30-second event-settings poll, so every open tab follows a change live, without a reload |
-| 6 | `VITE_THEME` in the build env | the default when the server has no opinion; **unset = `cyberhx`** |
+| 3 | `?preview=pinaka` / `?preview=cyberhx` / `?preview=off` in the URL | this tab only (`sessionStorage['cyberhx.theme.preview']`), then removed from the URL; what the admin panel's *Preview in a new tab* opens |
+| 4 | `?theme=pinaka` / `?theme=cyberhx` / `?theme=auto` in the URL | persisted to `localStorage['cyberhx.theme']` for that device, then removed from the URL |
+| 5 | `localStorage['cyberhx.theme']` | the device's own choice (Settings → Experience → Look) |
+| 6 | **`event_settings.theme` on the server** | **the organisers' switch** — read anonymously through `public_theme()` at boot (cached per device in `localStorage['cyberhx.theme.server']`) and refreshed by the 30-second event-settings poll, so every open tab follows a change live, without a reload |
+| 7 | `VITE_THEME` in the build env | the default when the server has no opinion; **unset = `cyberhx`** |
 
 Resolution lives in `frontend/src/themes/index.ts`. A switch is applied in
 place: the stylesheet is fetched once, `<html data-theme>` flips, and every
@@ -33,9 +34,11 @@ on their next event-settings poll (≤ 30 s). Written through the audited
 **Close**: the same panel → **Close Pinaka** (or the header button, which now
 reads *Close Pinaka*). Everyone returns to the classic look on their next poll.
 
-**Preview first**: *Preview on this device* in the same panel (it opens
-`/?theme=pinaka`). Only that device sees it; `/?theme=auto` or Settings →
-Experience → *Classic* ends the preview.
+**Preview first**: *Preview in a new tab* in the same panel (it opens
+`/?preview=pinaka` in a new tab). Only that tab shows it, nothing is stored on
+the device beyond the tab, and closing the tab ends it. A device that chose a
+look in Settings → Experience is told so in the panel, with a *Follow the
+organisers* button that clears the choice.
 
 **Kill switch that ignores every device choice**: set `VITE_THEME_SWITCH=0`
 (and, if wanted, `VITE_THEME_UNTIL=<date>`) in the Vercel environment and
@@ -77,9 +80,9 @@ The manual version of Path B, useful once the event is over for good.
 
 ## Device-side residue (harmless)
 
-The theme writes four localStorage keys and nothing else:
-`cyberhx.theme`, `cyberhx.theme.server`, `cyberhx.pinaka.intro.v1`,
-`cyberhx.pinaka.journey.collapsed`.
+The theme writes four localStorage keys and one sessionStorage key, nothing
+else: `cyberhx.theme`, `cyberhx.theme.server`, `cyberhx.pinaka.intro.v1`,
+`cyberhx.pinaka.journey.collapsed`, and `cyberhx.theme.preview` (tab only).
 They are ignored once the theme is gone.
 
 ## What is NOT touched by any path

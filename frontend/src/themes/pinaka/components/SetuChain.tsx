@@ -179,6 +179,32 @@ export default function SetuChain({ series, onOpenChallenge, onBack }: Props) {
   const still = useStill();
   const vertical = useNarrow();
   const [showReadme, setShowReadme] = useState(false);
+  // The briefing is a dialog: it takes focus when it opens, closes on Escape
+  // and hands focus back to the button that opened it.
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const briefingRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!showReadme) return;
+    closeRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowReadme(false); };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      briefingRef.current?.focus({ preventScroll: true });
+    };
+  }, [showReadme]);
+
+  // Off screen, the gleam, the ring and the water stop: an SVG child
+  // animation repaints the whole drawing every frame, and nobody is looking.
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [offscreen, setOffscreen] = useState(false);
+  useEffect(() => {
+    const el = hostRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(([e]) => setOffscreen(!e.isIntersecting), { rootMargin: '80px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
   const gradId = useId().replace(/[^a-zA-Z0-9_-]/g, '');
 
   const readmeUrl = useMemo(() => safeHttpUrl(series.readmeUrl ?? ''), [series.readmeUrl]);
@@ -210,7 +236,12 @@ export default function SetuChain({ series, onOpenChallenge, onBack }: Props) {
   const pct = series.total ? Math.round((series.solvedCount / series.total) * 100) : 0;
 
   return (
-    <div className={`pk-setu overflow-hidden rounded-lg border${still ? ' is-still' : ''}`} data-layout={vertical ? 'column' : 'row'}>
+    <div
+      ref={hostRef}
+      className={`pk-setu overflow-hidden rounded-lg border${still ? ' is-still' : ''}`}
+      data-layout={vertical ? 'column' : 'row'}
+      data-offscreen={offscreen ? 'true' : undefined}
+    >
       {/* Header */}
       <div className="pk-setu-head flex flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div className="flex items-center gap-3">
@@ -241,7 +272,7 @@ export default function SetuChain({ series, onOpenChallenge, onBack }: Props) {
             </a>
           )}
           {series.readme.trim() !== '' && (
-            <button onClick={() => setShowReadme(true)} className="btn btn-secondary btn-sm inline-flex items-center gap-1.5">
+            <button ref={briefingRef} onClick={() => setShowReadme(true)} className="btn btn-secondary btn-sm inline-flex items-center gap-1.5">
               <BookOpen className="h-4 w-4" /> Briefing
             </button>
           )}
@@ -387,9 +418,9 @@ export default function SetuChain({ series, onOpenChallenge, onBack }: Props) {
       </ol>
 
       {showReadme && (
-        <div className="fixed inset-0 z-[4000] flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-label="Chain briefing">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-label="Chain briefing">
           <div className="surface-raised pk-carved relative max-h-[80%] w-full max-w-2xl overflow-y-auto rounded-lg border border-border-subtle p-6">
-            <button onClick={() => setShowReadme(false)} className="btn btn-ghost btn-sm absolute right-3 top-3" aria-label="Close briefing">
+            <button ref={closeRef} onClick={() => setShowReadme(false)} className="btn btn-ghost btn-sm absolute right-3 top-3" aria-label="Close briefing">
               <X className="h-4 w-4" />
             </button>
             <div className="label-micro text-text-muted">{series.category} / chained</div>

@@ -281,3 +281,24 @@ html[data-theme="pinaka"] .pk-rule {
 @media (prefers-reduced-motion: reduce) {
   html[data-theme="pinaka"] .pk-diamond { box-shadow: none; }
 }
+
+/* ── Forced colours (Windows High Contrast) ─────────────────────────────── */
+/* Foil text paints its glyphs with a background clipped to the text; forced
+   colours drop author backgrounds and would leave the letters transparent. */
+@media (forced-colors: active) {
+  html[data-theme="pinaka"] .pk-foil-text,
+  html[data-theme="pinaka"] .pk-numeral-deva {
+    background: none;
+    color: CanvasText;
+    -webkit-text-fill-color: CanvasText;
+  }
+}
+
+/* ── Off screen, nothing moves ──────────────────────────────────────────── */
+/* An SVG child animation repaints its whole drawing every frame. Components
+   with such loops set data-offscreen from an IntersectionObserver. */
+html[data-theme="pinaka"] [data-offscreen="true"] *,
+html[data-theme="pinaka"] [data-offscreen="true"] *::before,
+html[data-theme="pinaka"] [data-offscreen="true"] *::after {
+  animation-play-state: paused !important;
+}

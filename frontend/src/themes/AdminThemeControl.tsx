@@ -12,7 +12,10 @@
  */
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { getServerTheme, noteServerTheme, subscribeServerTheme, type ThemeId } from './index';
+import {
+  applyTheme, effectiveTheme, getServerTheme, getThemeOverride, noteServerTheme,
+  setThemeOverride, subscribeServerTheme, subscribeTheme, type ThemeId,
+} from './index';
 
 interface Props {
   variant?: 'nav' | 'panel';
@@ -20,9 +23,12 @@ interface Props {
 
 export default function AdminThemeControl({ variant = 'panel' }: Props) {
   const [server, setServer] = useState<ThemeId | null>(() => getServerTheme());
+  const [pinned, setPinned] = useState<ThemeId | null>(() => getThemeOverride());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => subscribeServerTheme(setServer), []);
+  // The device's own choice can change from Settings; show it when it does.
+  useEffect(() => subscribeTheme(() => setPinned(getThemeOverride())), []);
 
   const open = server === 'pinaka';
 
@@ -36,11 +42,21 @@ export default function AdminThemeControl({ variant = 'panel' }: Props) {
     const { data, error: err } = await supabase.rpc('admin_set_theme', { p_theme: next });
     setBusy(false);
     if (err || data?.error) {
-      setError('Could not change the look: ' + (data?.error ?? err?.message ?? 'unknown error'));
+      const message = 'Could not change the look: ' + (data?.error ?? err?.message ?? 'unknown error');
+      setError(message);
+      // The header button has nowhere to write; say it the way the confirm asked.
+      if (variant === 'nav') window.alert(message);
       return;
     }
     // Apply here at once; everyone else picks it up on their poll.
     noteServerTheme(data?.theme ?? next);
+  };
+
+  /** Drop this device's own choice so it shows what everyone else sees. */
+  const follow = () => {
+    setThemeOverride(null);
+    setPinned(null);
+    void applyTheme(effectiveTheme());
   };
 
   if (variant === 'nav') {
@@ -88,10 +104,25 @@ export default function AdminThemeControl({ variant = 'panel' }: Props) {
         >
           Close Pinaka
         </button>
-        <a href="/?theme=pinaka" className="btn btn-ghost btn-md" title="Preview on this device only, without opening it for anyone else">
-          Preview on this device
+        {/* A tab-only preview: nothing is stored on this device beyond the tab,
+            and nothing changes for anyone else. */}
+        <a
+          href="/?preview=pinaka"
+          target="_blank"
+          rel="noopener"
+          className="btn btn-ghost btn-md"
+          title="Opens a new tab showing the Pinaka look to you only. Closing the tab ends it; nobody else is affected."
+        >
+          Preview in a new tab
         </a>
       </div>
+      {pinned && (
+        <p className="mt-3 text-small text-text-muted">
+          This device is pinned to the {pinned === 'pinaka' ? 'Pinaka' : 'classic'} look (Settings → Experience) and
+          does not follow the switch above.{' '}
+          <button type="button" className="underline text-cyber-text" onClick={follow}>Follow the organisers</button>
+        </p>
+      )}
       {error && <p role="alert" className="mt-3 text-small" style={{ color: 'var(--color-danger-fg)' }}>{error}</p>}
     </div>
   );

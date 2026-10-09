@@ -75,6 +75,10 @@ html[data-theme="pinaka"] .pk-env-scene {
   transition: opacity var(--pk-env-fade) var(--pk-env-ease);
 }
 html[data-theme="pinaka"] .pk-env-scene[data-active="true"] { opacity: 1; }
+/* The first scene fades in as well (a cold load may land it after the UI). */
+@starting-style {
+  html[data-theme="pinaka"] .pk-env-scene[data-active="true"] { opacity: 0; }
+}
 
 /* The sun: a wide, low radial glow at the horizon. Colour and position come
    from the world the slot holds; the phase scales and brightens it. */
@@ -204,4 +208,18 @@ html[data-theme="pinaka"] .pk-env-vignette {
     will-change: auto;
     transform: none;
   }
+}
+/* The same stillness when the player turned effects off in Settings
+   (data-still, set by the component from the capability tier). */
+html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-sky,
+html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-sky::before,
+html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-sky::after,
+html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-scene,
+html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-sun,
+html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-veil {
+  transition: none;
+}
+html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-depth {
+  will-change: auto;
+  transform: none;
 }

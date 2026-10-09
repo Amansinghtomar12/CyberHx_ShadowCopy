@@ -84,9 +84,15 @@ function detectMode(): Mode {
   return 'static';
 }
 
-/** Scene canvases never need more than 1.5× — silhouettes are soft-edged by design. */
+/**
+ * Scene canvases never need more than 1.5× — silhouettes are soft-edged by
+ * design — and on the medium tier 1× is indistinguishable at a fraction of
+ * the backing-store memory (three strips plus the motes, doubled while a
+ * crossfade holds both scenes).
+ */
 function canvasDpr(): number {
-  return Math.min(window.devicePixelRatio || 1, getCapability().dpr, 1.5);
+  const cap = getCapability();
+  return Math.min(window.devicePixelRatio || 1, cap.dpr, cap.tier === 'high' ? 1.5 : 1);
 }
 
 function readViewport(): { w: number; h: number } {
@@ -762,17 +768,18 @@ function createMotes(
   const step = (dt: number) => {
     elapsed += dt;
     const sway = kind === 'leaf' ? 14 : 4;
-    const keep: Mote[] = [];
-    for (const m of motes) {
+    for (let i = motes.length - 1; i >= 0; i--) {
+      const m = motes[i];
       m.x += (m.vx + Math.sin(elapsed * 0.7 + m.ph) * sway) * dt;
       m.y += m.vy * dt;
       if (m.y < -8) m.y = H + 8; else if (m.y > H + 8) m.y = -8;
       if (m.x < -8) m.x = W + 8; else if (m.x > W + 8) m.x = -8;
-      if (m.dying) { m.life -= dt / 0.9; if (m.life <= 0) continue; }
-      else if (m.life < 1) m.life = Math.min(1, m.life + dt / 1.2);
-      keep.push(m);
+      if (m.dying) {
+        m.life -= dt / 0.9;
+        // Gone: swap-and-pop in place, so the loop allocates nothing per frame.
+        if (m.life <= 0) { motes[i] = motes[motes.length - 1]; motes.pop(); }
+      } else if (m.life < 1) m.life = Math.min(1, m.life + dt / 1.2);
     }
-    motes = keep;
     for (const b of bands) {
       b.x += b.v * dt;
       const span = W + b.img.width;
@@ -825,7 +832,10 @@ function createMotes(
       if (nextKind !== kind) {
         kind = nextKind;
         for (const m of motes) m.dying = true;
-        for (let i = 0; i < count; i++) motes.push(spawn(kind, true));
+        // Rapid flips (Challenges → Scoreboard → back) would stack a whole
+        // population per flip; the transient total is capped at three.
+        const room = Math.max(0, count * 3 - motes.length);
+        for (let i = 0; i < Math.min(count, room); i++) motes.push(spawn(kind, true));
       }
       buildHaze(PALETTE[next].haze, true);
     },
@@ -846,7 +856,10 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle' }
   useWorldAttributes(world, phase);
 
   const reduce = useReducedMotion() ?? false;
-  const [mode, setMode] = useState<Mode>('static');
+  // Decided up front (the capability read is synchronous and cached), so the
+  // first commit renders the right kind of layer rather than a full SVG scene
+  // the next effect would throw away.
+  const [mode, setMode] = useState<Mode>(() => (typeof window === 'undefined' ? 'static' : detectMode()));
   const [vp, setVp] = useState(readViewport);
   const motesRef = useRef<HTMLCanvasElement>(null);
   const motesSys = useRef<MoteSystem | null>(null);
@@ -854,21 +867,28 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle' }
 
   // Reduced motion wins over whatever the hardware could afford.
   const effectiveMode: Mode = reduce ? 'static' : mode;
+  // No transitions either when the player turned effects off: the 'still'
+  // tier is the same promise as the OS preference, made from Settings.
+  const still = reduce || getCapability().tier === 'still';
 
-  // Decide after mount so the first paint is never blocked on it, and again
-  // whenever the player moves the effects dial (the capability cache is
-  // dropped on that event, so this reads a fresh answer).
-  useEffect(() => {
-    setMode(detectMode());
-    return subscribeFx(() => setMode(detectMode()));
-  }, []);
+  // Re-read whenever the player moves the effects dial (the capability cache
+  // is dropped on that event, so this reads a fresh answer).
+  useEffect(() => subscribeFx(() => setMode(detectMode())), []);
 
   // Resize: debounced, then every scene redraws for the new viewport.
   useEffect(() => {
     let timer = 0;
     const onResize = () => {
       window.clearTimeout(timer);
-      timer = window.setTimeout(() => setVp(readViewport()), 160);
+      timer = window.setTimeout(() => setVp(prev => {
+        const next = readViewport();
+        // A phone's toolbar sliding away or its keyboard rising changes only
+        // the height, by a little or by a lot; neither deserves a rebuilt
+        // skyline and respawned motes. Only a real resize does (the width,
+        // or a much taller window). The fixed layer is simply cropped until then.
+        if (next.w === prev.w && next.h - prev.h < 160) return prev;
+        return next;
+      }), 160);
     };
     window.addEventListener('resize', onResize, { passive: true });
     return () => { window.clearTimeout(timer); window.removeEventListener('resize', onResize); };
@@ -951,7 +971,8 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle' }
     const sys = createMotes(canvas, {
       count: effectiveMode === 'high' ? 90 : 36,
       haze: effectiveMode === 'high',
-      dpr: canvasDpr(),
+      // Soft 2–6 px sprites: 1× is sharp enough and a quarter of the memory.
+      dpr: 1,
       world,
       w: vp.w,
       h: vp.h,
@@ -972,6 +993,7 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle' }
       data-world={world}
       data-phase={phase}
       data-mode={effectiveMode}
+      data-still={still ? 'true' : undefined}
       data-intensity={intensity}
       // The measured viewport height, so the CSS horizon glow and the canvas
       // horizon agree even where 100vh and innerHeight do not (mobile toolbars).

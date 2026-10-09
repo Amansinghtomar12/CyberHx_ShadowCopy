@@ -11,15 +11,33 @@
    ========================================================================== */
 
 /* ── Panel ─────────────────────────────────────────────────────────────── */
+/* The host measures the panel's own width (a container query), so the layout
+   answers to the room the board column actually has — with or without the
+   rail — and never to the viewport. Stacked by default: head and side on one
+   row, the map full-width beneath. */
+html[data-theme="pinaka"] .pk-journey-host { container-type: inline-size; }
 html[data-theme="pinaka"] .pk-journey {
   display: grid;
-  grid-template-columns: minmax(200px, 250px) minmax(0, 1fr) auto;
-  grid-template-areas: "head map side";
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "head side"
+    "map  map";
   align-items: center;
   column-gap: 1.25rem;
-  padding: 0.75rem 1rem 0.625rem 1.25rem;
-  max-height: 150px;
+  row-gap: 0.5rem;
+  padding: 0.75rem 1rem 0.625rem 1rem;
   overflow: hidden;
+}
+/* Room for the map beside the head (≥ 700px of panel): one row, ≤ 150px tall. */
+@container (min-width: 700px) {
+  html[data-theme="pinaka"] .pk-journey {
+    grid-template-columns: minmax(200px, 250px) minmax(360px, 1fr) auto;
+    grid-template-areas: "head map side";
+    row-gap: 0;
+    padding-left: 1.25rem;
+    max-height: 150px;
+  }
+  html[data-theme="pinaka"] .pk-journey-side { align-self: stretch; }
 }
 html[data-theme="pinaka"] .pk-journey-head { grid-area: head; min-width: 0; }
 html[data-theme="pinaka"] .pk-journey-side {
@@ -29,7 +47,7 @@ html[data-theme="pinaka"] .pk-journey-side {
   align-items: flex-end;
   justify-content: space-between;
   gap: 0.5rem;
-  align-self: stretch;
+  align-self: start;
 }
 html[data-theme="pinaka"] .pk-journey-scroll { grid-area: map; min-width: 0; }
 
@@ -137,13 +155,13 @@ html[data-theme="pinaka"] .pk-journey-pulse {
 
 html[data-theme="pinaka"] .pk-journey-numeral {
   font-family: var(--pk-font-prose);
-  font-size: 11px;
+  font-size: 12.5px;
   fill: var(--pk-gold-deep);
 }
 html[data-theme="pinaka"] .pk-journey-node[data-state="lit"] .pk-journey-numeral { fill: var(--pk-gold-soft); }
 html[data-theme="pinaka"] .pk-journey-label {
   font-family: var(--font-mono);
-  font-size: 9.5px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -171,18 +189,8 @@ html[data-theme="pinaka"] .pk-journey.is-collapsed .pk-journey-line {
 }
 html[data-theme="pinaka"] .pk-journey.is-collapsed .pk-journey-progress { margin-left: auto; }
 
-/* ── Phones: head above, the map scrolls inside its own box ────────────── */
-@media (max-width: 639.98px) {
-  html[data-theme="pinaka"] .pk-journey {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "head side"
-      "map  map";
-    row-gap: 0.5rem;
-    max-height: none;
-    padding-left: 1rem;
-  }
-  html[data-theme="pinaka"] .pk-journey-side { align-self: start; }
+/* ── Narrow panels: the map keeps a readable size and scrolls in its box ── */
+@container (max-width: 559.98px) {
   html[data-theme="pinaka"] .pk-journey-scroll {
     overflow-x: auto;
     overflow-y: hidden;

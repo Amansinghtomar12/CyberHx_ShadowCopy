@@ -11,11 +11,12 @@ environment secrets, or any existing API contract. One additive migration
 
 ```
 frontend/src/themes/index.ts                       theme resolution, server switch, live apply, icon registry
-frontend/src/themes/AdminThemeControl.tsx           "Open Pinaka" button (header) and panel (Admin → Event)
+frontend/src/themes/AdminThemeControl.tsx           "Open Pinaka" button (header, phone menu) and panel (Admin → Event); lazy, admins only
 frontend/src/themes/pinaka/boot.ts                 loads the stylesheet, fonts, glyphs (theme only)
 frontend/src/themes/pinaka/config.ts               event facts, partners, worlds, copy, storage keys
 frontend/src/themes/pinaka/hooks.ts                deriveWorld / derivePhase / useWorldAttributes
 frontend/src/themes/pinaka/intro-gate.ts           shouldShowIntro()
+frontend/src/themes/pinaka/keys.ts                 the two localStorage keys (kept out of config.ts so the default bundle stays small)
 frontend/src/themes/pinaka/lazy.tsx                React.lazy entry points for every themed component
 frontend/src/themes/pinaka/pinaka.css              stylesheet entry (@imports styles/*)
 frontend/src/themes/pinaka/styles/tokens.css       token overrides under html[data-theme="pinaka"]
@@ -36,18 +37,19 @@ frontend/src/themes/pinaka/README.md               module contract
 frontend/src/lib/brand.ts                          tokenValue(): read a CSS token as a literal (charts)
 frontend/qa/visual/{harness,mock,scenes}.cjs, README.md   screenshot harness (dev tool, not shipped)
 supabase/migrations/20261008000000_event_theme.sql   event_settings.theme + admin_set_theme() + public_theme()
-docs/pinaka/*.md                                   this documentation set
+docs/pinaka/*.md                                   this documentation set (AUDIT, DESIGN_SYSTEM, ASSETS, CHANGE_MANIFEST, RESTORE, REVIEW, TEST_RESULTS)
 ```
 
 ## Edited files — every edit is an `isPinaka()` branch or a token reference
 
 | File | What changed | Default-theme effect |
 |---|---|---|
-| `src/main.tsx` | `bootTheme(() => supabase.rpc('public_theme'))` then `createRoot(...).render(...)` | one anonymous RPC before first paint (cached per device; a first visit waits ≤ 900 ms for it) |
-| `src/App.tsx` | imports; `CATEGORY_ICON` wrapped in `registerCategoryIcons()`; `pinaka` (from `useTheme()`), `world/worldPhase/introOpen` locals; environment swap; intro mount; nav badge + the admins' `AdminThemeControl` button; `noteServerTheme(data.theme)` in the event-settings poll; `JourneyMap` below `CommandHeader` (whenever the board renders, so the waiting and closed states are named too); the nav badge hides until the header has room for it (`xl`, `2xl` for admins); `PartnerStrip` in the footer; `ArrowSolveLight` beside `BreachConfirm`; two lime literals → `color-mix(... var(--color-neon) ...)` with the same alpha | none for players (identical elements and pixels); admins gain one header button |
+| `src/main.tsx` | `bootTheme(() => supabase.rpc('public_theme'))` then `createRoot(...).render(...)`; an RPC error is thrown so it counts as "no answer" | one anonymous RPC before first paint (cached per device; a first visit waits ≤ 700 ms for it; the skin's own chunks get ≤ 2.5 s, after which the page paints and the skin lands in place) |
+| `src/App.tsx` | imports; `CATEGORY_ICON` wrapped in `registerCategoryIcons()`; `pinaka` (from `useTheme()`), `world/worldPhase/introOpen` locals; environment swap; intro mount; nav badge + the admins' `AdminThemeControl` button; `noteServerTheme(data.theme)` in the event-settings poll; `JourneyMap` below `CommandHeader` (whenever the board renders, so the waiting and closed states are named too); the nav badge hides until the header has room for it (`xl`, `2xl` for admins); `PartnerStrip` in the footer; `ArrowSolveLight` beside `BreachConfirm` (both keyed); `.page-shell` is `inert` while the intro is up; two lime literals → `color-mix(... var(--color-neon) ...)` with the same alpha | none for players (identical elements and pixels); admins gain one header button |
 | `src/components/AuthPage.tsx` | environment swap; hero column → `AuthGateway` under the theme; four copy strings ternaried | none |
 | `src/Scoreboard.tsx` | `PodiumFrame` around the three podium cards; `pk-lanka-hall` class on the page wrapper; one label; `seriesColor()` reads the accent via `lib/brand` | none (same hex on the default theme) |
 | `src/components/chain/ChainedBoard.tsx` | two lazy renderers; `SetuChain` chosen at render under the theme; one lime glow → `color-mix` | none |
+| `src/components/b2r/B2RBoard.tsx` | the same two-renderer swap for Boot-to-Root chains | none |
 | `src/components/chain/ChainExperience.tsx` | two lime literals → token/`color-mix` | none |
 | `src/components/b2r/B2RBoard.tsx` | three lime literals → token/`color-mix` | none |
 | `src/Settings.tsx` | `ThemeSwitch` in the Experience panel, shown only when the skin is in play (build, server or device) | none (not rendered) |
@@ -55,15 +57,18 @@ docs/pinaka/*.md                                   this documentation set
 | `src/UserProfile.tsx` | `at` field added to the solves view-model; `ProfileJourney` under the theme; chart accent via `lib/brand` | none |
 | `src/TeamProfile.tsx` | chart accent via `lib/brand` | none |
 | `src/SharedComponents.tsx` | `TOKEN.neon/neonDim/neonBright` become getters via `lib/brand` | none |
+| `src/lib/brand.ts` (new) | token reads for chart literals, cached until the theme switches (`resetTokenCache()`, called by `applyTheme`) | same hex values as before on the default theme |
 
 ## Unavoidable deviations from "presentation only"
 
 * `main.tsx` defers the first render until `bootTheme()` settles: one
   anonymous `public_theme()` RPC (skipped once cached on the device; a first
-  visit waits for it at most 900 ms), then — only when the answer is
-  `pinaka` — the theme CSS chunk (10.9 KB gzip, same origin) so the first paint
-  is not un-themed. If anything fails the platform renders with the default
-  skin.
+  visit waits for it at most 700 ms), then — only when the answer is
+  `pinaka` — the theme CSS chunk and the first components (same origin), for at
+  most 2.5 s, so the first paint is not un-themed. Past either deadline the
+  platform paints with the default skin and the skin is applied in place when
+  it arrives; if a chunk fails outright the default is committed explicitly so
+  the DOM and every component agree.
 * `supabase/migrations/20261008000000_event_theme.sql` is the one server
   change: an additive `theme` column on `event_settings` with a CHECK, the
   admin-only audited `admin_set_theme(text)` and the read-only

@@ -80,7 +80,8 @@ import { pendingInvite, clearInvite, type InvitePreview } from './lib/invite';
 import { detectMilestones, type Milestone } from './lib/milestones';
 import { buildChainSeriesVM } from './components/chain/chainModel';
 import { isPinaka, useTheme, noteServerTheme, registerCategoryIcons } from './themes';
-import AdminThemeControl from './themes/AdminThemeControl';
+// Admins only, so it is not in the default bundle.
+const AdminThemeControl = React.lazy(() => import('./themes/AdminThemeControl'));
 import { deriveWorld, derivePhase } from './themes/pinaka/hooks';
 import { shouldShowIntro } from './themes/pinaka/intro-gate';
 import {
@@ -928,7 +929,9 @@ export default function App() {
         <React.Suspense fallback={null}><PinakaIntro onDone={() => setIntroOpen(false)} /></React.Suspense>
       )}
 
-      <div className="page-shell min-h-screen flex flex-col">
+      {/* Under the event skin's intro curtain the page is inert: nothing behind
+          the curtain can take focus or a click until it has gone. */}
+      <div className="page-shell min-h-screen flex flex-col" inert={pinaka && introOpen ? true : undefined}>
         {/* Header */}
         <nav className="bg-cyber-bg/85 backdrop-blur-xl border-b border-border-base sticky top-0 z-50">
           <div className="max-w-screen-2xl mx-auto px-3 sm:px-5 lg:px-6 h-16 flex items-center justify-between gap-2">
@@ -988,7 +991,9 @@ export default function App() {
                   </button>
                 )}
                 {/* The organisers' switch for the event skin, one click from anywhere. */}
-                {profile?.is_admin && <AdminThemeControl variant="nav" />}
+                {profile?.is_admin && (
+                  <React.Suspense fallback={null}><AdminThemeControl variant="nav" /></React.Suspense>
+                )}
               </div>
             </div>
 
@@ -1060,7 +1065,7 @@ export default function App() {
                   {/* The organisers' switch for the event skin, in reach on a phone too. */}
                   {profile?.is_admin && (
                     <div className="mt-1 px-3 py-2">
-                      <AdminThemeControl variant="nav" />
+                      <React.Suspense fallback={null}><AdminThemeControl variant="nav" /></React.Suspense>
                     </div>
                   )}
 
@@ -2342,10 +2347,10 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
         {isInsane && <OperationIntro operationId={challenge.id} />}
         <AnimatePresence>
           {justBreached && (
-            <BreachConfirm points={points} legendary={isInsane} onDone={() => setJustBreached(false)} />
+            <BreachConfirm key="breach" points={points} legendary={isInsane} onDone={() => setJustBreached(false)} />
           )}
           {justBreached && isPinaka() && (
-            <React.Suspense fallback={null}><ArrowSolveLight points={points} legendary={isInsane} /></React.Suspense>
+            <React.Suspense key="arrow" fallback={null}><ArrowSolveLight points={points} legendary={isInsane} /></React.Suspense>
           )}
         </AnimatePresence>
         <div className="flex items-center justify-between gap-3 px-3 sm:px-5 py-3 border-b border-border-base bg-surface-rail">

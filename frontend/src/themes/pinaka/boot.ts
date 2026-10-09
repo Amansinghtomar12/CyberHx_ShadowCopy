@@ -11,10 +11,17 @@ export async function bootPinaka(): Promise<void> {
   // Vite turns the stylesheet into its own CSS chunk and resolves once the
   // <link> has loaded, so the first paint already wears the theme. The glyph
   // and motif chunks are fetched in the same round trip rather than after it.
+  // The environment, the campaign map and the podium frame ride along too:
+  // every themed screen mounts one of them first, and arriving with the CSS
+  // means the scene fades in with the page instead of popping in a round
+  // trip later. None is fatal if it fails to arrive.
   const [, glyphs] = await Promise.all([
     import('./pinaka.css'),
     import('./components/CategoryGlyph').catch(() => null),
     import('./components/BowMotifs').catch(() => null),
+    import('./components/PinakaEnvironment').catch(() => null),
+    import('./components/JourneyMap').catch(() => null),
+    import('./components/PodiumFrame').catch(() => null),
   ]);
 
   // Display faces, swapped in when they arrive. Both hosts are already in the

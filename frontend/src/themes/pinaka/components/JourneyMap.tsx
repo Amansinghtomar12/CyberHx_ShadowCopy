@@ -123,6 +123,18 @@ export default function JourneyMap({ world, phase, progress, collapsed }: Journe
     el.scrollLeft = Math.max(0, Math.min(x - el.clientWidth / 2, el.scrollWidth - el.clientWidth));
   }, [idx, isCollapsed]);
 
+  // Off screen, the gleam and the pulse stop: an SVG child animation repaints
+  // the whole drawing every frame, and nobody is looking.
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [offscreen, setOffscreen] = useState(false);
+  useEffect(() => {
+    const el = hostRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(([e]) => setOffscreen(!e.isIntersecting), { rootMargin: '80px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   function toggle() {
     const next = !isCollapsed;
     setCollapsed(next);
@@ -146,22 +158,25 @@ export default function JourneyMap({ world, phase, progress, collapsed }: Journe
   /* ── Collapsed: one plate, the toggle still in reach ── */
   if (isCollapsed) {
     return (
-      <section className="surface pk-carved pk-journey is-collapsed" aria-label="Campaign map">
-        <span className="label-micro pk-journey-eyebrow">Chapter {current.chapter}</span>
-        <h2 className="pk-journey-title">{current.title}</h2>
-        <p className="pk-journey-line hidden sm:block">{PHASE_LINE[phase]}</p>
-        <span className="pk-journey-progress" aria-label={`Board progress ${pct} percent`}>
-          <span className="label-micro">Board progress</span>
-          <span className="font-mono text-small pk-journey-pct">{pct}%</span>
-        </span>
-        <div id={mapId} hidden />
-        {toggleButton}
-      </section>
+      <div className="pk-journey-host" ref={hostRef}>
+        <section className="surface pk-carved pk-journey is-collapsed" aria-label="Campaign map">
+          <span className="label-micro pk-journey-eyebrow">Chapter {current.chapter}</span>
+          <h2 className="pk-journey-title">{current.title}</h2>
+          <p className="pk-journey-line hidden sm:block">{PHASE_LINE[phase]}</p>
+          <span className="pk-journey-progress">
+            <span className="label-micro">Board progress</span>
+            <span className="font-mono text-small pk-journey-pct">{pct}%</span>
+          </span>
+          <div id={mapId} hidden />
+          {toggleButton}
+        </section>
+      </div>
     );
   }
 
   /* ── Expanded ── */
   return (
+    <div className="pk-journey-host" ref={hostRef} data-offscreen={offscreen ? 'true' : undefined}>
     <section className={`surface pk-carved pk-journey${still ? ' is-still' : ''}`} aria-label="Campaign map">
       <div className="pk-journey-head">
         <span className="label-micro pk-journey-eyebrow"><span className="hidden sm:inline">The campaign · </span>Chapter {current.chapter}</span>
@@ -170,7 +185,7 @@ export default function JourneyMap({ world, phase, progress, collapsed }: Journe
       </div>
 
       <div className="pk-journey-side">
-        <span className="pk-journey-progress" aria-label={`Board progress ${pct} percent`}>
+        <span className="pk-journey-progress">
           <span className="label-micro">Board progress</span>
           <span className="font-mono text-small pk-journey-pct">{pct}%</span>
         </span>
@@ -237,5 +252,6 @@ export default function JourneyMap({ world, phase, progress, collapsed }: Journe
         </svg>
       </div>
     </section>
+    </div>
   );
 }

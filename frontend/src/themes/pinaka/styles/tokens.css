@@ -86,7 +86,7 @@ html[data-theme="pinaka"] {
   --color-text-primary: #f3e8d1;
   --color-text-secondary: #cdc0a6;
   --color-text-muted: #a69a84;
-  --color-text-faint: #726859;
+  --color-text-faint: #8f8370;      /* 5.1:1 on the input surface: placeholders stay readable */
 
   /* ── Difficulty ──────────────────────────────────────────────────────── */
   --color-diff-easy: #8ccb9c;
@@ -101,8 +101,8 @@ html[data-theme="pinaka"] {
   /* ── Status ──────────────────────────────────────────────────────────── */
   --color-status-solved: #e3bb66;
   --color-status-solved-wash: rgba(227, 187, 102, 0.14);
-  --color-status-locked: #716d7e;
-  --color-status-locked-wash: rgba(113, 109, 126, 0.12);
+  --color-status-locked: #938fa3;   /* 4.8:1 on its own wash over a surface */
+  --color-status-locked-wash: rgba(147, 143, 163, 0.12);
   --color-status-live: #ff7a6b;
   --color-status-live-wash: rgba(255, 122, 107, 0.12);
   --color-status-info: #7ea7d8;

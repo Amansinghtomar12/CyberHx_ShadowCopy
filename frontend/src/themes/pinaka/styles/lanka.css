@@ -19,7 +19,7 @@ html[data-theme="pinaka"] .pk-lanka-hall {
 html[data-theme="pinaka"] .pk-lanka-hall::before {
   content: "";
   position: absolute;
-  inset: -2rem -3rem auto -3rem;
+  inset: -2rem 0 auto 0; /* no horizontal bleed: it would widen the page */
   height: min(60vh, 520px);
   z-index: -1;
   pointer-events: none;
