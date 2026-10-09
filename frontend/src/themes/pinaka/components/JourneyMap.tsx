@@ -2,16 +2,19 @@
  * JourneyMap — the campaign as an engraved map, above the board.
  *
  * WHAT IT SAYS
- *   India and Sri Lanka from Natural Earth (journey/geo.ts), the road of the
- *   epic drawn as one loop — Ayodhya, Chitrakoot, Panchavati, Kishkindha,
- *   Rameswaram, across the strait to Lanka, and the airborne return — with
- *   five stations pinned to real places. Two travellers ride the road: the
- *   team's arrow sits at the team's share of the board, the viewer's own
- *   smaller mark at their personal share. Both are numbers the platform
- *   already holds and passes in; the map invents nothing. Stations light as
- *   the arrow passes them; the station of the chapter this screen lives in
- *   carries the pulsing ring. The nodes are not links; the board below is
- *   the navigation.
+ *   All of India (Natural Earth, India's point of view: Jammu and Kashmir and
+ *   Ladakh in full, the Northeast, the islands) and Sri Lanka, with the road
+ *   of the epic drawn as one loop through seven stations pinned to real
+ *   places: Ayodhya, Chitrakoot, Panchavati, Kishkindha, Rameswaram, across
+ *   the strait to Lanka, and the airborne return. The road is the board:
+ *   each leg between stations is a sixth of it (journey/milestones.ts), so
+ *   the team's arrow reaches Kishkindha at half the board and Ayodhya again
+ *   with every flag taken. The head names the chapter the team has reached
+ *   and the next milestone with the solves still needed; the list beside the
+ *   map says what each station means. The viewer's own mark rides the same
+ *   road at their personal share. Every number is one the platform already
+ *   holds and passes in; the map invents nothing. The nodes are not links;
+ *   the board below is the navigation.
  *
  * WHAT IT COSTS
  *   Two stacked SVGs (≈ 12 KB of path data, imported once) in one plate,
@@ -21,15 +24,16 @@
  *   stretch, the stations and the travellers are the upper one, on its own
  *   compositing layer, so a pulsing ring repaints a few circles and labels
  *   and never the coastline or the clipped shore under it. The map keeps the
- *   viewBox's 9:8 shape and sizes to its panel: beside the head from 700px
- *   of panel, beneath it below that, and in a sideways-scrolling box when
- *   the panel is narrower than the smallest readable map. Labels and markers
- *   are drawn in CSS pixels (each station group is scaled by 720 / rendered
+ *   viewBox's 12:13 shape and sizes to its panel: beside the head and the
+ *   milestones from 700px of panel, beneath the head (and above the
+ *   milestones) below that, and in a sideways-scrolling box only when the
+ *   panel is narrower than the smallest readable map. Labels and markers are
+ *   drawn in CSS pixels (each station group is scaled by 720 / rendered
  *   width), so they stay 11px whatever size the map is; the coast and the
  *   road use non-scaling hairlines for the same reason.
  *
  * MOTION
- *   The current station's ring pulses by opacity; the team arrow's halo
+ *   The next milestone's ring pulses by opacity; the team arrow's halo
  *   breathes by opacity; the lit stretch settles by stroke-dashoffset in
  *   600ms. When progress changes the two travellers ride the road for 600ms
  *   (a requestAnimationFrame tween along the path, sampled with
@@ -40,18 +44,21 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type 
 import { useReducedMotion } from 'motion/react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { getCapability } from '../../../components/environment/performance';
-import { WORLDS, devanagariNumber, type World } from '../config';
+import { WORLDS, devanagariNumber } from '../config';
 import { PINAKA_STORAGE_KEYS } from '../keys';
 import type { EventPhase } from '../hooks';
 import {
-  LAND, MAP_HEIGHT, MAP_VIEWBOX, MAP_WIDTH, ROUTE_D, ROUTE_STATION_T, STATIONS, WATER_LINES,
+  LAND, MAP_VIEWBOX, MAP_WIDTH, ROUTE_D, ROUTE_STATION_T, STATIONS, WATER_LINES, type StationKey,
 } from './journey/geo';
+import { MILESTONES, milestonesReached } from './journey/milestones';
 
 interface JourneyMapProps {
-  world: World;
   phase: EventPhase;
   /** The team's share of the board, 0..1. Clamped; NaN reads as 0. */
   progress: number;
+  /** How many challenges the board holds, to say how many solves the next
+      milestone needs. Omitted or 0: the milestone is given as a share. */
+  total?: number;
   /** The viewer's own share of the board, 0..1. Clamped; NaN reads as 0.
       Omitted: no personal marker is drawn. */
   personal?: number;
@@ -59,25 +66,44 @@ interface JourneyMapProps {
   collapsed?: boolean;
 }
 
-const ORDER: readonly World[] = ['ayodhya', 'vanavasa', 'setu', 'lanka', 'vijaya'];
-
-const PHASE_LINE: Record<EventPhase, string> = {
-  before: 'The hall gathers before dawn.',
-  during: 'The forest is open; every path is a challenge.',
-  after: 'The field is quiet. The record stands.',
-};
-
 /* Where each station's label sits, in CSS pixels from the ring. Ayodhya and
    its return share one point, so the two labels take the two right-hand
-   sides; Chitrakoot and Rameswaram read to the left, Lanka to the right over
-   open water. Chosen so no two labels touch at the smallest map (320px). */
-const LABEL: Record<World, { dx: number; dy: number; anchor: 'start' | 'end'; text: string; ring: number }> = {
-  ayodhya:  { dx: 11,  dy: -3, anchor: 'start', text: 'Ayodhya',    ring: 6.5 },
-  vanavasa: { dx: -11, dy: 4,  anchor: 'end',   text: 'Chitrakoot', ring: 6.5 },
-  setu:     { dx: -11, dy: 4,  anchor: 'end',   text: 'Rameswaram', ring: 6.5 },
-  lanka:    { dx: 11,  dy: 4,  anchor: 'start', text: 'Lanka',      ring: 6.5 },
-  vijaya:   { dx: 11,  dy: 13, anchor: 'start', text: 'The return', ring: 10.5 },
+   sides; Chitrakoot and Rameswaram read to the left, Panchavati, Kishkindha
+   and Lanka to the right, between the legs of the road. Chosen so no label
+   leaves the map or touches another at the smallest map (320px). */
+const LABEL: Record<StationKey, { dx: number; dy: number; anchor: 'start' | 'end'; text: string; ring: number }> = {
+  ayodhya:    { dx: 11,  dy: -3, anchor: 'start', text: 'Ayodhya',    ring: 6.5 },
+  chitrakoot: { dx: -11, dy: 4,  anchor: 'end',   text: 'Chitrakoot', ring: 6.5 },
+  panchavati: { dx: 11,  dy: 4,  anchor: 'start', text: 'Panchavati', ring: 6.5 },
+  kishkindha: { dx: 11,  dy: 4,  anchor: 'start', text: 'Kishkindha', ring: 6.5 },
+  rameswaram: { dx: -11, dy: 4,  anchor: 'end',   text: 'Rameswaram', ring: 6.5 },
+  lanka:      { dx: 11,  dy: 4,  anchor: 'start', text: 'Lanka',      ring: 6.5 },
+  return:     { dx: 11,  dy: 13, anchor: 'start', text: 'The return', ring: 10.5 },
 };
+
+/**
+ * Where on the road a board share sits: piecewise along the legs, so the
+ * share at which a milestone is reached lands exactly on its station (the
+ * legs are a sixth of the board each but of very different lengths).
+ */
+function routeT(p: number): number {
+  if (p <= 0) return 0;
+  if (p >= 1) return 1;
+  let i = 0;
+  while (i < MILESTONES.length - 2 && p >= MILESTONES[i + 1].at) i++;
+  const a = MILESTONES[i].at, b = MILESTONES[i + 1].at;
+  const u = (p - a) / (b - a || 1);
+  return ROUTE_STATION_T[i] + u * (ROUTE_STATION_T[i + 1] - ROUTE_STATION_T[i]);
+}
+
+/** "3 more solves", or the share when the board size is unknown. */
+function stillNeeded(at: number, p: number, total: number): string {
+  if (total > 0) {
+    const need = Math.max(1, Math.ceil(at * total - 1e-9) - Math.round(p * total));
+    return `${need} more solve${need === 1 ? '' : 's'}`;
+  }
+  return `at ${Math.round(at * 100)}% of the board`;
+}
 
 const TWEEN_MS = 600;
 const easeOutQuint = (u: number) => 1 - Math.pow(1 - u, 5);
@@ -182,7 +208,7 @@ function useTraveller(
   }, [ref, pathRef, target, rotate, snap, onShown]);
 }
 
-export default function JourneyMap({ world, phase, progress, personal, collapsed }: JourneyMapProps) {
+export default function JourneyMap({ phase, progress, total = 0, personal, collapsed }: JourneyMapProps) {
   const still = useStill();
   const [isCollapsed, setCollapsed] = useState<boolean>(() => collapsed ?? readCollapsed());
   // The prop is an instruction from the app; the toggle is the player's. A
@@ -194,9 +220,24 @@ export default function JourneyMap({ world, phase, progress, personal, collapsed
   const hasYou = personal !== undefined;
   const you = clamp01(personal ?? 0);
   const youPct = Math.round(you * 100);
-  const idx = Math.max(0, ORDER.indexOf(world));
-  const current = WORLDS[world] ?? WORLDS.ayodhya;
-  const station = STATIONS[idx];
+  const teamT = routeT(p);
+  const youT = routeT(you);
+
+  // Where the team stands on the road, by the board's own numbers: the last
+  // milestone reached, its chapter, and the next one with what it still needs.
+  const reachedP = milestonesReached(p);
+  const here = STATIONS[reachedP - 1];
+  const chapter = WORLDS[here.world];
+  const next = reachedP < MILESTONES.length ? MILESTONES[reachedP] : null;
+  const nextStation = next ? STATIONS[reachedP] : null;
+  const headLine =
+    phase === 'before'
+      ? 'The hall gathers before dawn. The road starts at Ayodhya.'
+      : !next
+        ? 'Every flag taken. The lamps are lit in Ayodhya.'
+        : phase === 'after'
+          ? `The field is quiet. The team reached ${here.place}.`
+          : `Next: ${nextStation!.place}, ${next.title.toLowerCase()} — ${stillNeeded(next.at, p, total)}.`;
 
   // Unique ids for the SVG defs: several boards may mount this at once.
   const uid = useId().replace(/[^A-Za-z0-9_-]/g, '');
@@ -245,15 +286,15 @@ export default function JourneyMap({ world, phase, progress, personal, collapsed
 
   // Stations light as the team's arrow passes them, so the count follows the
   // fraction actually shown (the tween), not the target.
-  const [reached, setReached] = useState(() => reachedCount(p));
+  const [reached, setReached] = useState(() => reachedCount(teamT));
   const reachedRef = useRef(reached);
   const onTeamShown = useCallback((t: number) => {
     const n = reachedCount(t);
     if (n !== reachedRef.current) { reachedRef.current = n; setReached(n); }
   }, []);
   const snap = still || offscreen || isCollapsed;
-  useTraveller(teamRef, routeRef, p, true, snap, onTeamShown);
-  useTraveller(youRef, routeRef, you, false, snap);
+  useTraveller(teamRef, routeRef, teamT, true, snap, onTeamShown);
+  useTraveller(youRef, routeRef, youT, false, snap);
 
   // In a narrow panel the map is wider than its box and scrolls. Bring the
   // team's arrow into the middle of the box, so where the team stands is the
@@ -262,9 +303,9 @@ export default function JourneyMap({ world, phase, progress, personal, collapsed
     if (isCollapsed) return;
     const el = scrollRef.current;
     if (!el || el.scrollWidth <= el.clientWidth) return;
-    const x = (pointAt(routeRef.current, p).x / MAP_WIDTH) * el.scrollWidth;
+    const x = (pointAt(routeRef.current, teamT).x / MAP_WIDTH) * el.scrollWidth;
     el.scrollLeft = Math.max(0, Math.min(x - el.clientWidth / 2, el.scrollWidth - el.clientWidth));
-  }, [p, isCollapsed]);
+  }, [teamT, isCollapsed]);
 
   function toggle() {
     const next = !isCollapsed;
@@ -306,9 +347,9 @@ export default function JourneyMap({ world, phase, progress, personal, collapsed
     return (
       <div className="pk-journey-host" ref={hostRef}>
         <section className="surface pk-carved pk-journey is-collapsed" aria-label="Campaign map">
-          <span className="label-micro pk-journey-eyebrow">Chapter {current.chapter}</span>
-          <h2 className="pk-journey-title">{current.title}</h2>
-          <p className="pk-journey-line hidden sm:block">{PHASE_LINE[phase]}</p>
+          <span className="label-micro pk-journey-eyebrow">Chapter {chapter.chapter}</span>
+          <h2 className="pk-journey-title">{chapter.title}</h2>
+          <p className="pk-journey-line hidden sm:block">{headLine}</p>
           <span className="pk-journey-figures">{figures}</span>
           <div id={mapId} hidden />
           {toggleButton}
@@ -318,39 +359,45 @@ export default function JourneyMap({ world, phase, progress, personal, collapsed
   }
 
   /* ── The sentence a screen reader gets instead of the drawing ── */
-  const last = STATIONS[Math.max(1, Math.min(reached, STATIONS.length)) - 1];
-  const where = reached >= STATIONS.length ? 'home at Ayodhya' : p > 0 ? `past ${last.place}` : 'at Ayodhya';
   const sentence =
-    `Campaign map of India and Sri Lanka. Chapter ${current.chapter}, ${current.title}, at ${station.place}. ` +
-    `The team's arrow is ${pct} percent along the road, ${where}.` +
-    (hasYou ? ` You are ${youPct} percent along the road.` : '');
+    `Campaign map of India and Sri Lanka: the road from Ayodhya to Lanka and back, in seven stations. ` +
+    `The team has solved ${pct} percent of the board and reached ${reachedP === MILESTONES.length ? 'Ayodhya again, the end of the road' : here.place}, ` +
+    `chapter ${chapter.chapter}, ${chapter.title}.` +
+    (next && nextStation ? ` Next is ${nextStation.place} at ${Math.round(next.at * 100)} percent.` : '') +
+    (hasYou ? ` Your own solves are ${youPct} percent of the board.` : '');
 
   /* ── Expanded ── */
   return (
     <div className="pk-journey-host" ref={hostRef} data-offscreen={offscreen ? 'true' : undefined}>
     <section className={`surface pk-carved pk-journey${still ? ' is-still' : ''}`} aria-label="Campaign map">
       <div className="pk-journey-head">
-        <span className="label-micro pk-journey-eyebrow"><span className="hidden sm:inline">The campaign · </span>Chapter {current.chapter}</span>
-        <h2 className="pk-journey-title">{current.title}</h2>
-        <p className="pk-journey-line">{PHASE_LINE[phase]}</p>
+        <span className="label-micro pk-journey-eyebrow"><span className="hidden sm:inline">The campaign · </span>Chapter {chapter.chapter}</span>
+        <h2 className="pk-journey-title">{chapter.title}</h2>
+        <p className="pk-journey-line">{headLine}</p>
       </div>
       {/* the legend: the two figures, each with the mark that rides the road */}
       <div className="pk-journey-figures">{figures}</div>
 
-      {/* the stations, as a list beside the map (wide panels only): which
-          chapter each is, where it is, and whether the team has reached it */}
-      <ol className="pk-journey-stations" aria-label="Stations of the road">
-        {ORDER.map((w, i) => (
-          <li
-            key={w}
-            data-state={i < reached ? 'reached' : 'ahead'}
-            data-current={i === idx ? 'true' : undefined}
-          >
-            <span className="pk-journey-stations-num" lang="hi" aria-hidden="true">{devanagariNumber(i + 1)}</span>
-            <span className="pk-journey-stations-name">{WORLDS[w].chapter} · {WORLDS[w].title}</span>
-            <span className="pk-journey-stations-place">{STATIONS[i].place}</span>
-          </li>
-        ))}
+      {/* the milestones: where each station is, what reaching it means, the
+          share of the board it takes, and whether the team is there yet */}
+      <ol className="pk-journey-stations" aria-label="Milestones of the road">
+        {MILESTONES.map((m, i) => {
+          const s = STATIONS[i];
+          const state = i < reachedP ? 'reached' : i === reachedP ? 'next' : 'ahead';
+          return (
+            <li key={m.key} data-state={state}>
+              <span className="pk-journey-stations-num" lang="hi" aria-hidden="true">{devanagariNumber(i + 1)}</span>
+              <span className="pk-journey-stations-name">
+                {m.key === 'return' ? 'Ayodhya, the return' : s.place}
+                <span className="pk-journey-stations-chapter"> · {WORLDS[s.world].chapter} {WORLDS[s.world].title}</span>
+              </span>
+              <span className="pk-journey-stations-status">
+                {state === 'reached' ? 'Reached' : state === 'next' && phase === 'during' ? stillNeeded(m.at, p, total) : `${Math.round(m.at * 100)}%`}
+              </span>
+              <span className="pk-journey-stations-place"><em>{m.title}.</em> {m.line}</span>
+            </li>
+          );
+        })}
       </ol>
 
       <div className="pk-journey-side">
@@ -417,27 +464,27 @@ export default function JourneyMap({ world, phase, progress, personal, collapsed
             d={ROUTE_D}
             pathLength="100"
             vectorEffect="non-scaling-stroke"
-            style={{ strokeDashoffset: 100 - pct }}
+            style={{ strokeDashoffset: 100 - teamT * 100 }}
           />
 
           {/* the stations, drawn in CSS pixels (scaled by k) */}
-          {ORDER.map((w, i) => {
-            const s = STATIONS[i];
-            const l = LABEL[w];
+          {STATIONS.map((s, i) => {
+            const l = LABEL[s.key];
             const state = i < reached ? 'reached' : 'ahead';
-            const isCurrent = i === idx;
+            // the pulse marks where the team is heading: the next milestone
+            const isNext = i === reached && phase === 'during';
             return (
               <g
-                key={w}
+                key={s.key}
                 className="pk-journey-node"
-                data-world={w}
+                data-key={s.key}
                 data-state={state}
-                data-current={isCurrent ? 'true' : undefined}
+                data-current={isNext ? 'true' : undefined}
                 transform={`translate(${s.x} ${s.y}) scale(${k.toFixed(4)})`}
               >
-                {isCurrent && !still && <circle className="pk-journey-pulse" r={l.ring + 4.5} />}
+                {isNext && !still && <circle className="pk-journey-pulse" r={l.ring + 4.5} />}
                 <circle className="pk-journey-ring" r={l.ring} />
-                {w !== 'vijaya' && <circle className="pk-journey-dot" r="2.2" />}
+                {s.key !== 'return' && <circle className="pk-journey-dot" r="2.2" />}
                 <text className="pk-journey-label" x={l.dx} y={l.dy} textAnchor={l.anchor}>
                   <tspan className="pk-journey-numeral" lang="hi">{devanagariNumber(i + 1)}</tspan>
                   <tspan className="pk-journey-place" dx="4">{l.text}</tspan>

@@ -1,10 +1,12 @@
 /* ============================================================================
    PINAKA — JOURNEY MAP
-   The campaign above the board as an engraved map: India and Sri Lanka in
-   dark stone with a gold coast, the road of the epic as a bronze track with
-   the team's share lit in gold, five stations pinned to real places, and two
-   travellers on the road — the team's arrow and the viewer's own mark. One
-   carved panel; a single plate when collapsed.
+   The campaign above the board as an engraved map: all of India and Sri
+   Lanka in dark stone with a gold coast, the road of the epic as a bronze
+   track with the team's progress lit in gold, seven stations pinned to real
+   places, and two travellers on the road — the team's arrow and the
+   viewer's own mark. Beside it, the milestones: what each station means and
+   how far the team is from the next. One carved panel; a single plate when
+   collapsed.
 
    Scoped to html[data-theme="pinaka"]. Motion: the current station's ring
    pulses by opacity, the arrow's halo breathes by opacity, the lit stretch
@@ -13,7 +15,7 @@
    prefers-reduced-motion (the component adds .is-still so the two never
    disagree) and pauses off screen (core.css, [data-offscreen]).
 
-   Scale: the geometry lives in a 720 × 640 viewBox, but every hairline,
+   Scale: the geometry lives in a 720 × 780 viewBox, but every hairline,
    ring, marker and label is meant in CSS pixels. The component measures
    k = 720 / rendered width and sets --pk-k on the <svg>; station and
    traveller groups are scaled by k, and the hairlines multiply by it here.
@@ -23,21 +25,20 @@
 /* The host measures the panel's own width (a container query), so the layout
    answers to the room the board column actually has — with or without the
    rail — and never to the viewport. Stacked by default: head and side on one
-   row, the map full-width beneath. */
+   row, the map full-width beneath, the milestones under the map. */
 html[data-theme="pinaka"] .pk-journey-host {
   container-type: inline-size;
-  /* The map's height; its width follows from the 9:8 viewBox. */
-  --pk-map-h: 300px;
+  /* The map's height; its width follows from the 12:13 viewBox. */
+  --pk-map-h: 560px;
 }
 html[data-theme="pinaka"] .pk-journey {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
-    "head side"
-    "figs figs"
-    "map  map";
-  /* The station list only has room beside the map (see the container query). */
-  --pk-stations-display: none;
+    "head     side"
+    "figs     figs"
+    "map      map"
+    "stations stations";
   align-items: start;
   column-gap: 1.25rem;
   row-gap: 0.625rem;
@@ -47,24 +48,27 @@ html[data-theme="pinaka"] .pk-journey {
 /* Room for the map beside the head (≥ 700px of panel): one row, the map at
    the right, the head in whatever is left. */
 @container (min-width: 700px) {
-  html[data-theme="pinaka"] .pk-journey-host { --pk-map-h: 280px; }
   html[data-theme="pinaka"] .pk-journey {
+    /* set on the panel, not the host: a container query styles only the
+       container's descendants */
+    --pk-map-h: 460px;
     grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-rows: auto auto 1fr;
     grid-template-areas:
       "head     map side"
       "figs     map side"
       "stations map side";
     row-gap: 0;
     padding-left: 1.25rem;
-    --pk-stations-display: grid;
   }
   /* The map spans both rows and sets their height; the head sits on the
      seam from above and the figures from below, so the pair reads centred. */
   html[data-theme="pinaka"] .pk-journey-head { align-self: start; padding-top: 0.25rem; }
   html[data-theme="pinaka"] .pk-journey-figures { align-self: start; margin-top: 0.6rem; }
-  html[data-theme="pinaka"] .pk-journey-stations { align-self: end; }
+  html[data-theme="pinaka"] .pk-journey-stations { align-self: start; }
   html[data-theme="pinaka"] .pk-journey-side { align-self: stretch; }
-  html[data-theme="pinaka"] .pk-journey-plate { width: calc(var(--pk-map-h) * 9 / 8); }
+  /* beats the base rule below (same selector, later in the file) */
+  html[data-theme="pinaka"] .pk-journey .pk-journey-plate { width: calc(var(--pk-map-h) * 12 / 13); }
 }
 html[data-theme="pinaka"] .pk-journey-head { grid-area: head; min-width: 0; }
 html[data-theme="pinaka"] .pk-journey-side {
@@ -142,42 +146,65 @@ html[data-theme="pinaka"] .pk-journey-progress[data-marker="you"]::before {
 }
 html[data-theme="pinaka"] .pk-journey-pct { color: var(--pk-gold-soft); }
 
-/* ── The station list: five rows, two columns, beside the map ──────────── */
-/* Each row: the Devanagari numeral, "chapter · world", the place. Reached
-   stations are parchment, the ones ahead muted, the current one gold with a
-   small diamond; the states follow the map's own (reached = the team's arrow
-   has passed it, current = the chapter this screen lives in). */
+/* ── The milestones: seven rows beside (or under) the map ─────────────── */
+/* Each row: the Devanagari numeral, the place and its chapter, the status
+   (reached, the solves the next one needs, or the share of the board that
+   reaches it), and one line of what it means. Reached rows are parchment,
+   the next one gold with a hairline rail, the rest muted. A thread runs down
+   the numerals, lit as far as the team has come. */
 html[data-theme="pinaka"] .pk-journey-stations {
   grid-area: stations;
-  display: var(--pk-stations-display);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.3rem 1.25rem;
+  display: grid;
+  gap: 0.15rem;
   margin: 0.9rem 0 0;
   padding: 0;
   list-style: none;
   min-width: 0;
 }
 html[data-theme="pinaka"] .pk-journey-stations li {
+  position: relative;
   display: grid;
-  grid-template-columns: 1.1rem minmax(0, 1fr);
-  grid-template-areas: "num name" "num place";
-  column-gap: 0.4rem;
+  grid-template-columns: 1.4rem minmax(0, 1fr) auto;
+  grid-template-areas: "num name status" "num place place";
+  column-gap: 0.55rem;
   align-items: baseline;
   min-width: 0;
+  padding: 0.35rem 0.5rem 0.4rem 0.25rem;
+  border-radius: 8px;
   color: var(--color-text-muted);
 }
+/* the thread between numerals */
+html[data-theme="pinaka"] .pk-journey-stations li::before {
+  content: "";
+  position: absolute;
+  left: calc(0.25rem + 0.7rem - 0.5px);
+  top: 1.55rem;
+  bottom: -0.5rem;
+  width: 1px;
+  background: rgba(181, 139, 98, 0.28);
+}
+html[data-theme="pinaka"] .pk-journey-stations li:last-child::before { display: none; }
+html[data-theme="pinaka"] .pk-journey-stations li[data-state="reached"]::before { background: var(--pk-gold-deep); }
 html[data-theme="pinaka"] .pk-journey-stations li[data-state="reached"] { color: var(--pk-parchment); }
-html[data-theme="pinaka"] .pk-journey-stations li[data-current="true"] { color: var(--pk-gold-soft); }
+html[data-theme="pinaka"] .pk-journey-stations li[data-state="next"] {
+  color: var(--pk-gold-soft);
+  background: linear-gradient(90deg, rgba(227, 187, 102, 0.12), rgba(227, 187, 102, 0.02) 70%, transparent);
+  box-shadow: inset 2px 0 0 var(--pk-gold);
+}
 html[data-theme="pinaka"] .pk-journey-stations-num {
   grid-area: num;
+  position: relative;
+  z-index: 1;
+  justify-self: center;
   font-family: var(--pk-font-prose);
-  font-size: 0.95rem;
+  font-size: 1rem;
   line-height: 1;
   color: var(--pk-gold-deep);
 }
-html[data-theme="pinaka"] .pk-journey-stations li[data-current="true"] .pk-journey-stations-num { color: var(--pk-gold); }
+html[data-theme="pinaka"] .pk-journey-stations li[data-state="next"] .pk-journey-stations-num { color: var(--pk-gold-bright); }
 html[data-theme="pinaka"] .pk-journey-stations-name {
   grid-area: name;
+  min-width: 0;
   font-family: var(--font-mono);
   font-size: 0.6875rem;
   font-weight: 700;
@@ -187,42 +214,49 @@ html[data-theme="pinaka"] .pk-journey-stations-name {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-html[data-theme="pinaka"] .pk-journey-stations li[data-current="true"] .pk-journey-stations-name::after {
-  content: "";
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  margin-left: 0.45rem;
-  vertical-align: middle;
-  background: var(--pk-gold);
-  transform: rotate(45deg);
+html[data-theme="pinaka"] .pk-journey-stations-chapter {
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
 }
+html[data-theme="pinaka"] .pk-journey-stations-status {
+  grid-area: status;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+}
+html[data-theme="pinaka"] .pk-journey-stations li[data-state="reached"] .pk-journey-stations-status { color: var(--pk-gold-deep); }
+html[data-theme="pinaka"] .pk-journey-stations li[data-state="reached"] .pk-journey-stations-status::before { content: "✓ "; }
+html[data-theme="pinaka"] .pk-journey-stations li[data-state="next"] .pk-journey-stations-status { color: var(--pk-gold-bright); }
 html[data-theme="pinaka"] .pk-journey-stations-place {
   grid-area: place;
   font-family: var(--pk-font-prose);
-  font-size: 0.8125rem;
-  line-height: 1.25;
+  font-size: 0.875rem;
+  line-height: 1.3;
   color: var(--color-text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  text-wrap: pretty;
 }
-html[data-theme="pinaka"] .pk-journey-stations li[data-state="ahead"] .pk-journey-stations-place { color: var(--color-text-muted); }
+html[data-theme="pinaka"] .pk-journey-stations-place em { font-style: italic; color: var(--pk-parchment); }
+html[data-theme="pinaka"] .pk-journey-stations li[data-state="ahead"] .pk-journey-stations-place,
+html[data-theme="pinaka"] .pk-journey-stations li[data-state="ahead"] .pk-journey-stations-place em { color: var(--color-text-muted); }
 html[data-theme="pinaka"] .pk-journey-toggle { color: var(--color-text-secondary); gap: 0.35rem; }
 html[data-theme="pinaka"] .pk-journey-toggle:hover:not(:disabled) { color: var(--pk-parchment); }
 
 /* ── The plate ─────────────────────────────────────────────────────────── */
 /* The plate: stone with a faint parchment grain (one tiled noise image,
    rendered once by the browser and cached — no live filter), a warm centre
-   and an inset gold rim. It keeps the viewBox's 9:8 shape and fills the
+   and an inset gold rim. It keeps the viewBox's 12:13 shape and fills the
    panel's width up to the map height; the polygons run past the edges on
    purpose, so the plate clips. Two SVGs sit in its one grid cell: the land
    and the road beneath, the lit stretch, stations and travellers above. */
 html[data-theme="pinaka"] .pk-journey-plate {
   display: grid;
-  width: min(100%, calc(var(--pk-map-h) * 9 / 8));
+  width: min(100%, calc(var(--pk-map-h) * 12 / 13));
   height: auto;
-  aspect-ratio: 9 / 8;
+  aspect-ratio: 12 / 13;
   margin-inline: auto;
   overflow: hidden;
   border-radius: 10px;
@@ -314,7 +348,7 @@ html[data-theme="pinaka"] .pk-journey-ring {
 }
 html[data-theme="pinaka"] .pk-journey-dot { fill: rgba(181, 139, 98, 0.7); }
 /* The return shares Ayodhya's point: an outer ring, dashed until reached. */
-html[data-theme="pinaka"] .pk-journey-node[data-world="vijaya"] .pk-journey-ring {
+html[data-theme="pinaka"] .pk-journey-node[data-key="return"] .pk-journey-ring {
   fill: none;
   stroke-dasharray: 2.4 2.6;
 }
