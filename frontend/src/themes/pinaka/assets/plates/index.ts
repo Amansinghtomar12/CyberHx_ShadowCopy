@@ -17,6 +17,8 @@
  * `object-position: ${focal.x * 100}% ${focal.y * 100}%`.
  */
 import type { World } from '../../config';
+import { CHAPTER_ORDER, type ChapterId } from '../../chapters/config';
+import { CHAPTER_PLATES } from '../chapters';
 
 import temple3840 from './temple-3840.webp';
 import temple1920 from './temple-1920.webp';
@@ -52,7 +54,15 @@ const TEMPLE_ART: Plate = {
   },
 };
 
-export type PlateKey = World | 'hero';
+/**
+ * A chapter's background, keyed apart from the worlds: three chapters share
+ * a name with a world ('ayodhya', 'setu', 'lanka') and the two systems must
+ * not overwrite each other — the worlds still dress the routes, the chapters
+ * dress the journey.
+ */
+export type ChapterPlateKey = `chapter-${ChapterId}`;
+
+export type PlateKey = World | 'hero' | ChapterPlateKey;
 
 export interface Plate {
   /** Bundled URL of the 1920×1080 file. */
@@ -134,7 +144,15 @@ export const PLATES: Record<PlateKey, Plate> = {
   },
   vijaya: TEMPLE_ART,
   hero: TEMPLE_ART,
+  ...(Object.fromEntries(
+    CHAPTER_ORDER.map(id => [`chapter-${id}`, CHAPTER_PLATES[id]]),
+  ) as Record<ChapterPlateKey, Plate>),
 };
+
+/** The plate a chapter is painted with. */
+export function chapterPlateKey(id: ChapterId): ChapterPlateKey {
+  return `chapter-${id}`;
+}
 
 /** Every photograph once, in world order, for the footer credit line. */
 export const PLATE_CREDITS: Plate['credit'][] = (Object.keys(PLATES) as PlateKey[])

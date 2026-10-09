@@ -20,6 +20,10 @@ export const AuthGateway = React.lazy(() => import('./components/AuthGateway'));
 export const PodiumFrame = React.lazy(() => import('./components/PodiumFrame'));
 export const ProfileJourney = React.lazy(() => import('./components/ProfileJourney'));
 export const ThemeSwitch = React.lazy(() => import('./components/ThemeSwitch'));
+/** The six chapters on one rail, above the board. */
+export const JourneyBar = React.lazy(() => import('./components/JourneyBar'));
+/** The moment a chapter closes and the next opens. */
+export const ChapterUnlock = React.lazy(() => import('./components/ChapterUnlock'));
 
 /** The solve acknowledgement, from the motif family. Preloaded at boot. */
 export const ArrowSolveLight = React.lazy(() =>

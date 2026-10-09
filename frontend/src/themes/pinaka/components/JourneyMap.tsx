@@ -1,5 +1,9 @@
 /**
- * JourneyMap — the campaign as an engraved map, above the board.
+ * JourneyMap — the road, as an engraved map above the board.
+ *
+ * The word "chapter" belongs to the journey rail (themes/pinaka/chapters);
+ * this map speaks of the road and the share of the board solved along it,
+ * so the two never number the same thing differently.
  *
  * WHAT IT SAYS
  *   All of India (Natural Earth, India's point of view: Jammu and Kashmir and
@@ -44,7 +48,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type 
 import { useReducedMotion } from 'motion/react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { getCapability } from '../../../components/environment/performance';
-import { WORLDS, devanagariNumber } from '../config';
+import { devanagariNumber } from '../config';
 import { PINAKA_STORAGE_KEYS } from '../keys';
 import type { EventPhase } from '../hooks';
 import {
@@ -244,7 +248,6 @@ export default function JourneyMap({ phase, progress, total = 0, personal, colla
   // milestone reached, its chapter, and the next one with what it still needs.
   const reachedP = milestonesReached(p);
   const here = STATIONS[reachedP - 1];
-  const chapter = WORLDS[here.world];
   const next = reachedP < MILESTONES.length ? MILESTONES[reachedP] : null;
   const nextStation = next ? STATIONS[reachedP] : null;
   const solved = total > 0 ? Math.round(p * total) : null;
@@ -372,8 +375,8 @@ export default function JourneyMap({ phase, progress, total = 0, personal, colla
     return (
       <div className="pk-journey-host" ref={hostRef}>
         <section className="surface pk-carved pk-journey is-collapsed" aria-label="Campaign map">
-          <span className="label-micro pk-journey-eyebrow">Chapter {chapter.chapter}</span>
-          <h2 className="pk-journey-title">{chapter.title}</h2>
+          <span className="label-micro pk-journey-eyebrow">The road</span>
+          <h2 className="pk-journey-title">{here.place}</h2>
           <p className="pk-journey-line hidden sm:block">{headLine}</p>
           <span className="pk-journey-figures">{figures}</span>
           <div id={mapId} hidden />
@@ -387,7 +390,7 @@ export default function JourneyMap({ phase, progress, total = 0, personal, colla
   const sentence =
     `Campaign map of India and Sri Lanka: the road from Ayodhya to Lanka and back, in seven stations. ` +
     `The team has ${solved !== null ? `solved ${solved} of ${total} challenges` : `solved ${pct} percent of the board`} and reached ` +
-    `${reachedP === MILESTONES.length ? 'Ayodhya again, the end of the road' : here.place}, chapter ${chapter.chapter}, ${chapter.title}.` +
+    `${reachedP === MILESTONES.length ? 'Ayodhya again, the end of the road' : here.place}.` +
     (next && nextStation && phase === 'during' ? ` Next is ${nextStation.place}, ${stillNeeded(next.at, p, total)}.` : '') +
     (hasYou ? ` You have solved ${total > 0 ? `${Math.round(you * total)} of ${total}` : `${youPct} percent`}.` : '');
 
@@ -397,8 +400,8 @@ export default function JourneyMap({ phase, progress, total = 0, personal, colla
     <section className={`surface pk-carved pk-journey${still ? ' is-still' : ''}`} aria-label="Campaign map">
       <div className="pk-journey-head">
         <div className="pk-journey-headtext">
-          <span className="label-micro pk-journey-eyebrow"><span className="hidden sm:inline">The campaign · </span>Chapter {chapter.chapter}</span>
-          <h2 className="pk-journey-title">{chapter.title}</h2>
+          <span className="label-micro pk-journey-eyebrow"><span className="hidden sm:inline">The road · </span>{pct}% of the board</span>
+          <h2 className="pk-journey-title">{here.place}</h2>
           <p className="pk-journey-line">{headLine}</p>
         </div>
         {toggleButton}

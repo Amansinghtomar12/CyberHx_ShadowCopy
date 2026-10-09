@@ -83,9 +83,12 @@ import { isPinaka, useTheme, noteServerTheme, registerCategoryIcons } from './th
 // Admins only, so it is not in the default bundle.
 const AdminThemeControl = React.lazy(() => import('./themes/AdminThemeControl'));
 import { deriveWorld, derivePhase } from './themes/pinaka/hooks';
+import { useJourney, useChapterAttributes, useChapterUnlock } from './themes/pinaka/chapters/useChapter';
+import { CHAPTERS } from './themes/pinaka/chapters/config';
 import { shouldShowIntro } from './themes/pinaka/intro-gate';
 import {
   PinakaEnvironment, PinakaIntro, JourneyMap, PartnerStrip, ArrowSolveLight,
+  JourneyBar, ChapterUnlock,
 } from './themes/pinaka/lazy';
 import { buildB2RBoxVM, buildB2RSeriesVM } from './components/b2r/b2rModel';
 
@@ -494,6 +497,27 @@ export default function App() {
       buildChainSeriesVM(s, chainMembers, byId, id => solvedSet.has(id), id => mineSet.has(id))
     );
   }, [chainEnabled, chainSeries, chainMembers, challenges, solvedIds, teamSolvedIds]);
+
+  // Event skin: where the team stands in the six-chapter journey. Derived
+  // from the very same trusted solve arrays the chains use -- a chapter is
+  // complete when its gate challenge is solved -- so the skin can never show
+  // progress the platform has not recorded. Null until the skin is on.
+  const journeyInput = useMemo(() => {
+    if (!pinaka) return null;
+    const solvedSet = new Set<string>([...solvedIds, ...teamSolvedIds]);
+    return {
+      challenges: challenges.map(c => ({ id: c.id, title: c.title })),
+      series: chainSeries.map(s => ({
+        title: s.title,
+        challengeIds: chainMembers.filter(m => m.series_id === s.id).map(m => m.challenge_id),
+      })),
+      isSolved: (id: string) => solvedSet.has(id),
+    };
+  }, [pinaka, challenges, chainSeries, chainMembers, solvedIds, teamSolvedIds]);
+  const journey = useJourney(journeyInput);
+  const chapter = CHAPTERS[journey.current];
+  useChapterAttributes(pinaka ? journey.current : null);
+  const unlock = useChapterUnlock(journey);
 
   // B2R view-models. Each flag is an ordinary challenge underneath, so
   // "captured" comes straight from the same trusted solve arrays; a box is
@@ -919,6 +943,19 @@ export default function App() {
   const activeDiffLabel = selectedDiff === 'all' ? 'All Operations' : selectedDiff;
   const totalSolvedCount = challenges.filter(c => isChallengeSolved(c.id)).length;
 
+  // Event skin: the chapter a team stands in, named on the screens that are
+  // about standing -- the scoreboard and a team's own page.
+  // The same container the scoreboard and a team's page use, so the line sits
+  // on their gutter rather than against the window.
+  const chapterTag = pinaka ? (
+    <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+      <p className="pk-chapter-tag pk-chapter-tag-row">
+        <span className="pk-chapter-tag-label">Current journey</span>
+        <span>{chapter.title} — {chapter.subtitle}</span>
+      </p>
+    </div>
+  ) : null;
+
   const navItems: { id: typeof currentView; label: string; icon: IconCmp }[] = [
     { id: 'users', label: 'Users', icon: UserIcon },
     { id: 'teams', label: 'Teams', icon: Users },
@@ -929,13 +966,21 @@ export default function App() {
   return (
     <div className="min-h-screen bg-cyber-bg text-cyber-text font-sans" data-tier={getCapability().tier}>
       {pinaka
-        ? <React.Suspense fallback={null}><PinakaEnvironment world={world} phase={worldPhase} /></React.Suspense>
+        ? <React.Suspense fallback={null}><PinakaEnvironment world={world} phase={worldPhase} plate={`chapter-${journey.current}`} /></React.Suspense>
         : <AmbientBackground />}
       <SurfaceLight />
       <CursorRing />
       {/* First visit only, skippable from the first frame; the app is live underneath. */}
       {pinaka && introOpen && (
         <React.Suspense fallback={null}><PinakaIntro onDone={() => setIntroOpen(false)} /></React.Suspense>
+      )}
+
+      {/* The journey's own moment: shown once, when the platform's solve
+          records say a chapter has just been completed. It never gates play. */}
+      {pinaka && !introOpen && unlock.completed && (
+        <React.Suspense fallback={null}>
+          <ChapterUnlock completed={unlock.completed} opened={unlock.opened} onDismiss={unlock.dismiss} />
+        </React.Suspense>
       )}
 
       {/* Under the event skin's intro curtain the page is inert: nothing behind
@@ -1268,6 +1313,11 @@ export default function App() {
                 {/* Event skin: the chapter plate. Rendered whenever the board
                     is, including the waiting and closed states, so the world
                     is named even when there is nothing to solve yet. */}
+                {pinaka && canSeeChallenges && !needsTeam && (
+                  <React.Suspense fallback={null}>
+                    <JourneyBar journey={journey} />
+                  </React.Suspense>
+                )}
                 {pinaka && canSeeChallenges && !needsTeam && (
                   <React.Suspense fallback={null}>
                     <JourneyMap
@@ -1607,13 +1657,19 @@ export default function App() {
               </main>
             </>
           ) : currentView === 'scoreboard' ? (
-            <Scoreboard myTeamId={profile?.team_id ?? null} eventStatus={eventStatus} startTime={eventSettings?.start_time ?? null} />
+            <>
+              {chapterTag}
+              <Scoreboard myTeamId={profile?.team_id ?? null} eventStatus={eventStatus} startTime={eventSettings?.start_time ?? null} />
+            </>
           ) : currentView === 'teams' ? (
             <TeamsList />
           ) : currentView === 'users' ? (
             <UsersList />
           ) : currentView === 'teamProfile' ? (
-            <TeamProfile />
+            <>
+              {chapterTag}
+              <TeamProfile />
+            </>
           ) : currentView === 'userProfile' ? (
             <UserProfile />
           ) : currentView === 'admin' ? (
