@@ -8,10 +8,13 @@
    switch colour in one step).
 
    Layers, bottom to top:
-     .pk-env-sky       gradient between the world's sky tokens (+ phase tints)
-     .pk-env-scene ×2  crossfading slots: horizon glow + three depth strips
-     .pk-env-motes     the one animated canvas
-     .pk-env-veil      readability veil (stronger behind the nav and footer)
+     .pk-env-sky         gradient between the world's sky tokens (+ phase tints)
+     .pk-env-scene ×2    crossfading slots: horizon glow + the photographic
+                         plate (.pk-env-plate) + the depth strips (only the
+                         near strip while a plate is shown)
+     .pk-env-motes       the one animated canvas
+     .pk-env-veil        readability veil (stronger behind the nav and footer)
+     .pk-env-plate-veil  a second, even veil that is on only over a photograph
      .pk-env-vignette
    ========================================================================== */
 
@@ -148,6 +151,45 @@ html[data-theme="pinaka"] .pk-env-scene[data-world="vijaya"] {
   --pk-sun-alpha: 1;
 }
 
+/* The plate: the world's photograph, covering the viewport with the same
+   bleed as the far strip (it moves with it under parallax). The image is
+   positioned on the plate's focal point and fades in once it has loaded; a
+   scene is not shown until then (see the component), so there is no flash. */
+html[data-theme="pinaka"] .pk-env-plate {
+  position: absolute;
+  top: 0;
+  left: -24px;
+  right: -24px;
+  bottom: -96px;
+  overflow: hidden;
+}
+html[data-theme="pinaka"] .pk-env-plate img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: var(--pk-plate-focal, 50% 50%);
+  transform-origin: var(--pk-plate-focal, 50% 50%);
+  opacity: 0;
+  transition: opacity 0.9s var(--pk-env-ease);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+html[data-theme="pinaka"] .pk-env-plate[data-ready="true"] img { opacity: 1; }
+/* The slow push in: high tier only, once per plate, transform only. The
+   final frame is the identity, so dropping the animation when it ends
+   (data-drift="done", with the will-change) changes nothing on screen. */
+@keyframes pk-env-plate-drift {
+  from { transform: scale(1.06); }
+  to { transform: scale(1); }
+}
+html[data-theme="pinaka"] .pk-env[data-mode="high"]:not([data-still="true"]) .pk-env-plate[data-ready="true"][data-drift="on"] img {
+  will-change: transform;
+  animation: pk-env-plate-drift 40s linear forwards;
+}
+
 /* Depth strips: pinned to the bottom, bled past every edge so parallax never
    shows a seam. Height is set inline by the component (viewport-derived). */
 html[data-theme="pinaka"] .pk-env-depth {
@@ -156,7 +198,15 @@ html[data-theme="pinaka"] .pk-env-depth {
   right: -24px;
   bottom: -96px;
 }
-html[data-theme="pinaka"] .pk-env:not([data-mode="static"]) .pk-env-depth { will-change: transform; }
+html[data-theme="pinaka"] .pk-env:not([data-mode="static"]) .pk-env-depth,
+html[data-theme="pinaka"] .pk-env:not([data-mode="static"]) .pk-env-plate { will-change: transform; }
+/* Over a photograph the near silhouettes are depth, not the subject. */
+html[data-theme="pinaka"] .pk-env-scene[data-plate="loading"] .pk-env-depth[data-depth="near"],
+html[data-theme="pinaka"] .pk-env-scene[data-plate="ready"] .pk-env-depth[data-depth="near"] {
+  opacity: 0.58;
+}
+/* The photograph carries its own light; the horizon glow steps back a little. */
+html[data-theme="pinaka"] .pk-env-scene[data-plate="ready"] .pk-env-sun { --pk-sun-alpha: 0.55; }
 html[data-theme="pinaka"] .pk-env-canvas,
 html[data-theme="pinaka"] .pk-env-svg {
   position: absolute;
@@ -188,6 +238,24 @@ html[data-theme="pinaka"] .pk-env-veil {
   transition: opacity var(--pk-env-fade) var(--pk-env-ease);
 }
 html[data-theme="pinaka"] .pk-env[data-intensity="normal"] .pk-env-veil { opacity: 0.62; }
+/* Over a photograph the veil alone is not enough: the plates are graded to
+   14–22 % mean luminance but their highlights (lit ghats, a sunlit rock face)
+   are not, and text sits on them without a card on several screens. This
+   second veil is even across the middle, heavier at the top where the nav
+   is, and only on while the active scene holds a plate. The sign-in page
+   ('normal') keeps more of the picture: its text is in a card and a hero
+   column that measured fine with less. */
+html[data-theme="pinaka"] .pk-env-plate-veil {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: linear-gradient(to bottom, rgba(6, 8, 16, 0.52) 0%, rgba(6, 8, 16, 0.34) 22%, rgba(6, 8, 16, 0.3) 72%, rgba(6, 8, 16, 0.42) 100%);
+  transition: opacity var(--pk-env-fade) var(--pk-env-ease);
+}
+html[data-theme="pinaka"] .pk-env[data-plate="loading"] .pk-env-plate-veil,
+html[data-theme="pinaka"] .pk-env[data-plate="ready"] .pk-env-plate-veil { opacity: 1; }
+html[data-theme="pinaka"] .pk-env[data-intensity="normal"][data-plate="loading"] .pk-env-plate-veil,
+html[data-theme="pinaka"] .pk-env[data-intensity="normal"][data-plate="ready"] .pk-env-plate-veil { opacity: 0.7; }
 html[data-theme="pinaka"] .pk-env-vignette {
   position: absolute;
   inset: 0;
@@ -201,12 +269,19 @@ html[data-theme="pinaka"] .pk-env-vignette {
   html[data-theme="pinaka"] .pk-env-sky::after,
   html[data-theme="pinaka"] .pk-env-scene,
   html[data-theme="pinaka"] .pk-env-sun,
-  html[data-theme="pinaka"] .pk-env-veil {
+  html[data-theme="pinaka"] .pk-env-veil,
+  html[data-theme="pinaka"] .pk-env-plate-veil,
+  html[data-theme="pinaka"] .pk-env-plate img {
     transition: none;
   }
-  html[data-theme="pinaka"] .pk-env-depth {
+  html[data-theme="pinaka"] .pk-env-depth,
+  html[data-theme="pinaka"] .pk-env-plate {
     will-change: auto;
     transform: none;
+  }
+  html[data-theme="pinaka"] .pk-env-plate img {
+    will-change: auto;
+    animation: none;
   }
 }
 /* The same stillness when the player turned effects off in Settings
@@ -216,10 +291,17 @@ html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-sky::before,
 html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-sky::after,
 html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-scene,
 html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-sun,
-html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-veil {
+html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-veil,
+html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-plate-veil,
+html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-plate img {
   transition: none;
 }
-html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-depth {
+html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-depth,
+html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-plate {
   will-change: auto;
   transform: none;
+}
+html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-plate img {
+  will-change: auto;
+  animation: none;
 }

@@ -1273,6 +1273,7 @@ export default function App() {
                       world={world}
                       phase={worldPhase}
                       progress={challenges.length ? totalSolvedCount / challenges.length : 0}
+                      personal={challenges.length ? solvedIds.length / challenges.length : 0}
                     />
                   </React.Suspense>
                 )}
