@@ -143,7 +143,10 @@ async function runScene(browser, def, run) {
   });
   page.on('requestfailed', r => { if (!r.url().includes(HOST)) entry.failedRequests.push(r.url().slice(0, 200)); });
   await page.addInitScript(shiftDate, Date.parse(now));
-  await page.addInitScript(seedStorage, { session: def.loggedOut ? null : JSON.stringify(mock.session), invite: def.invite || null, extra: def.storage || {} });
+  // The event skin's first-visit intro would otherwise sit over every scene;
+  // only the intro scene itself asks for it (?intro=1).
+  const skinSeed = run.theme === 'pinaka' && !/\bintro=1\b/.test(def.query || '') ? { 'cyberhx.pinaka.intro.v1': '1' } : {};
+  await page.addInitScript(seedStorage, { session: def.loggedOut ? null : JSON.stringify(mock.session), invite: def.invite || null, extra: { ...skinSeed, ...(def.storage || {}) } });
   await page.route('**/*', async route => {
     if (await mock.handle(route)) return;
     const u = new URL(route.request().url());
@@ -157,7 +160,7 @@ async function runScene(browser, def, run) {
   });
 
   try {
-    await page.goto(run.base + '?theme=' + run.theme, { waitUntil: 'domcontentloaded' });
+    await page.goto(run.base + '?theme=' + run.theme + (def.query ? '&' + def.query : ''), { waitUntil: 'domcontentloaded' });
     await page.addStyleTag({ content: '.cursor-ring{display:none!important}' });
     const h = helpers(page, run);
     if (def.before) await def.before(page, h);

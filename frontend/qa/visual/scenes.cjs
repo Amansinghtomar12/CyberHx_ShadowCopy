@@ -32,10 +32,19 @@ const armPaidHint = async (page, h) => {
 
 module.exports = [
   // ── Auth ────────────────────────────────────────────────────────────────
-  scene('auth-login', { loggedOut: true, shots: [{ waitText: 'Access terminal', at: 1200 }] }),
+  scene('auth-login', { loggedOut: true, shots: [{ waitSelector: '#auth-email', at: 1200 }] }),
+  // The first-visit introduction: a skin-only overlay, replayed with ?intro=1.
+  scene('intro', {
+    query: 'intro=1',
+    skip: (run) => (run.theme === 'pinaka' ? false : 'skin-only scene'),
+    shots: [
+      { name: 'bow', waitSelector: '.pk-intro', at: 2600 },
+      { name: 'title', waitText: 'Enter the Arena', at: 700 },
+    ],
+  }),
   scene('auth-register', {
     loggedOut: true,
-    before: async (page, h) => { await h.waitText('Access terminal'); await page.getByRole('button', { name: 'Register', exact: true }).click(); await h.park(); },
+    before: async (page, h) => { await page.locator('#auth-email').waitFor({ timeout: 25000 }); await page.getByRole('button', { name: 'Register', exact: true }).click(); await h.park(); },
     shots: [{ waitText: 'Enter the arena', at: 800 }],
   }),
 
@@ -93,14 +102,14 @@ module.exports = [
   scene('board-chained', { before: async (_p, h) => { await h.boardTab('Chained'); }, shots: [{ waitText: 'Enter chain', at: 1200 }] }),
   scene('chain-experience', {
     before: async (page, h) => { await h.boardTab('Chained'); await page.getByRole('button', { name: 'Enter chain' }).first().click(); await h.park(); },
-    shots: [{ waitText: 'Chain progress', at: 2500 }],
+    shots: [{ waitSelector: 'button[aria-label="Back to chains"]', at: 2500 }],
   }),
   scene('board-b2r', { before: async (_p, h) => { await h.boardTab('B2R'); }, shots: [{ waitText: 'USER FLAG', at: 1200 }] }),
   scene('b2r-chained', {
     before: async (_p, h) => { await h.boardTab('B2R'); await h.boardTab('Chained', 1); },
     shots: [
       { name: 'list', waitText: 'Enter chain', at: 800 },
-      { before: async (page, h) => { await page.getByRole('button', { name: 'Enter chain' }).first().click(); await h.park(); }, waitText: 'Chain progress', at: 2500 },
+      { before: async (page, h) => { await page.getByRole('button', { name: 'Enter chain' }).first().click(); await h.park(); }, waitSelector: 'button[aria-label="Back to chains"]', at: 2500 },
     ],
   }),
 

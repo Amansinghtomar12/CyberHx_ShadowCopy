@@ -3,18 +3,17 @@
  *
  * Two positions, the same radio-group pattern as FxToggle so Settings reads
  * as one panel: the event look, or the platform's own. The choice is stored
- * per device (themes/index.ts) and the page reloads, because the theme is
- * resolved once per page load and nothing in the app has to cope with it
- * changing underneath. Presentation only: scores, teams, flags, everything
- * a competitor does, is identical in both.
+ * per device (themes/index.ts) and applied in place — no reload, nothing a
+ * competitor is doing is interrupted. Presentation only: scores, teams,
+ * flags, everything a competitor does, is identical in both.
  *
  * Renders nothing when the deployment has switched the choice off or the
  * event skin has expired (canSwitchTheme), so the panel never offers a
  * control that would do nothing.
  */
 import { Monitor } from 'lucide-react';
-import { useState, type ComponentType } from 'react';
-import { buildTheme, canSwitchTheme, getTheme, setThemeOverride, type ThemeId } from '../../index';
+import type { ComponentType } from 'react';
+import { applyTheme, buildTheme, canSwitchTheme, effectiveTheme, getServerTheme, setThemeOverride, useTheme, type ThemeId } from '../../index';
 import { BowMark } from './BowMotifs';
 
 const OPTIONS: { id: ThemeId; label: string; hint: string; icon: ComponentType<{ className?: string }> }[] = [
@@ -23,19 +22,18 @@ const OPTIONS: { id: ThemeId; label: string; hint: string; icon: ComponentType<{
 ];
 
 export default function ThemeSwitch({ className = '' }: { className?: string }) {
-  // Resolved once per page load; the state exists so the pressed option
-  // reads as pressed during the instant before the reload lands.
-  const [theme, setLocal] = useState<ThemeId>(() => getTheme());
+  const theme = useTheme();
 
   if (!canSwitchTheme()) return null;
 
   function choose(id: ThemeId) {
     if (id === theme) return;
-    setLocal(id);
-    // Choosing the build's own default clears the override, so the device
-    // follows the deployment again rather than pinning today's default.
-    setThemeOverride(id === buildTheme() ? null : id);
-    window.location.reload();
+    // Choosing what the organisers (or, failing them, the build) already
+    // show clears the override, so the device follows them again rather
+    // than pinning today's answer. Anything else is the device's own call.
+    const followed = getServerTheme() ?? buildTheme();
+    setThemeOverride(id === followed ? null : id);
+    void applyTheme(effectiveTheme());
   }
 
   return (
