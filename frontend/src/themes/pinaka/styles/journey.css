@@ -28,58 +28,56 @@
    row, the map full-width beneath, the milestones under the map. */
 html[data-theme="pinaka"] .pk-journey-host {
   container-type: inline-size;
-  /* The map's height; its width follows from the 12:13 viewBox. */
-  --pk-map-h: 560px;
 }
 html[data-theme="pinaka"] .pk-journey {
+  /* The map's height; its width follows from the 12:13 viewBox. Stacked,
+     the map takes the panel's width up to this. */
+  --pk-map-h: 440px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
-    "head     side"
-    "figs     figs"
-    "map      map"
-    "stations stations";
+    "head"
+    "figs"
+    "map"
+    "stations";
   align-items: start;
-  column-gap: 1.25rem;
+  column-gap: 1.5rem;
   row-gap: 0.625rem;
   padding: 0.75rem 1rem 0.75rem 1rem;
   overflow: hidden;
 }
-/* Room for the map beside the head (≥ 700px of panel): one row, the map at
-   the right, the head in whatever is left. */
-@container (min-width: 700px) {
+/* Room for the map beside the words (≥ 900px of panel, so the left column
+   keeps 500px or more): the map at the right, sized to stay near the old
+   card's height so the board below still starts above the fold. The custom
+   property is set on the panel, not the host: a container query only styles
+   the container's descendants. */
+@container (min-width: 900px) {
   html[data-theme="pinaka"] .pk-journey {
-    /* set on the panel, not the host: a container query styles only the
-       container's descendants */
-    --pk-map-h: 460px;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    --pk-map-h: 384px;
+    grid-template-columns: minmax(0, 1fr) auto;
     grid-template-rows: auto auto 1fr;
     grid-template-areas:
-      "head     map side"
-      "figs     map side"
-      "stations map side";
+      "head     map"
+      "figs     map"
+      "stations map";
     row-gap: 0;
     padding-left: 1.25rem;
   }
-  /* The map spans both rows and sets their height; the head sits on the
-     seam from above and the figures from below, so the pair reads centred. */
-  html[data-theme="pinaka"] .pk-journey-head { align-self: start; padding-top: 0.25rem; }
-  html[data-theme="pinaka"] .pk-journey-figures { align-self: start; margin-top: 0.6rem; }
-  html[data-theme="pinaka"] .pk-journey-stations { align-self: start; }
-  html[data-theme="pinaka"] .pk-journey-side { align-self: stretch; }
+  html[data-theme="pinaka"] .pk-journey-head { padding-top: 0.25rem; }
+  html[data-theme="pinaka"] .pk-journey-figures { margin-top: 0.6rem; }
   /* beats the base rule below (same selector, later in the file) */
   html[data-theme="pinaka"] .pk-journey .pk-journey-plate { width: calc(var(--pk-map-h) * 12 / 13); }
 }
-html[data-theme="pinaka"] .pk-journey-head { grid-area: head; min-width: 0; }
-html[data-theme="pinaka"] .pk-journey-side {
-  grid-area: side;
+html[data-theme="pinaka"] .pk-journey-head {
+  grid-area: head;
+  min-width: 0;
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 0.5rem;
-  align-self: start;
+  gap: 0.75rem;
 }
+html[data-theme="pinaka"] .pk-journey-headtext { min-width: 0; }
+html[data-theme="pinaka"] .pk-journey-head .pk-journey-toggle { flex-shrink: 0; margin-top: -0.125rem; }
 html[data-theme="pinaka"] .pk-journey-scroll { grid-area: map; min-width: 0; }
 
 /* ── Head: eyebrow, chapter title, one line of prose, the two figures ───── */
@@ -145,18 +143,20 @@ html[data-theme="pinaka"] .pk-journey-progress[data-marker="you"]::before {
   transform: rotate(45deg);
 }
 html[data-theme="pinaka"] .pk-journey-pct { color: var(--pk-gold-soft); }
+html[data-theme="pinaka"] .pk-journey-count { color: var(--color-text-secondary); }
 
 /* ── The milestones: seven rows beside (or under) the map ─────────────── */
-/* Each row: the Devanagari numeral, the place and its chapter, the status
-   (reached, the solves the next one needs, or the share of the board that
-   reaches it), and one line of what it means. Reached rows are parchment,
-   the next one gold with a hairline rail, the rest muted. A thread runs down
-   the numerals, lit as far as the team has come. */
+/* One line each: the Devanagari numeral, the place, what reaching it means,
+   and the status (reached, the solves the next one still needs, or the
+   solves that reach it). The next row (or, after the event, the final one)
+   opens a second line with its sentence. Reached rows are parchment, the
+   next one gold with a hairline rail, the rest muted. A thread runs down the
+   numerals, lit as far as the team has come. */
 html[data-theme="pinaka"] .pk-journey-stations {
   grid-area: stations;
   display: grid;
-  gap: 0.15rem;
-  margin: 0.9rem 0 0;
+  gap: 0.05rem;
+  margin: 0.75rem 0 0;
   padding: 0;
   list-style: none;
   min-width: 0;
@@ -164,12 +164,12 @@ html[data-theme="pinaka"] .pk-journey-stations {
 html[data-theme="pinaka"] .pk-journey-stations li {
   position: relative;
   display: grid;
-  grid-template-columns: 1.4rem minmax(0, 1fr) auto;
-  grid-template-areas: "num name status" "num place place";
-  column-gap: 0.55rem;
+  grid-template-columns: 1.4rem auto minmax(0, 1fr) auto;
+  grid-template-areas: "num name title status" "num place place place";
+  column-gap: 0.6rem;
   align-items: baseline;
   min-width: 0;
-  padding: 0.35rem 0.5rem 0.4rem 0.25rem;
+  padding: 0.28rem 0.5rem 0.3rem 0.25rem;
   border-radius: 8px;
   color: var(--color-text-muted);
 }
@@ -178,15 +178,16 @@ html[data-theme="pinaka"] .pk-journey-stations li::before {
   content: "";
   position: absolute;
   left: calc(0.25rem + 0.7rem - 0.5px);
-  top: 1.55rem;
-  bottom: -0.5rem;
+  top: 1.35rem;
+  bottom: -0.35rem;
   width: 1px;
   background: rgba(181, 139, 98, 0.28);
 }
 html[data-theme="pinaka"] .pk-journey-stations li:last-child::before { display: none; }
 html[data-theme="pinaka"] .pk-journey-stations li[data-state="reached"]::before { background: var(--pk-gold-deep); }
 html[data-theme="pinaka"] .pk-journey-stations li[data-state="reached"] { color: var(--pk-parchment); }
-html[data-theme="pinaka"] .pk-journey-stations li[data-state="next"] {
+html[data-theme="pinaka"] .pk-journey-stations li[data-state="next"],
+html[data-theme="pinaka"] .pk-journey-stations li[data-final="true"] {
   color: var(--pk-gold-soft);
   background: linear-gradient(90deg, rgba(227, 187, 102, 0.12), rgba(227, 187, 102, 0.02) 70%, transparent);
   box-shadow: inset 2px 0 0 var(--pk-gold);
@@ -201,47 +202,50 @@ html[data-theme="pinaka"] .pk-journey-stations-num {
   line-height: 1;
   color: var(--pk-gold-deep);
 }
-html[data-theme="pinaka"] .pk-journey-stations li[data-state="next"] .pk-journey-stations-num { color: var(--pk-gold-bright); }
+html[data-theme="pinaka"] .pk-journey-stations li[data-state="next"] .pk-journey-stations-num,
+html[data-theme="pinaka"] .pk-journey-stations li[data-final="true"] .pk-journey-stations-num { color: var(--pk-gold-bright); }
 html[data-theme="pinaka"] .pk-journey-stations-name {
   grid-area: name;
-  min-width: 0;
   font-family: var(--font-mono);
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   white-space: nowrap;
+}
+html[data-theme="pinaka"] .pk-journey-stations-title {
+  grid-area: title;
+  min-width: 0;
+  font-family: var(--pk-font-prose);
+  font-size: 0.875rem;
+  font-style: italic;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-html[data-theme="pinaka"] .pk-journey-stations-chapter {
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  color: var(--color-text-muted);
-}
+html[data-theme="pinaka"] .pk-journey-stations li[data-state="reached"] .pk-journey-stations-title { color: var(--pk-parchment); }
+html[data-theme="pinaka"] .pk-journey-stations li[data-state="ahead"]:not([data-final]) .pk-journey-stations-title { color: var(--color-text-muted); }
 html[data-theme="pinaka"] .pk-journey-stations-status {
   grid-area: status;
   font-family: var(--font-mono);
   font-size: 0.6875rem;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   white-space: nowrap;
   color: var(--color-text-muted);
 }
 html[data-theme="pinaka"] .pk-journey-stations li[data-state="reached"] .pk-journey-stations-status { color: var(--pk-gold-deep); }
-html[data-theme="pinaka"] .pk-journey-stations li[data-state="reached"] .pk-journey-stations-status::before { content: "✓ "; }
-html[data-theme="pinaka"] .pk-journey-stations li[data-state="next"] .pk-journey-stations-status { color: var(--pk-gold-bright); }
+html[data-theme="pinaka"] .pk-journey-stations li[data-state="next"] .pk-journey-stations-status,
+html[data-theme="pinaka"] .pk-journey-stations li[data-final="true"] .pk-journey-stations-status { color: var(--pk-gold-bright); }
 html[data-theme="pinaka"] .pk-journey-stations-place {
   grid-area: place;
   font-family: var(--pk-font-prose);
   font-size: 0.875rem;
   line-height: 1.3;
-  color: var(--color-text-secondary);
+  color: var(--pk-parchment);
   text-wrap: pretty;
 }
-html[data-theme="pinaka"] .pk-journey-stations-place em { font-style: italic; color: var(--pk-parchment); }
-html[data-theme="pinaka"] .pk-journey-stations li[data-state="ahead"] .pk-journey-stations-place,
-html[data-theme="pinaka"] .pk-journey-stations li[data-state="ahead"] .pk-journey-stations-place em { color: var(--color-text-muted); }
 html[data-theme="pinaka"] .pk-journey-toggle { color: var(--color-text-secondary); gap: 0.35rem; }
 html[data-theme="pinaka"] .pk-journey-toggle:hover:not(:disabled) { color: var(--pk-parchment); }
 
@@ -334,7 +338,8 @@ html[data-theme="pinaka"] .pk-journey-track {
 html[data-theme="pinaka"] .pk-journey-fill {
   fill: none;
   stroke: var(--pk-gold);
-  stroke-width: 1.75px;
+  /* stroke-width is set inline in user units (1.75 CSS px × k): this path
+     scales with the drawing so its dash stays in the road's own length */
   stroke-linecap: round;
   stroke-dasharray: 100;
   transition: stroke-dashoffset 600ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -398,6 +403,8 @@ html[data-theme="pinaka"] .pk-journey-numeral {
   fill: var(--pk-gold-deep);
 }
 html[data-theme="pinaka"] .pk-journey-node[data-state="reached"] .pk-journey-place { fill: var(--color-text-secondary); }
+/* a small map keeps only the numerals; the list beside it names them */
+html[data-theme="pinaka"] .pk-journey-plate[data-compact="true"] .pk-journey-place { display: none; }
 html[data-theme="pinaka"] .pk-journey-node[data-current="true"] .pk-journey-place { fill: var(--pk-parchment); }
 html[data-theme="pinaka"] .pk-journey-node[data-current="true"] .pk-journey-numeral { fill: var(--pk-gold-soft); }
 
@@ -449,25 +456,21 @@ html[data-theme="pinaka"] .pk-journey.is-collapsed .pk-journey-figures {
   margin: 0 0 0 auto;
 }
 
-/* ── Narrow panels: the map keeps a readable size and scrolls in its box ── */
-/* Below 560px the plate takes the panel's width; below 320px of map it
-   would be too small for its labels, so it stays 320px wide and scrolls
-   sideways with the team's arrow brought into view. */
+/* ── Narrow panels ─────────────────────────────────────────────────────── */
+/* The map always fits its box (no sideways scroll: on a 320–360 px phone
+   that hid the Northeast); below LABELS_MIN_PX of map it shows numerals
+   only. The milestone rows drop their titles where the place and the status
+   need the room, and the collapsed plate gives up the viewer's figure. */
 @container (max-width: 559.98px) {
-  html[data-theme="pinaka"] .pk-journey-scroll {
-    overflow-x: auto;
-    overflow-y: hidden;
-    /* The map may be wider than the box; keep that width out of the page's
-       own intrinsic size, or a phone's layout viewport grows to fit it. */
-    contain: inline-size;
-    overscroll-behavior-x: contain;
-    scrollbar-width: thin;
-    -webkit-overflow-scrolling: touch;
-    margin: 0 -0.25rem;
-    padding: 0 0.25rem;
-  }
-  html[data-theme="pinaka"] .pk-journey-plate { min-width: 320px; }
   html[data-theme="pinaka"] .pk-journey.is-collapsed .pk-journey-progress .label-micro { display: none; }
+  html[data-theme="pinaka"] .pk-journey.is-collapsed { flex-wrap: wrap; }
+  html[data-theme="pinaka"] .pk-journey.is-collapsed .pk-journey-figures { flex: 0 1 auto; min-width: 0; }
+  html[data-theme="pinaka"] .pk-journey.is-collapsed .pk-journey-toggle { flex-shrink: 0; margin-left: auto; }
+}
+@container (max-width: 419.98px) {
+  html[data-theme="pinaka"] .pk-journey-stations li { grid-template-columns: 1.4rem minmax(0, 1fr) auto; grid-template-areas: "num name status" "num place place"; }
+  html[data-theme="pinaka"] .pk-journey-stations-title { display: none; }
+  html[data-theme="pinaka"] .pk-journey.is-collapsed .pk-journey-progress[data-marker="you"] { display: none; }
 }
 
 /* ── Reduced motion ────────────────────────────────────────────────────── */

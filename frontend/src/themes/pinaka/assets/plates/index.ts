@@ -18,17 +18,25 @@
  */
 import type { World } from '../../config';
 
+import temple3840 from './temple-3840.webp';
 import temple1920 from './temple-1920.webp';
 import temple960 from './temple-960.webp';
+import templePortrait from './temple-portrait.webp';
+import vanavasa3840 from './vanavasa-3840.webp';
 import vanavasa1920 from './vanavasa-1920.webp';
 import vanavasa960 from './vanavasa-960.webp';
+import vanavasaPortrait from './vanavasa-portrait.webp';
+import lankaArt3840 from './lanka-art-3840.webp';
 import lankaArt1920 from './lanka-art-1920.webp';
 import lankaArt960 from './lanka-art-960.webp';
+import lankaArtPortrait from './lanka-art-portrait.webp';
 
 /** The official Pinaka CTF 2026 key art: the golden temple-city on the water. */
 const TEMPLE_ART: Plate = {
+  w3840: temple3840,
   w1920: temple1920,
   w960: temple960,
+  portrait: templePortrait,
   width: 1920,
   height: 926,
   alt: "Pinaka CTF key art: a golden temple-city on a lake at sunset, its spires reflected in the water under glowing cyber-lock sigils",
@@ -50,6 +58,13 @@ export interface Plate {
   w1920: string;
   /** Bundled URL of the 960×540 file. */
   w960: string;
+  /** The 3840 px file (AI-upscaled ×2 from the 2560 px paintings and the
+      1920 px graded photograph), for high-density and very wide screens. */
+  w3840?: string;
+  /** A 9:16 crop at full height around the focal point, 1040 px wide, for a
+      phone held upright: a landscape picture stretched to a tall screen is
+      what made the background blurry there. */
+  portrait?: string;
   width: number;
   height: number;
   /** Short description for assistive technology (the plate is decorative; consumers may still use alt=""). */
@@ -70,8 +85,10 @@ export interface Plate {
 export const PLATES: Record<PlateKey, Plate> = {
   ayodhya: TEMPLE_ART,
   vanavasa: {
+    w3840: vanavasa3840,
     w1920: vanavasa1920,
     w960: vanavasa960,
+    portrait: vanavasaPortrait,
     width: 1920,
     height: 1080,
     alt: "Mist rolling over layered forested hills of the Western Ghats at Agumbe, seen through foreground foliage",
@@ -87,8 +104,10 @@ export const PLATES: Record<PlateKey, Plate> = {
   },
   setu: TEMPLE_ART,
   lanka: {
+    w3840: lankaArt3840,
     w1920: lankaArt1920,
     w960: lankaArt960,
+    portrait: lankaArtPortrait,
     width: 1920,
     height: 1080,
     alt: "Pinaka CTF artwork: the fortress of Lanka ablaze above a smoking battlefield",

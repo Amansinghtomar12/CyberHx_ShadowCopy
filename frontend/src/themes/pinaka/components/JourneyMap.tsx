@@ -66,20 +66,24 @@ interface JourneyMapProps {
   collapsed?: boolean;
 }
 
-/* Where each station's label sits, in CSS pixels from the ring. Ayodhya and
-   its return share one point, so the two labels take the two right-hand
-   sides; Chitrakoot and Rameswaram read to the left, Panchavati, Kishkindha
-   and Lanka to the right, between the legs of the road. Chosen so no label
-   leaves the map or touches another at the smallest map (320px). */
+/* Where each station's label sits, in CSS pixels from the ring. Ayodhya reads
+   to the right and its return up-left, clear of the arc coming home;
+   Chitrakoot and Rameswaram read to the left, Panchavati and Kishkindha to
+   the right between the legs of the road, Lanka below the arc that leaves
+   it. On a map narrower than LABELS_MIN_PX only the numerals are shown (the
+   milestone list names them). */
 const LABEL: Record<StationKey, { dx: number; dy: number; anchor: 'start' | 'end'; text: string; ring: number }> = {
   ayodhya:    { dx: 11,  dy: -3, anchor: 'start', text: 'Ayodhya',    ring: 6.5 },
   chitrakoot: { dx: -11, dy: 4,  anchor: 'end',   text: 'Chitrakoot', ring: 6.5 },
   panchavati: { dx: 11,  dy: 4,  anchor: 'start', text: 'Panchavati', ring: 6.5 },
   kishkindha: { dx: 11,  dy: 4,  anchor: 'start', text: 'Kishkindha', ring: 6.5 },
   rameswaram: { dx: -11, dy: 4,  anchor: 'end',   text: 'Rameswaram', ring: 6.5 },
-  lanka:      { dx: 11,  dy: 4,  anchor: 'start', text: 'Lanka',      ring: 6.5 },
-  return:     { dx: 11,  dy: 13, anchor: 'start', text: 'The return', ring: 10.5 },
+  lanka:      { dx: 9,   dy: 17, anchor: 'start', text: 'Lanka',      ring: 6.5 },
+  return:     { dx: -13, dy: -12, anchor: 'end',  text: 'The return', ring: 10.5 },
 };
+
+/** Below this rendered width the place names would crowd the map's edges. */
+const LABELS_MIN_PX = 340;
 
 /**
  * Where on the road a board share sits: piecewise along the legs, so the
@@ -96,13 +100,24 @@ function routeT(p: number): number {
   return ROUTE_STATION_T[i] + u * (ROUTE_STATION_T[i + 1] - ROUTE_STATION_T[i]);
 }
 
+/** The solves a milestone takes on this board, so a threshold is a count of
+    real solves rather than a rounded percentage that can read as reached. */
+function solvesAt(at: number, total: number): number {
+  return Math.ceil(at * total - 1e-9);
+}
+
 /** "3 more solves", or the share when the board size is unknown. */
 function stillNeeded(at: number, p: number, total: number): string {
   if (total > 0) {
-    const need = Math.max(1, Math.ceil(at * total - 1e-9) - Math.round(p * total));
+    const need = Math.max(1, solvesAt(at, total) - Math.round(p * total));
     return `${need} more solve${need === 1 ? '' : 's'}`;
   }
   return `at ${Math.round(at * 100)}% of the board`;
+}
+
+/** Where a milestone not yet reached sits: "at 26 solves", or "at 67%". */
+function threshold(at: number, total: number): string {
+  return total > 0 ? `at ${solvesAt(at, total)} solves` : `at ${Math.round(at * 100)}%`;
 }
 
 const TWEEN_MS = 600;
@@ -127,7 +142,9 @@ function writeCollapsed(v: boolean): void {
     from the start; the return only at the very end). */
 function reachedCount(t: number): number {
   let n = 0;
-  for (const s of ROUTE_STATION_T) if (t + 1e-4 >= s) n++;
+  // routeT() lands exactly on a station's t at its threshold, and the tween
+  // ends exactly on its target, so the tolerance only absorbs float noise.
+  for (const s of ROUTE_STATION_T) if (t + 1e-9 >= s) n++;
   return n;
 }
 
@@ -230,13 +247,15 @@ export default function JourneyMap({ phase, progress, total = 0, personal, colla
   const chapter = WORLDS[here.world];
   const next = reachedP < MILESTONES.length ? MILESTONES[reachedP] : null;
   const nextStation = next ? STATIONS[reachedP] : null;
+  const solved = total > 0 ? Math.round(p * total) : null;
+  const tally = solved !== null ? `${solved} of ${total} solved` : `${pct}% of the board`;
   const headLine =
     phase === 'before'
       ? 'The hall gathers before dawn. The road starts at Ayodhya.'
       : !next
         ? 'Every flag taken. The lamps are lit in Ayodhya.'
         : phase === 'after'
-          ? `The field is quiet. The team reached ${here.place}.`
+          ? `The field is quiet. The team's road ended ${reachedP > 1 ? `at ${here.place}` : 'near Ayodhya'}, ${tally}.`
           : `Next: ${nextStation!.place}, ${next.title.toLowerCase()} — ${stillNeeded(next.at, p, total)}.`;
 
   // Unique ids for the SVG defs: several boards may mount this at once.
@@ -327,16 +346,22 @@ export default function JourneyMap({ phase, progress, total = 0, personal, colla
     </button>
   );
 
+  // The two figures as counts of real solves when the board size is known:
+  // the team's (which moves the arrow) and the viewer's own (the diamond).
   const figures = (
     <>
       <span className="pk-journey-progress" data-marker="team">
         <span className="label-micro">Board progress</span>
-        <span className="font-mono text-small pk-journey-pct">{pct}%</span>
+        <span className="font-mono text-small pk-journey-pct">
+          {pct}%{solved !== null && <span className="pk-journey-count"> · {solved}/{total}</span>}
+        </span>
       </span>
       {hasYou && (
         <span className="pk-journey-progress" data-marker="you">
           <span className="label-micro">You</span>
-          <span className="font-mono text-small pk-journey-pct">{youPct}%</span>
+          <span className="font-mono text-small pk-journey-pct">
+            {total > 0 ? `${Math.round(you * total)}/${total}` : `${youPct}%`}
+          </span>
         </span>
       )}
     </>
@@ -361,53 +386,54 @@ export default function JourneyMap({ phase, progress, total = 0, personal, colla
   /* ── The sentence a screen reader gets instead of the drawing ── */
   const sentence =
     `Campaign map of India and Sri Lanka: the road from Ayodhya to Lanka and back, in seven stations. ` +
-    `The team has solved ${pct} percent of the board and reached ${reachedP === MILESTONES.length ? 'Ayodhya again, the end of the road' : here.place}, ` +
-    `chapter ${chapter.chapter}, ${chapter.title}.` +
-    (next && nextStation ? ` Next is ${nextStation.place} at ${Math.round(next.at * 100)} percent.` : '') +
-    (hasYou ? ` Your own solves are ${youPct} percent of the board.` : '');
+    `The team has ${solved !== null ? `solved ${solved} of ${total} challenges` : `solved ${pct} percent of the board`} and reached ` +
+    `${reachedP === MILESTONES.length ? 'Ayodhya again, the end of the road' : here.place}, chapter ${chapter.chapter}, ${chapter.title}.` +
+    (next && nextStation && phase === 'during' ? ` Next is ${nextStation.place}, ${stillNeeded(next.at, p, total)}.` : '') +
+    (hasYou ? ` You have solved ${total > 0 ? `${Math.round(you * total)} of ${total}` : `${youPct} percent`}.` : '');
 
   /* ── Expanded ── */
   return (
     <div className="pk-journey-host" ref={hostRef} data-offscreen={offscreen ? 'true' : undefined}>
     <section className={`surface pk-carved pk-journey${still ? ' is-still' : ''}`} aria-label="Campaign map">
       <div className="pk-journey-head">
-        <span className="label-micro pk-journey-eyebrow"><span className="hidden sm:inline">The campaign · </span>Chapter {chapter.chapter}</span>
-        <h2 className="pk-journey-title">{chapter.title}</h2>
-        <p className="pk-journey-line">{headLine}</p>
+        <div className="pk-journey-headtext">
+          <span className="label-micro pk-journey-eyebrow"><span className="hidden sm:inline">The campaign · </span>Chapter {chapter.chapter}</span>
+          <h2 className="pk-journey-title">{chapter.title}</h2>
+          <p className="pk-journey-line">{headLine}</p>
+        </div>
+        {toggleButton}
       </div>
       {/* the legend: the two figures, each with the mark that rides the road */}
       <div className="pk-journey-figures">{figures}</div>
 
-      {/* the milestones: where each station is, what reaching it means, the
-          share of the board it takes, and whether the team is there yet */}
+      {/* the milestones: each station, what reaching it means, the solves it
+          takes on this board, and whether the team is there yet. 'next' only
+          while the event is live; afterwards the last one reached is final. */}
       <ol className="pk-journey-stations" aria-label="Milestones of the road">
         {MILESTONES.map((m, i) => {
           const s = STATIONS[i];
-          const state = i < reachedP ? 'reached' : i === reachedP ? 'next' : 'ahead';
+          const state = i < reachedP ? 'reached' : i === reachedP && phase === 'during' ? 'next' : 'ahead';
+          const final = phase === 'after' && i === reachedP - 1;
           return (
-            <li key={m.key} data-state={state}>
+            <li key={m.key} data-state={state} data-final={final ? 'true' : undefined}>
               <span className="pk-journey-stations-num" lang="hi" aria-hidden="true">{devanagariNumber(i + 1)}</span>
-              <span className="pk-journey-stations-name">
-                {m.key === 'return' ? 'Ayodhya, the return' : s.place}
-                <span className="pk-journey-stations-chapter"> · {WORLDS[s.world].chapter} {WORLDS[s.world].title}</span>
-              </span>
+              <span className="pk-journey-stations-name">{m.key === 'return' ? 'The return' : s.place}</span>
+              <span className="pk-journey-stations-title">{m.title}</span>
               <span className="pk-journey-stations-status">
-                {state === 'reached' ? 'Reached' : state === 'next' && phase === 'during' ? stillNeeded(m.at, p, total) : `${Math.round(m.at * 100)}%`}
+                {state === 'reached'
+                  ? <><span aria-hidden="true">✓ </span>{final ? 'Final stop' : 'Reached'}</>
+                  : state === 'next' ? stillNeeded(m.at, p, total) : threshold(m.at, total)}
               </span>
-              <span className="pk-journey-stations-place"><em>{m.title}.</em> {m.line}</span>
+              {(state === 'next' || final) && <span className="pk-journey-stations-place">{m.line}</span>}
             </li>
           );
         })}
       </ol>
 
-      <div className="pk-journey-side">
-        {toggleButton}
-      </div>
-
       <div className="pk-journey-scroll" id={mapId} ref={scrollRef}>
         {/* The plate: one image to assistive technology (the sentence above),
             two drawings to the browser, stacked in one grid cell. */}
-        <div ref={plateRef} className="pk-journey-plate" role="img" aria-label={sentence}>
+        <div ref={plateRef} className="pk-journey-plate" role="img" aria-label={sentence} data-compact={MAP_WIDTH / k < LABELS_MIN_PX ? 'true' : undefined}>
         {/* 1. The land and the road: still, rasterised once. */}
         <svg
           className="pk-journey-svg pk-journey-svg-land"
@@ -458,13 +484,16 @@ export default function JourneyMap({ phase, progress, total = 0, personal, colla
           aria-hidden="true"
           focusable="false"
         >
-          {/* the lit stretch: the board share, as a drawn length */}
+          {/* the lit stretch, ending exactly under the team's arrow. pathLength
+              puts the dash in percent of the road; the stroke scales with the
+              drawing (no non-scaling-stroke: with it, Chromium draws the dash
+              in screen units and the lit stretch runs ahead of the arrow), so
+              its width is given in user units, k per CSS pixel. */}
           <path
             className="pk-journey-fill"
             d={ROUTE_D}
             pathLength="100"
-            vectorEffect="non-scaling-stroke"
-            style={{ strokeDashoffset: 100 - teamT * 100 }}
+            style={{ strokeDashoffset: 100 - teamT * 100, strokeWidth: 1.75 * k }}
           />
 
           {/* the stations, drawn in CSS pixels (scaled by k) */}
