@@ -7,8 +7,9 @@
    ========================================================================== */
 
 /* ── Ground & type ─────────────────────────────────────────────────────── */
-/* The picture behind the page is the environment's plate (PinakaEnvironment),
-   which covers the body entirely; the body only needs its ground colour. */
+/* A solid ground only: the environment layer (environment.css) covers the
+   whole viewport with the world's painting, so a body image would never be
+   seen and would only cost a download. */
 html[data-theme="pinaka"] body {
   background-color: var(--color-surface-base);
   color: var(--color-text-primary);
@@ -34,27 +35,36 @@ html[data-theme="pinaka"] .pk-prose { font-family: var(--pk-font-prose); font-si
 html[data-theme="pinaka"] .pk-display { font-family: var(--pk-font-display); }
 html[data-theme="pinaka"] .text-glow { text-shadow: 0 0 18px var(--pk-gold-glow); }
 
-/* ── Navigation bar: a bronze rail with a gold hairline ─────────────────── */
+/* ── Navigation bar: a carved stone rail, torch-lit at both ends ────────── */
+/* The official corner pieces (a bronze frame around a lit flame) stand at
+   full height and in full colour at either end of the 4 rem bar; the dark
+   stone tile shows through the rail; a gold hairline runs underneath. The
+   bar's own content is padded clear of both corners. */
 html[data-theme="pinaka"] nav.sticky {
-  background-color: rgba(9, 11, 20, 0.78);
+  --pk-nav-h: 4rem;
+  --pk-nav-corner-w: calc(var(--pk-nav-h) * 83 / 140);
+  position: sticky;
+  background-color: rgba(8, 10, 18, 0.8);
   background-image:
     url('../assets/images/navbar-corner-left.webp'),
-    url('../assets/images/navbar-corner-right.webp');
-  background-position: left center, right center;
-  background-repeat: no-repeat, no-repeat;
-  /* the bronze frames at full height, flame and all */
-  background-size: auto 100%, auto 100%;
+    url('../assets/images/navbar-corner-right.webp'),
+    linear-gradient(180deg, rgba(246, 223, 163, 0.05), transparent 40%, rgba(0, 0, 0, 0.25));
+  background-position: left top, right top, 0 0;
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-size: auto var(--pk-nav-h), auto var(--pk-nav-h), 100% var(--pk-nav-h);
   border-bottom-color: var(--pk-gold-line);
-  box-shadow: 0 1px 0 rgba(246, 223, 163, 0.06) inset, 0 8px 28px -14px rgba(227, 187, 102, 0.28);
+  box-shadow: 0 1px 0 rgba(246, 223, 163, 0.08) inset, 0 10px 30px -14px rgba(227, 187, 102, 0.34);
 }
+/* The stone, clearly there but under the type: a tile of carved rock. */
 html[data-theme="pinaka"] nav.sticky::before {
   content: "";
   position: absolute;
   inset: 0;
+  z-index: -1;
   background-image: url('../assets/images/navbar-texture.webp');
-  background-size: 200px auto;
+  background-size: 110px 80px;
   background-repeat: repeat;
-  opacity: 0.28;
+  opacity: 0.34;
   mix-blend-mode: screen;
   pointer-events: none;
 }
@@ -63,13 +73,46 @@ html[data-theme="pinaka"] nav.sticky::after {
   position: absolute;
   left: 0; right: 0; bottom: -1px;
   height: 1px;
-  background: linear-gradient(90deg, transparent 0%, var(--pk-gold-line) 18%, rgba(246, 223, 163, 0.55) 50%, var(--pk-gold-line) 82%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, var(--pk-gold-line) 12%, rgba(246, 223, 163, 0.62) 50%, var(--pk-gold-line) 88%, transparent 100%);
+  box-shadow: 0 0 10px rgba(227, 187, 102, 0.35);
   pointer-events: none;
 }
-html[data-theme="pinaka"] nav.sticky { position: sticky; padding-inline: 1rem; }
-@media (max-width: 1023.98px) {
-  /* a phone's header is tight: smaller frames, the same clearance */
-  html[data-theme="pinaka"] nav.sticky { background-size: auto 70%, auto 70%; padding-inline: 0.875rem; }
+/* The bar's content row clears the torch-lit corners. */
+html[data-theme="pinaka"] nav.sticky > div:first-child {
+  padding-left: calc(var(--pk-nav-corner-w) + 0.375rem);
+  padding-right: calc(var(--pk-nav-corner-w) + 0.375rem);
+}
+/* On a phone the corners are a little smaller, so the controls keep room. */
+@media (max-width: 39.99rem) {
+  html[data-theme="pinaka"] nav.sticky {
+    --pk-nav-corner-h: 3.25rem;
+    background-size: auto var(--pk-nav-corner-h), auto var(--pk-nav-corner-h), 100% var(--pk-nav-h);
+    background-position: left 0.375rem, right 0.375rem, 0 0;
+  }
+  html[data-theme="pinaka"] nav.sticky > div:first-child {
+    padding-left: calc(var(--pk-nav-corner-h) * 83 / 140 + 0.125rem);
+    padding-right: calc(var(--pk-nav-corner-h) * 83 / 140 + 0.125rem);
+  }
+}
+/* The event's badge in the bar carries the official compass, in colour. */
+html[data-theme="pinaka"] .badge.pk-nav-badge {
+  gap: 0.375rem;
+  padding-left: 0.25rem;
+  background-color: rgba(227, 187, 102, 0.08);
+}
+html[data-theme="pinaka"] .pk-nav-compass {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-block: -0.125rem;
+  border-radius: 999px;
+  background-image: url('../assets/images/navbar-compass.webp');
+  background-size: 124% auto;
+  background-position: 66% 68%;
+  background-repeat: no-repeat;
+  filter: brightness(1.3) saturate(1.1);
+  box-shadow: 0 0 0 1px rgba(227, 187, 102, 0.5), 0 0 10px rgba(227, 187, 102, 0.4);
 }
 
 /* ── Surfaces: dark stone with a gold hairline where the light lands ────── */
@@ -90,11 +133,58 @@ html[data-theme="pinaka"] .card-interactive::after {
     rgba(227, 187, 102, 0.22) 82%, transparent);
   opacity: 0.6;
 }
+/* Glass over the painting. The environment behind the app is a vivid
+   picture now, so every panel is frosted glass: the art behind it blurred,
+   saturated and dimmed by the backdrop filter, under a midnight tint. The
+   panel keeps the colour of the world while its text reads (≥ 4.5:1
+   measured over the brightest plates: the sun on the water, the fire).
+   Blur costs a pass per frame for every blurred panel while the motes, the
+   rays and the wheel move under it, so it is spent only where it shows most:
+   the page-sized panels (.surface, .surface-raised), on the high tier only,
+   and never on a panel inside another one. The many small cards of the board
+   and every panel on the medium tier carry a deeper tint instead; the
+   painting still glows around them. */
 html[data-theme="pinaka"] .surface,
 html[data-theme="pinaka"] .card-interactive {
-  background-color: rgba(14, 17, 29, 0.66);
+  background-color: rgba(12, 14, 25, 0.84);
 }
-html[data-theme="pinaka"] .surface-raised { background-color: rgba(22, 25, 41, 0.72); }
+html[data-theme="pinaka"] .surface-raised { background-color: rgba(18, 21, 36, 0.86); }
+/* The base sheet blurs every panel and card; under the theme none is blurred
+   unless the rule below picks it. */
+html[data-theme="pinaka"] :is(.surface, .surface-raised, .card-interactive) {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-theme="pinaka"] [data-tier="high"] :is(.surface, .surface-raised):not(:is(.surface, .surface-raised, .surface-overlay, .card-interactive) *):not(.card-interactive) {
+    background-color: rgba(11, 13, 24, 0.6);
+    -webkit-backdrop-filter: blur(22px) saturate(1.5) brightness(0.42);
+    backdrop-filter: blur(22px) saturate(1.5) brightness(0.42);
+  }
+  html[data-theme="pinaka"] [data-tier="high"] .surface-raised:not(:is(.surface, .surface-raised, .surface-overlay, .card-interactive) *):not(.card-interactive) {
+    background-color: rgba(16, 19, 33, 0.64);
+  }
+}
+html[data-theme="pinaka"] [data-tier="low"] :is(.surface, .surface-raised, .card-interactive),
+html[data-theme="pinaka"] [data-tier="still"] :is(.surface, .surface-raised, .card-interactive) {
+  background-color: rgba(11, 13, 23, 0.9);
+}
+
+/* The board's sidebar: its filters and the event block sit straight on the
+   painting, so the rail is a column of glass too, deepest at the window's
+   edge where the veil also darkens. */
+html[data-theme="pinaka"] .page-shell aside.border-r {
+  background-image: linear-gradient(90deg, rgba(7, 9, 17, 0.84), rgba(9, 11, 20, 0.76));
+  border-right-color: var(--pk-gold-faint);
+  box-shadow: inset -1px 0 0 rgba(246, 223, 163, 0.05);
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-theme="pinaka"] [data-tier="high"] .page-shell aside.border-r {
+    background-image: linear-gradient(90deg, rgba(7, 9, 17, 0.66), rgba(9, 11, 20, 0.5));
+    -webkit-backdrop-filter: blur(18px) saturate(1.4) brightness(0.55);
+    backdrop-filter: blur(18px) saturate(1.4) brightness(0.55);
+  }
+}
 html[data-theme="pinaka"] .surface-overlay {
   background-color: #141829;
   box-shadow: var(--shadow-e5), 0 0 0 1px var(--pk-gold-faint);
@@ -185,11 +275,21 @@ html[data-theme="pinaka"] .textarea:focus {
 }
 
 /* ── Badges ────────────────────────────────────────────────────────────── */
-html[data-theme="pinaka"] .badge-neon   { border-color: rgba(227, 187, 102, 0.45); }
-html[data-theme="pinaka"] .badge-solved { border-color: rgba(227, 187, 102, 0.55); background-color: rgba(227, 187, 102, 0.16); }
-html[data-theme="pinaka"] .badge-easy   { border-color: rgba(140, 203, 156, 0.35); }
-html[data-theme="pinaka"] .badge-hard   { border-color: rgba(224, 122, 99, 0.4); }
-html[data-theme="pinaka"] .badge-insane { border-color: rgba(191, 152, 245, 0.45); }
+/* A badge can sit straight on the painting (a heading's count, a status
+   beside a title), where a 10–16 % wash of its colour would let the art
+   through and drown the label. Each wash is therefore laid down already
+   mixed onto the midnight ground, nearly opaque: on a dark panel it looks
+   as it always did, on the bright sky it stays legible. */
+html[data-theme="pinaka"] .badge        { background-color: rgba(20, 21, 32, 0.9); }
+html[data-theme="pinaka"] .badge-neon   { border-color: rgba(227, 187, 102, 0.45); background-color: rgba(34, 31, 33, 0.9); }
+html[data-theme="pinaka"] .badge-solved { border-color: rgba(227, 187, 102, 0.55); background-color: rgba(46, 42, 37, 0.9); }
+html[data-theme="pinaka"] .badge-easy   { border-color: rgba(140, 203, 156, 0.35); background-color: rgba(27, 37, 41, 0.9); }
+html[data-theme="pinaka"] .badge-medium { background-color: rgba(37, 34, 31, 0.9); }
+html[data-theme="pinaka"] .badge-hard   { border-color: rgba(224, 122, 99, 0.4); background-color: rgba(37, 27, 34, 0.9); }
+html[data-theme="pinaka"] .badge-insane { border-color: rgba(191, 152, 245, 0.45); background-color: rgba(34, 31, 51, 0.9); }
+html[data-theme="pinaka"] .badge-locked { background-color: rgba(28, 30, 42, 0.9); }
+html[data-theme="pinaka"] .badge-live   { background-color: rgba(41, 27, 35, 0.9); }
+html[data-theme="pinaka"] .badge-info   { background-color: rgba(26, 32, 48, 0.9); }
 
 /* ── Scrollbar, kbd, dividers ──────────────────────────────────────────── */
 html[data-theme="pinaka"] { scrollbar-color: var(--color-border-strong) transparent; }
@@ -262,6 +362,36 @@ html[data-theme="pinaka"] .ambient-wash {
 html[data-theme="pinaka"] .ambient-grid { display: none; }
 
 /* ── Small shared ornaments used by several themed components ───────────── */
+/* Small labels can sit straight on the painting (a section's eyebrow over
+   the burning fortress, a podium label over the fire): a close dark halo
+   keeps the glyphs' edges on dark whatever lies behind them. On a panel it
+   is invisible. */
+html[data-theme="pinaka"] .label-micro,
+html[data-theme="pinaka"] .pk-eyebrow {
+  text-shadow: 0 0 2px rgba(5, 7, 14, 0.9), 0 0 6px rgba(5, 7, 14, 0.75), 0 0 14px rgba(5, 7, 14, 0.5);
+}
+/* Text painted by a clipped gradient would show the halo through its glyphs. */
+html[data-theme="pinaka"] :is(.label-micro, .pk-eyebrow) :is(.pk-foil-text, .pk-numeral-deva) { text-shadow: none; }
+/* Page-level type sits on the painting as well: a page's title and its
+   subtitle, a section heading and the count beside it, a status line next to
+   a heading. The same close halo, so the glyphs' edges stay on dark over the
+   brightest sky. Inside a panel, a control or the nav it would be invisible
+   (dark on dark), so those are skipped and never pay for the blur. Kept at
+   the specificity of the theme prefix alone (:where), so any rule of the
+   theme's own that gives an element its shadow (a glow, an engraving) wins,
+   and gradient-painted text is excluded outright. */
+html[data-theme="pinaka"] :where(.text-h1, .text-h2, .text-cyber-muted, .text-text-muted, .text-text-secondary):where(:not(.text-glow, .pk-foil-text, .pk-numeral-deva, .badge, .btn)):where(:not(:is(.surface, .surface-raised, .surface-overlay, .card-interactive, .badge, .btn, nav, button, input, select, textarea, [role="dialog"]) *)) {
+  text-shadow: 0 0 2px rgba(5, 7, 14, 0.9), 0 0 6px rgba(5, 7, 14, 0.75), 0 0 14px rgba(5, 7, 14, 0.5);
+}
+/* The app's own foot (the framework line and its links) stands on the
+   painting's lowest band: a scrim under its last rows only (the partner wall
+   above has its own panel), darkest at the bottom edge. */
+html[data-theme="pinaka"] footer.mt-auto.border-t {
+  background-image: linear-gradient(to bottom, rgba(5, 7, 14, 0), rgba(5, 7, 14, 0.66) 40%, rgba(5, 7, 14, 0.82));
+  background-position: left bottom;
+  background-size: 100% 13rem;
+  background-repeat: no-repeat;
+}
 html[data-theme="pinaka"] .pk-eyebrow {
   display: inline-flex;
   align-items: center;

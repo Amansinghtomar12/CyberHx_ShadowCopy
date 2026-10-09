@@ -37,12 +37,23 @@ export const PINAKA_EVENT = {
 } as const;
 
 /**
- * Partner recognition. Names as published on pinakactf.com (Oct 2026).
- * Logos are not bundled: usage rights were not confirmed for this repo. Add
- * approved logo files under src/themes/pinaka/assets/partners/ and set `logo`
- * to the imported URL; a partner without one renders as a name mark.
+ * Partner recognition. Names and logos as published on pinakactf.com
+ * (Oct 2026). The logo files are bundled under assets/sponsors/ and shown
+ * exactly as supplied, in full colour, each with its name beneath it; the tile
+ * each one sits on (its own background, or a light or dark plate) is recorded
+ * beside the files in SPONSOR_TILES, keyed by the same name. A partner with no
+ * `logo` renders as a name tile.
  */
-export interface Partner { name: string; role?: string; logo?: string; url?: string }
+export interface Partner {
+  /** As published; also the key into SPONSOR_LOGOS and SPONSOR_TILES. */
+  name: string;
+  /** Set only for a published role ("In association with"); shown as the heading. */
+  role?: string;
+  /** The logo file's asset URL, shown unaltered. */
+  logo?: string;
+  /** When set, the tile links here (new tab). */
+  url?: string;
+}
 
 export const PINAKA_PARTNERS: readonly Partner[] = [
   { name: 'INE Security', role: 'In association with', logo: SPONSOR_LOGOS['INE Security'] },

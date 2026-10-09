@@ -10,8 +10,11 @@
    ========================================================================== */
 
 /* ── The hall: a warm vignette on the page wrapper ───────────────────────── */
-/* Crimson and bronze gather at the top corners and fade before the standings
-   begin; the standings sit on the plain ground where the numbers must read. */
+/* Crimson and bronze gather at the top and fade before the standings begin;
+   the standings sit on the plain ground where the numbers must read. The
+   tint is the width of the page's column and the Lanka painting runs on past
+   it, so it fades out toward both sides as well as downward: no edge of it
+   can be seen against the picture. */
 html[data-theme="pinaka"] .pk-lanka-hall {
   position: relative;
   isolation: isolate;
@@ -24,11 +27,17 @@ html[data-theme="pinaka"] .pk-lanka-hall::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(60% 70% at 0% 0%, rgba(121, 44, 53, 0.22), transparent 70%),
-    radial-gradient(60% 70% at 100% 0%, rgba(121, 44, 53, 0.18), transparent 70%),
+    radial-gradient(60% 70% at 18% 0%, rgba(121, 44, 53, 0.22), transparent 70%),
+    radial-gradient(60% 70% at 82% 0%, rgba(121, 44, 53, 0.18), transparent 70%),
     radial-gradient(70% 55% at 50% 0%, rgba(227, 150, 102, 0.09), transparent 70%);
-  -webkit-mask-image: linear-gradient(to bottom, #000 40%, transparent);
-  mask-image: linear-gradient(to bottom, #000 40%, transparent);
+  -webkit-mask-image:
+    linear-gradient(to bottom, #000 40%, transparent),
+    linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to bottom, #000 40%, transparent),
+    linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
+  mask-composite: intersect;
 }
 
 /* ── The podium wrapper: the grid item the card used to be ───────────────── */

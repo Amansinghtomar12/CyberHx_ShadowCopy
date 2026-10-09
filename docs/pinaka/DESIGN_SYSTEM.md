@@ -87,7 +87,9 @@ and the base reduced-motion contract. The theme adds:
 | Effect | Where | Budget | Reduced motion |
 |---|---|---|---|
 | World crossfade | environment | 1.2 s opacity | instant |
-| Motes / embers / leaves | environment canvas | ≤ 90 particles, ≤ 30 fps, paused when hidden | none |
+| Motes / embers / leaves | environment canvas | ≤ 110 particles on high (bokeh and haze included), ≤ 44 on medium, ≤ 30 fps, paused when hidden | none |
+| God rays and sun bloom | environment, from the painted sun | high tier only: one fan sweeps ±1.5° over 34 s, the other breathes (opacity, 11 s), the bloom swells (scale, 9 s); transform/opacity only | static rays and bloom |
+| Celestial relic (dharma wheel) | environment sky, upper right | high and medium: one turn per 240 s, transform only | static |
 | Parallax | environment layers | transform only, ≤ 9% of scroll, ≤ 6px pointer | none |
 | Bow trace (solve) | challenge modal overlay | ≤ 1.7 s (2.1 s Insane), `pointer-events: none` | fade of "+points" only |
 | Bowstring countdown | world banner | 1 s tick, SVG dash | static ring |
@@ -99,7 +101,10 @@ and the base reduced-motion contract. The theme adds:
 
 No `backdrop-filter` on full-screen layers; no `filter: blur()` on moving
 elements; nothing animates layout. The photographs' soft edges are CSS
-masks, never a blur.
+masks, never a blur. Panels over the environment are frosted glass
+(`backdrop-filter: blur saturate brightness` on `.surface`/`.surface-raised`
+and the board's sidebar on the high and medium tiers, on cards on high only;
+a more opaque tint everywhere else).
 
 ## 5. The five worlds
 
@@ -115,19 +120,29 @@ The world is derived in `hooks.ts#deriveWorld` from the view, the board mode
 and the server-derived event status, and published on `<html data-world>`.
 Only `tokens.css` reads it (sky and rim tokens); components take it as a prop.
 
-## 6. Photographic plates
+## 6. World plates
 
-Six colour-graded, same-origin photographs (`assets/plates`, inventory and
-licences in `ASSETS.md`) stand behind the generated artwork; they never
-carry information and the UI always wins over them. Each is an `<img>` with
-`srcset` (960/1920) from `plateSource()`, `object-fit: cover` on its focal
-point from `plateFocal()`, `alt=""`, `aria-hidden`, not draggable, decoded
+Five same-origin plates (`assets/plates`, inventory and licences in
+`ASSETS.md`): the two official paintings (the temple city at sunset for
+Ayodhya and the hero, Lanka ablaze for Lanka) and three licensed
+photographs (Vanavasa, Setu, Vijaya). They are shown in full colour; they
+never carry information, and the UI wins over them by structure rather than
+by dimming them: the environment's veil is dark only where the interface is
+dense (the nav band, the sidebar band on wide screens, the foot), and every
+panel over the art is frosted glass whose backdrop is blurred, saturated and
+dimmed, so the panel keeps the world's colour and its text keeps ≥ 4.5:1.
+Each plate is an `<img>` with `srcset` (960/1920) and a `sizes` equal to its
+drawn width from `plateSource()`, `object-fit: cover` on its focal point
+from `plateFocal()`, `alt=""`, `aria-hidden`, not draggable, decoded
 asynchronously; the low tier is served the 960 file only; forced colours
-drop every plate. Attribution is part of the design: the CC BY-SA deeds ask
-for it wherever a plate is shown, so it is rendered, not just documented.
+drop every plate. Over a plate the environment paints the plate's own light
+(god rays from the painted sun, a bloom on it) and the celestial dharma
+wheel; the procedural silhouettes are only the fallback for a plate that
+fails. Attribution is part of the design: the CC BY-SA deeds ask for it
+wherever a photograph is shown, so it is rendered, not just documented.
 
-**Sign-in gateway.** The hero plate (Hampi at dusk, the Virupaksha tower
-lower-left) is the hero column's own backdrop: clipped to the column,
+**Sign-in gateway.** The hero plate (the temple-city key art) is the hero
+column's own backdrop: clipped to the column,
 feathered at all four edges (a mask, so it dissolves under the pillars
 instead of ending in a rectangle), under the stone and under two dark
 gradients — from the top, where the lockup is, and from the left, where

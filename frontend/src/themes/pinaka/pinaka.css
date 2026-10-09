@@ -24,3 +24,5 @@
 @import './styles/gateway.css';
 @import './styles/lanka.css';
 @import './styles/partners.css';
+/* last, so a chapter's accents win over the base skin on equal specificity */
+@import './styles/chapters.css';

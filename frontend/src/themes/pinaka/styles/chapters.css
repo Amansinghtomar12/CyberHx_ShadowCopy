@@ -1,0 +1,457 @@
+/* ============================================================================
+   PINAKA — CHAPTERS
+   The journey's six moods. <html> carries data-chapter (and a theme-<id>
+   class); everything below follows from it: the sky behind the art, the glow
+   on a card's rim, the colour of a button, the lit step of the journey bar.
+
+   Nothing here decides which chapter is current — themes/pinaka/chapters/
+   derives that from the platform's own solves. This file only dresses it.
+
+   Scoped to html[data-theme="pinaka"] throughout, and every chapter rule
+   also carries [data-chapter], so it wins over the base skin by specificity
+   rather than by load order.
+
+   Readability first: body copy keeps the theme's parchment and secondary
+   colours in every chapter. The accents below are light, not text.
+   ========================================================================== */
+
+/* ── The six moods ──────────────────────────────────────────────────────── */
+/* --pk-ch-*  the chapter's own light, consumed by the rules further down.
+   --pk-world-* are the environment's existing tokens; a chapter overrides
+   them so the sky and its tint follow the art without the component knowing. */
+html[data-theme="pinaka"][data-chapter] {
+  --pk-ch-glow: var(--pk-gold);
+  --pk-ch-soft: var(--pk-gold-soft);
+  --pk-ch-deep: var(--pk-gold-deep);
+  --pk-ch-line: var(--pk-gold-line);
+  --pk-ch-wash: rgba(227, 187, 102, 0.07);
+}
+
+/* 1 · Ayodhya — royal, calm, golden, welcoming */
+html[data-theme="pinaka"][data-chapter="ayodhya"] {
+  --pk-ch-glow: #f2b24c;
+  --pk-ch-soft: #ffd79a;
+  --pk-ch-deep: #b07c28;
+  --pk-ch-line: rgba(242, 178, 76, 0.30);
+  --pk-ch-wash: rgba(242, 178, 76, 0.07);
+  --pk-world-sky-top: #0a0e17;
+  --pk-world-sky-bottom: #241c17;
+  --pk-world-tint: rgba(242, 178, 76, 0.07);
+  --pk-world-rim: rgba(242, 178, 76, 0.26);
+}
+/* 2 · Mithila — ceremonial bronze and maroon, a violet cast on the bow */
+html[data-theme="pinaka"][data-chapter="mithila"] {
+  --pk-ch-glow: #d8a44f;
+  --pk-ch-soft: #f3d492;
+  --pk-ch-deep: #8d4a3c;
+  --pk-ch-line: rgba(216, 164, 79, 0.30);
+  --pk-ch-wash: rgba(139, 107, 209, 0.07);
+  --pk-world-sky-top: #0c0a16;
+  --pk-world-sky-bottom: #2a1a2a;
+  --pk-world-tint: rgba(139, 107, 209, 0.07);
+  --pk-world-rim: rgba(216, 164, 79, 0.26);
+}
+/* 3 · Vanvaas — deep green and moonlight, a hidden path */
+html[data-theme="pinaka"][data-chapter="vanvaas"] {
+  --pk-ch-glow: #49b596;
+  --pk-ch-soft: #c2e8d9;
+  --pk-ch-deep: #1f6b50;
+  --pk-ch-line: rgba(73, 181, 150, 0.30);
+  --pk-ch-wash: rgba(47, 161, 140, 0.07);
+  --pk-world-sky-top: #070d12;
+  --pk-world-sky-bottom: #10241f;
+  --pk-world-tint: rgba(47, 161, 140, 0.07);
+  --pk-world-rim: rgba(120, 190, 160, 0.22);
+}
+/* 4 · Kishkindha — sandstone and moss under a sunrise */
+html[data-theme="pinaka"][data-chapter="kishkindha"] {
+  --pk-ch-glow: #e0a85e;
+  --pk-ch-soft: #f3dcb4;
+  --pk-ch-deep: #6f8f5a;
+  --pk-ch-line: rgba(224, 168, 94, 0.30);
+  --pk-ch-wash: rgba(127, 180, 217, 0.07);
+  --pk-world-sky-top: #0a0f16;
+  --pk-world-sky-bottom: #1f2a2a;
+  --pk-world-tint: rgba(127, 180, 217, 0.06);
+  --pk-world-rim: rgba(224, 168, 94, 0.24);
+}
+/* 5 · Setu Bandhan — ocean, silver mist, gold on the water */
+html[data-theme="pinaka"][data-chapter="setu"] {
+  --pk-ch-glow: #4fb6d6;
+  --pk-ch-soft: #d2ecf5;
+  --pk-ch-deep: #1f6184;
+  --pk-ch-line: rgba(79, 182, 214, 0.30);
+  --pk-ch-wash: rgba(240, 194, 74, 0.07);
+  --pk-world-sky-top: #080f1c;
+  --pk-world-sky-bottom: #0f2a3e;
+  --pk-world-tint: rgba(79, 182, 214, 0.06);
+  --pk-world-rim: rgba(240, 194, 74, 0.24);
+}
+/* 6 · Lanka — crimson, molten gold, ember */
+html[data-theme="pinaka"][data-chapter="lanka"] {
+  --pk-ch-glow: #e2552f;
+  --pk-ch-soft: #ffb07a;
+  --pk-ch-deep: #8e1e25;
+  --pk-ch-line: rgba(226, 85, 47, 0.32);
+  --pk-ch-wash: rgba(232, 163, 60, 0.07);
+  --pk-world-sky-top: #0b0709;
+  --pk-world-sky-bottom: #2b0f10;
+  --pk-world-tint: rgba(226, 85, 47, 0.07);
+  --pk-world-rim: rgba(232, 163, 60, 0.26);
+}
+
+/* ── A chapter's art as an element's own background ─────────────────────── */
+/* The page itself is painted by the environment (one <img>, crossfaded, at
+   the size the device needs). This class is for the smaller places that want
+   the same picture — the unlock card, a chapter header — and it carries the
+   readability overlay with it, so text on it is never left on bare art. */
+html[data-theme="pinaka"] .pk-chapter-bg {
+  position: relative;
+  background-color: var(--pk-world-sky-top, #0a0e17);
+  background-image: var(--pk-chapter-art, none);
+  background-size: cover;
+  background-position: center;
+  isolation: isolate;
+}
+html[data-theme="pinaka"] .pk-chapter-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at center, rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.72)),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.30), rgba(0, 0, 0, 0.72));
+}
+html[data-theme="pinaka"] .pk-chapter-bg > * { position: relative; z-index: 1; }
+
+/* ── The chapter's light on the existing chrome ─────────────────────────── */
+/* Challenge cards: the rim and the hover glow take the chapter's colour. The
+   fill stays the skin's dark glass, so titles, points and solve counts keep
+   the contrast they were measured at. */
+html[data-theme="pinaka"][data-chapter] .card-interactive:hover {
+  border-color: var(--pk-ch-line);
+  box-shadow: var(--shadow-e3), 0 0 28px -10px var(--pk-ch-glow), inset 0 1px 0 rgba(246, 223, 163, 0.06);
+}
+html[data-theme="pinaka"][data-chapter] .card-interactive::after,
+html[data-theme="pinaka"][data-chapter] .surface::after,
+html[data-theme="pinaka"][data-chapter] .surface-raised::after {
+  background: linear-gradient(to right,
+    transparent, var(--pk-ch-line) 18%, var(--pk-ch-glow) 50%, var(--pk-ch-line) 82%, transparent);
+  opacity: 0.45;
+}
+/* The primary action carries the chapter. Text stays on the skin's ink
+   colour, which is measured against the gold ramp, not against the accent. */
+html[data-theme="pinaka"][data-chapter] .btn-primary {
+  background-image: linear-gradient(180deg, var(--pk-ch-soft), var(--pk-ch-glow) 55%, var(--pk-ch-deep));
+  border-color: var(--pk-ch-line);
+  box-shadow: 0 0 24px -12px var(--pk-ch-glow);
+}
+html[data-theme="pinaka"][data-chapter] .btn-primary:hover:not(:disabled) {
+  box-shadow: 0 0 30px -8px var(--pk-ch-glow);
+}
+html[data-theme="pinaka"][data-chapter] :focus-visible {
+  outline-color: var(--pk-ch-soft);
+}
+/* The board's own progress bar and the nav's live rail follow the chapter. */
+html[data-theme="pinaka"][data-chapter] .progress-fill,
+html[data-theme="pinaka"][data-chapter] .progress-bar > div {
+  background-image: linear-gradient(90deg, var(--pk-ch-deep), var(--pk-ch-glow));
+}
+
+/* ── Journey bar ────────────────────────────────────────────────────────── */
+/* Six steps on one rail: where the team has been, where it stands, what is
+   still shut. The rail is a list; the state is on each item, never on colour
+   alone — a completed step carries a tick, the current one its numeral and
+   a ring, a locked one a dimmed numeral and aria-disabled. */
+html[data-theme="pinaka"] .pk-journeybar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0.625rem 0.75rem;
+  list-style: none;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+html[data-theme="pinaka"] .pk-journeybar::-webkit-scrollbar { display: none; }
+html[data-theme="pinaka"] .pk-journeybar-step {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  min-width: 0;
+  color: var(--color-text-muted);
+}
+/* the thread between steps */
+html[data-theme="pinaka"] .pk-journeybar-step + .pk-journeybar-step::before {
+  content: "";
+  flex: 0 0 auto;
+  width: clamp(14px, 3vw, 34px);
+  height: 1px;
+  margin-right: 0.25rem;
+  background: rgba(181, 139, 98, 0.35);
+}
+html[data-theme="pinaka"] .pk-journeybar-step[data-state="completed"] + .pk-journeybar-step::before,
+html[data-theme="pinaka"] .pk-journeybar-step[data-state="completed"]::before {
+  background: var(--pk-ch-deep);
+}
+html[data-theme="pinaka"] .pk-journeybar-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 50%;
+  border: 1px solid rgba(181, 139, 98, 0.45);
+  background: rgba(13, 16, 32, 0.72);
+  font-family: var(--pk-font-prose);
+  font-size: 0.9rem;
+  line-height: 1;
+  color: var(--pk-gold-deep);
+}
+html[data-theme="pinaka"] .pk-journeybar-name {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+html[data-theme="pinaka"] .pk-journeybar-step[data-state="completed"] { color: var(--pk-parchment); }
+html[data-theme="pinaka"] .pk-journeybar-step[data-state="completed"] .pk-journeybar-mark {
+  border-color: var(--pk-ch-deep);
+  color: var(--pk-ch-soft);
+}
+html[data-theme="pinaka"] .pk-journeybar-step[data-state="current"] { color: var(--pk-ch-soft); }
+html[data-theme="pinaka"] .pk-journeybar-step[data-state="current"] .pk-journeybar-mark {
+  border-color: var(--pk-ch-glow);
+  color: var(--pk-ch-soft);
+  background: rgba(13, 16, 32, 0.9);
+  box-shadow: 0 0 0 3px var(--pk-ch-wash), 0 0 18px -4px var(--pk-ch-glow);
+}
+/* the current step breathes, once the rest of the frame is at rest */
+html[data-theme="pinaka"] .pk-journeybar-step[data-state="current"] .pk-journeybar-mark::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 50%;
+  border: 1px solid var(--pk-ch-glow);
+  opacity: 0.4;
+  animation: pk-journeybar-pulse 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes pk-journeybar-pulse {
+  0%, 100% { opacity: 0.14; transform: scale(1); }
+  50%      { opacity: 0.5;  transform: scale(1.22); }
+}
+html[data-theme="pinaka"] .pk-journeybar-step[data-state="locked"] { opacity: 0.5; }
+html[data-theme="pinaka"] .pk-journeybar-step[data-state="locked"] .pk-journeybar-name {
+  font-weight: 500;
+}
+/* the subtitle of the step the team is standing in */
+html[data-theme="pinaka"] .pk-journeybar-sub {
+  font-family: var(--pk-font-prose);
+  font-size: 0.8125rem;
+  font-style: italic;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+/* Narrow: names give way to numerals, except the current step. */
+@container (max-width: 620px) {
+  html[data-theme="pinaka"] .pk-journeybar { gap: 0.4rem; }
+  html[data-theme="pinaka"] .pk-journeybar-step:not([data-state="current"]) .pk-journeybar-name,
+  html[data-theme="pinaka"] .pk-journeybar-sub { display: none; }
+}
+
+/* The rail's own carved strip. It is its own container, so the steps answer
+   to the width of the board column rather than the window. */
+html[data-theme="pinaka"] .pk-journeybar-host {
+  container-type: inline-size;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.25rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  padding: 0.25rem 0.875rem 0.25rem 0.25rem;
+  border-radius: 12px;
+  border: 1px solid var(--pk-ch-line);
+  background-image: linear-gradient(180deg, var(--pk-ch-wash), transparent 70%);
+  background-color: rgba(10, 13, 23, 0.55);
+}
+
+/* ── The chapter line, wherever the current chapter is named ────────────── */
+html[data-theme="pinaka"] .pk-chapter-tag {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pk-ch-soft);
+  /* the line sits straight on the art on these screens, so it carries its
+     own dark halo rather than relying on the veil behind it */
+  text-shadow: 0 1px 10px rgba(6, 8, 16, 0.95), 0 0 3px rgba(6, 8, 16, 0.9);
+}
+html[data-theme="pinaka"] .pk-chapter-tag-label {
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+html[data-theme="pinaka"] .pk-chapter-tag-label::after {
+  content: "";
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  margin-left: 0.5rem;
+  vertical-align: middle;
+  background: var(--pk-ch-glow);
+  transform: rotate(45deg);
+}
+
+/* ── Unlock transition ──────────────────────────────────────────────────── */
+/* A full-screen moment: the completed chapter's words, then the one that has
+   opened. It is a dialog, so it takes focus and Escape closes it; it never
+   blocks the board behind it for more than a click. */
+html[data-theme="pinaka"] .pk-unlock {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: rgba(4, 6, 12, 0.82);
+  animation: pk-unlock-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes pk-unlock-in { from { opacity: 0; } to { opacity: 1; } }
+html[data-theme="pinaka"] .pk-unlock-card {
+  position: relative;
+  width: min(42rem, 100%);
+  max-height: calc(100dvh - 2.5rem);
+  overflow-y: auto;
+  padding: clamp(1.5rem, 4vw, 2.75rem);
+  text-align: center;
+  border-radius: 16px;
+  border: 1px solid var(--pk-ch-line);
+  background-color: rgba(10, 13, 23, 0.92);
+  box-shadow:
+    0 0 0 1px rgba(10, 14, 23, 0.9),
+    0 0 60px -18px var(--pk-ch-glow),
+    0 30px 70px -30px rgba(0, 0, 0, 0.95);
+  animation: pk-unlock-card-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes pk-unlock-card-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+html[data-theme="pinaka"] .pk-unlock-eyebrow {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--pk-ch-deep);
+}
+html[data-theme="pinaka"] .pk-unlock-done {
+  margin: 0.5rem 0 0;
+  font-family: var(--pk-font-display);
+  font-weight: 600;
+  font-size: clamp(1.5rem, 4.4vw, 2.25rem);
+  line-height: 1.12;
+  letter-spacing: 0.03em;
+  color: var(--pk-parchment);
+  text-wrap: balance;
+}
+/* the organisers' sentence, in the prose face, given room */
+html[data-theme="pinaka"] .pk-unlock-message {
+  margin: 1rem auto 0;
+  max-width: 34rem;
+  font-family: var(--pk-font-prose);
+  font-size: clamp(1.0625rem, 2.4vw, 1.3125rem);
+  line-height: 1.5;
+  color: var(--pk-parchment);
+  text-wrap: pretty;
+}
+html[data-theme="pinaka"] .pk-unlock-rule {
+  width: min(16rem, 70%);
+  height: 1px;
+  margin: 1.5rem auto;
+  border: 0;
+  background: linear-gradient(90deg, transparent, var(--pk-ch-glow), transparent);
+  opacity: 0.7;
+}
+html[data-theme="pinaka"] .pk-unlock-next-label {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+html[data-theme="pinaka"] .pk-unlock-next {
+  margin: 0.4rem 0 0;
+  font-family: var(--pk-font-display);
+  font-weight: 700;
+  font-size: clamp(1.75rem, 5.5vw, 2.75rem);
+  line-height: 1.05;
+  letter-spacing: 0.05em;
+  color: var(--pk-ch-soft);
+  text-shadow: 0 0 28px var(--pk-ch-wash);
+}
+html[data-theme="pinaka"] .pk-unlock-next-sub {
+  margin: 0.35rem 0 0;
+  font-family: var(--pk-font-prose);
+  font-size: 1.0625rem;
+  font-style: italic;
+  color: var(--color-text-secondary);
+}
+html[data-theme="pinaka"] .pk-unlock-actions {
+  margin-top: 1.75rem;
+  display: flex;
+  justify-content: center;
+}
+
+/* ── Stillness ──────────────────────────────────────────────────────────── */
+/* The player's own dial (the skin sets data-still) and the OS preference get
+   the same treatment: the composition stays, the motion goes. */
+html[data-theme="pinaka"][data-still="true"] .pk-journeybar-step[data-state="current"] .pk-journeybar-mark::after,
+html[data-theme="pinaka"][data-still="true"] .pk-unlock,
+html[data-theme="pinaka"][data-still="true"] .pk-unlock-card {
+  animation: none;
+}
+html[data-theme="pinaka"][data-still="true"] .pk-journeybar-step[data-state="current"] .pk-journeybar-mark::after {
+  opacity: 0.32;
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme="pinaka"] .pk-journeybar-step[data-state="current"] .pk-journeybar-mark::after {
+    animation: none;
+    opacity: 0.32;
+  }
+  html[data-theme="pinaka"] .pk-unlock,
+  html[data-theme="pinaka"] .pk-unlock-card { animation: none; }
+}
+
+/* ── Forced colours ─────────────────────────────────────────────────────── */
+/* The accent is decoration; the state must survive without it. */
+@media (forced-colors: active) {
+  html[data-theme="pinaka"] .pk-journeybar-step[data-state="locked"] { opacity: 1; }
+  html[data-theme="pinaka"] .pk-journeybar-step[data-state="current"] .pk-journeybar-mark {
+    outline: 2px solid CanvasText;
+    outline-offset: 2px;
+  }
+  html[data-theme="pinaka"] .pk-chapter-bg::before { background: none; }
+}
+
+/* The "current journey" line above the scoreboard and a team's own page. */
+html[data-theme="pinaka"] .pk-chapter-tag-row {
+  margin: 0 0 0.875rem;
+  padding-bottom: 0.625rem;
+  border-bottom: 1px solid var(--pk-ch-line);
+}

@@ -17,6 +17,8 @@
  * `object-position: ${focal.x * 100}% ${focal.y * 100}%`.
  */
 import type { World } from '../../config';
+import { CHAPTER_ORDER, type ChapterId } from '../../chapters/config';
+import { CHAPTER_PLATES } from '../chapters';
 
 import temple3840 from './temple-3840.webp';
 import temple1920 from './temple-1920.webp';
@@ -41,6 +43,7 @@ const TEMPLE_ART: Plate = {
   height: 926,
   alt: "Pinaka CTF key art: a golden temple-city on a lake at sunset, its spires reflected in the water under glowing cyber-lock sigils",
   focal: { x: 0.59, y: 0.66 },
+  sun: { x: 0.602, y: 0.68 },
   credit: {
     title: "Pinaka CTF 2026 key art",
     author: "Pinaka CTF · NFSU Chennai",
@@ -51,7 +54,15 @@ const TEMPLE_ART: Plate = {
   },
 };
 
-export type PlateKey = World | 'hero';
+/**
+ * A chapter's background, keyed apart from the worlds: three chapters share
+ * a name with a world ('ayodhya', 'setu', 'lanka') and the two systems must
+ * not overwrite each other — the worlds still dress the routes, the chapters
+ * dress the journey.
+ */
+export type ChapterPlateKey = `chapter-${ChapterId}`;
+
+export type PlateKey = World | 'hero' | ChapterPlateKey;
 
 export interface Plate {
   /** Bundled URL of the 1920×1080 file. */
@@ -71,6 +82,12 @@ export interface Plate {
   alt: string;
   /** Point of interest as a fraction of the plate, for object-position. */
   focal: { x: number; y: number };
+  /**
+   * Where the light comes from, as a fraction of the plate (it may lie just
+   * outside it, for light that falls from above the frame). The environment
+   * anchors its sun bloom and god rays here so they leave the painted sun.
+   */
+  sun?: { x: number; y: number };
   credit: {
     title: string;
     author: string;
@@ -93,6 +110,8 @@ export const PLATES: Record<PlateKey, Plate> = {
     height: 1080,
     alt: "Mist rolling over layered forested hills of the Western Ghats at Agumbe, seen through foreground foliage",
     focal: { x: 0.55, y: 0.45 },
+    // The light falls from the bright haze above the far ridge.
+    sun: { x: 0.5, y: -0.22 },
     credit: {
       title: "Mystic Layers of Agumbe",
       author: "Pradyumnakp",
@@ -111,7 +130,9 @@ export const PLATES: Record<PlateKey, Plate> = {
     width: 1920,
     height: 1080,
     alt: "Pinaka CTF artwork: the fortress of Lanka ablaze above a smoking battlefield",
-    focal: { x: 0.55, y: 0.42 },
+    // keeps the fortress and the fire on wide screens, the burning gate on phones
+    focal: { x: 0.42, y: 0.4 },
+    sun: { x: 0.8, y: 0.48 },
     credit: {
       title: "Lanka ablaze — Pinaka CTF 2026 artwork",
       author: "Pinaka CTF · NFSU Chennai",
@@ -123,7 +144,15 @@ export const PLATES: Record<PlateKey, Plate> = {
   },
   vijaya: TEMPLE_ART,
   hero: TEMPLE_ART,
+  ...(Object.fromEntries(
+    CHAPTER_ORDER.map(id => [`chapter-${id}`, CHAPTER_PLATES[id]]),
+  ) as Record<ChapterPlateKey, Plate>),
 };
+
+/** The plate a chapter is painted with. */
+export function chapterPlateKey(id: ChapterId): ChapterPlateKey {
+  return `chapter-${id}`;
+}
 
 /** Every photograph once, in world order, for the footer credit line. */
 export const PLATE_CREDITS: Plate['credit'][] = (Object.keys(PLATES) as PlateKey[])
