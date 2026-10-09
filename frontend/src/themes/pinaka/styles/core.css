@@ -133,48 +133,50 @@ html[data-theme="pinaka"] .card-interactive::after {
     rgba(227, 187, 102, 0.22) 82%, transparent);
   opacity: 0.6;
 }
-/* Glass over the painting. The environment behind the app is a vivid
-   picture now, so every panel is frosted glass: the art behind it blurred,
-   saturated and dimmed by the backdrop filter, under a midnight tint. The
-   panel keeps the colour of the world while its text reads (≥ 4.5:1
-   measured over the brightest plates: the sun on the water, the fire).
-   Blur costs a pass per frame for every blurred panel while the motes, the
-   rays and the wheel move under it, so it is spent only where it shows most:
-   the page-sized panels (.surface, .surface-raised), on the high tier only,
-   and never on a panel inside another one. The many small cards of the board
-   and every panel on the medium tier carry a deeper tint instead; the
-   painting still glows around them. */
+/* Panels over the painting. A backdrop filter re-blurs whatever is behind
+   it on every frame something under it moves (the motes, the swinging
+   rays, the wheel), so glass is spent only on the few large containers
+   that frame a page, and only on the high tier:
+     the board's event header and a profile's header (.page-shell
+     header.surface), the campaign map card (.pk-journey), the board's
+     sidebar, the nav bar, the chain view's frame, and the modal scrim.
+   Every other panel — the challenge cards, list rows, stat tiles, tables,
+   charts — and every panel at all on medium, low and still, is a
+   near-opaque midnight tint instead (≥ 4.5:1 for the muted text inside it
+   even over a white sky: 0.9 of #0c0e19 over #fff is #24262f), and the
+   painting glows around it. */
 html[data-theme="pinaka"] .surface,
 html[data-theme="pinaka"] .card-interactive {
-  background-color: rgba(12, 14, 25, 0.84);
+  background-color: rgba(12, 14, 25, 0.9);
 }
-html[data-theme="pinaka"] .surface-raised { background-color: rgba(18, 21, 36, 0.86); }
-/* The base sheet blurs every panel and card; under the theme none is blurred
-   unless the rule below picks it. */
-html[data-theme="pinaka"] :is(.surface, .surface-raised, .card-interactive) {
+html[data-theme="pinaka"] .surface-raised { background-color: rgba(18, 21, 36, 0.92); }
+/* The base sheet blurs every panel and card (and the utilities blur a few
+   more); under the theme none is blurred unless picked below. */
+html[data-theme="pinaka"] :is(.surface, .surface-raised, .card-interactive, .backdrop-blur-sm) {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
+html[data-theme="pinaka"] [data-tier]:not([data-tier="high"]) :is(.backdrop-blur-xl, .scrim) {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+/* Without their blur, the nav and the chain frame close up instead. */
+html[data-theme="pinaka"] [data-tier]:not([data-tier="high"]) nav.sticky { background-color: rgba(8, 10, 18, 0.94); }
+html[data-theme="pinaka"] [data-tier]:not([data-tier="high"]) .backdrop-blur-xl.bg-black\/70 { background-color: rgba(5, 6, 12, 0.9); }
+html[data-theme="pinaka"] [data-tier]:not([data-tier="high"]) .scrim { background-color: rgba(5, 7, 14, 0.86); }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  html[data-theme="pinaka"] [data-tier="high"] :is(.surface, .surface-raised):not(:is(.surface, .surface-raised, .surface-overlay, .card-interactive) *):not(.card-interactive) {
+  html[data-theme="pinaka"] [data-tier="high"] :is(.page-shell header.surface, .surface.pk-journey) {
     background-color: rgba(11, 13, 24, 0.6);
     -webkit-backdrop-filter: blur(22px) saturate(1.5) brightness(0.42);
     backdrop-filter: blur(22px) saturate(1.5) brightness(0.42);
   }
-  html[data-theme="pinaka"] [data-tier="high"] .surface-raised:not(:is(.surface, .surface-raised, .surface-overlay, .card-interactive) *):not(.card-interactive) {
-    background-color: rgba(16, 19, 33, 0.64);
-  }
-}
-html[data-theme="pinaka"] [data-tier="low"] :is(.surface, .surface-raised, .card-interactive),
-html[data-theme="pinaka"] [data-tier="still"] :is(.surface, .surface-raised, .card-interactive) {
-  background-color: rgba(11, 13, 23, 0.9);
 }
 
 /* The board's sidebar: its filters and the event block sit straight on the
-   painting, so the rail is a column of glass too, deepest at the window's
-   edge where the veil also darkens. */
+   painting, so the rail is a dark column, deepest at the window's edge where
+   the veil also darkens; glass on the high tier. */
 html[data-theme="pinaka"] .page-shell aside.border-r {
-  background-image: linear-gradient(90deg, rgba(7, 9, 17, 0.84), rgba(9, 11, 20, 0.76));
+  background-image: linear-gradient(90deg, rgba(7, 9, 17, 0.9), rgba(9, 11, 20, 0.84));
   border-right-color: var(--pk-gold-faint);
   box-shadow: inset -1px 0 0 rgba(246, 223, 163, 0.05);
 }
@@ -279,8 +281,13 @@ html[data-theme="pinaka"] .textarea:focus {
    beside a title), where a 10–16 % wash of its colour would let the art
    through and drown the label. Each wash is therefore laid down already
    mixed onto the midnight ground, nearly opaque: on a dark panel it looks
-   as it always did, on the bright sky it stays legible. */
-html[data-theme="pinaka"] .badge        { background-color: rgba(20, 21, 32, 0.9); }
+   as it always did, on the bright sky it stays legible. The plain badge's
+   ground stands aside for a background the markup asks for itself (a
+   utility such as bg-surface-overlay), since this sheet is unlayered and
+   would otherwise win over every utility. */
+html[data-theme="pinaka"] .badge:where(:not([class*="bg-"])) { background-color: rgba(20, 21, 32, 0.9); }
+/* An open bounty keeps its red: the blood wash mixed onto the midnight. */
+html[data-theme="pinaka"] .badge-blood  { border-color: rgba(255, 92, 122, 0.45); background-color: rgba(46, 21, 32, 0.9); }
 html[data-theme="pinaka"] .badge-neon   { border-color: rgba(227, 187, 102, 0.45); background-color: rgba(34, 31, 33, 0.9); }
 html[data-theme="pinaka"] .badge-solved { border-color: rgba(227, 187, 102, 0.55); background-color: rgba(46, 42, 37, 0.9); }
 html[data-theme="pinaka"] .badge-easy   { border-color: rgba(140, 203, 156, 0.35); background-color: rgba(27, 37, 41, 0.9); }
@@ -362,27 +369,48 @@ html[data-theme="pinaka"] .ambient-wash {
 html[data-theme="pinaka"] .ambient-grid { display: none; }
 
 /* ── Small shared ornaments used by several themed components ───────────── */
-/* Small labels can sit straight on the painting (a section's eyebrow over
-   the burning fortress, a podium label over the fire): a close dark halo
-   keeps the glyphs' edges on dark whatever lies behind them. On a panel it
-   is invisible. */
-html[data-theme="pinaka"] .label-micro,
-html[data-theme="pinaka"] .pk-eyebrow {
-  text-shadow: 0 0 2px rgba(5, 7, 14, 0.9), 0 0 6px rgba(5, 7, 14, 0.75), 0 0 14px rgba(5, 7, 14, 0.5);
+/* ── Type on the painting ──────────────────────────────────────────────
+   Page-level type stands straight on the art: a page's title, eyebrow and
+   subtitle, a section heading and the count beside it, a status line next
+   to a heading, a podium label over the fire. Over the brightest skies a
+   thin glyph needs more than a soft glow, so on the art:
+     · every such line carries a close, dense halo (tight shadows stacked
+       twice over, so even a 1 px stroke stands in a near-opaque dark field
+       a few pixels deep), wider for the headings;
+     · the environment's veil deepens the band where page headers stand
+       (environment.css § 6);
+     · muted and secondary ink is lifted a step (muted reads as secondary,
+       secondary as a paler parchment): the halo darkens what is behind the
+       glyphs, the lift keeps the glyphs themselves bright.
+   Measured with the halo over the painting, by sampling the pixels around
+   the glyphs: body and small text ≥ 4.5:1, headings ≥ 3:1.
+   "On the art" means not inside a panel, a control, the nav, a table or a
+   dialog, where the type is on a dark ground already (it would pay for an
+   invisible blur). The lift is made by restating the colour tokens on the
+   element, not its colour, so a hover utility still changes it. Kept at the
+   specificity of the theme prefix alone (:where), so any rule of the theme's
+   own that gives an element its shadow (a glow, an engraving) wins, and
+   gradient-painted text is excluded outright. */
+html[data-theme="pinaka"] {
+  --pk-halo-small:
+    0 0 1px rgba(5, 7, 14, 1), 0 0 3px rgba(5, 7, 14, 1), 0 0 3px rgba(5, 7, 14, 1),
+    0 0 6px rgba(5, 7, 14, 0.9), 0 0 6px rgba(5, 7, 14, 0.9), 0 0 12px rgba(5, 7, 14, 0.7),
+    0 0 22px rgba(5, 7, 14, 0.45);
+  --pk-halo-large:
+    0 0 2px rgba(5, 7, 14, 1), 0 0 5px rgba(5, 7, 14, 0.95), 0 0 5px rgba(5, 7, 14, 0.95),
+    0 0 12px rgba(5, 7, 14, 0.8), 0 0 24px rgba(5, 7, 14, 0.6), 0 0 40px rgba(5, 7, 14, 0.4);
+}
+html[data-theme="pinaka"] :where(.text-display, .text-h1, .text-h2, .text-h3, .text-cyber-muted, .text-text-muted, .text-text-secondary, .text-small, .text-body, .label-micro, .pk-eyebrow, .pk-chapter-tag):where(:not(.text-glow, .pk-foil-text, .pk-numeral-deva, .badge, .btn)):where(:not(:is(.surface, .surface-raised, .surface-overlay, .surface-inset, .card-interactive, .badge, .btn, nav, button, input, select, textarea, table, [role="dialog"], .pk-gateway, .auth-scale) *)) {
+  --color-text-muted: #cdc0a6;
+  --color-cyber-muted: #cdc0a6;
+  --color-text-secondary: #e0d4ba;
+  text-shadow: var(--pk-halo-small);
+}
+html[data-theme="pinaka"] :where(.text-display, .text-h1, .text-h2, .text-h3):where(:not(.text-glow, .pk-foil-text, .pk-numeral-deva, .badge, .btn)):where(:not(:is(.surface, .surface-raised, .surface-overlay, .surface-inset, .card-interactive, .badge, .btn, nav, button, input, select, textarea, table, [role="dialog"], .pk-gateway, .auth-scale) *)) {
+  text-shadow: var(--pk-halo-large);
 }
 /* Text painted by a clipped gradient would show the halo through its glyphs. */
-html[data-theme="pinaka"] :is(.label-micro, .pk-eyebrow) :is(.pk-foil-text, .pk-numeral-deva) { text-shadow: none; }
-/* Page-level type sits on the painting as well: a page's title and its
-   subtitle, a section heading and the count beside it, a status line next to
-   a heading. The same close halo, so the glyphs' edges stay on dark over the
-   brightest sky. Inside a panel, a control or the nav it would be invisible
-   (dark on dark), so those are skipped and never pay for the blur. Kept at
-   the specificity of the theme prefix alone (:where), so any rule of the
-   theme's own that gives an element its shadow (a glow, an engraving) wins,
-   and gradient-painted text is excluded outright. */
-html[data-theme="pinaka"] :where(.text-h1, .text-h2, .text-cyber-muted, .text-text-muted, .text-text-secondary):where(:not(.text-glow, .pk-foil-text, .pk-numeral-deva, .badge, .btn)):where(:not(:is(.surface, .surface-raised, .surface-overlay, .card-interactive, .badge, .btn, nav, button, input, select, textarea, [role="dialog"]) *)) {
-  text-shadow: 0 0 2px rgba(5, 7, 14, 0.9), 0 0 6px rgba(5, 7, 14, 0.75), 0 0 14px rgba(5, 7, 14, 0.5);
-}
+html[data-theme="pinaka"] :is(.label-micro, .pk-eyebrow, .text-h1, .text-h2) :is(.pk-foil-text, .pk-numeral-deva) { text-shadow: none; }
 /* The app's own foot (the framework line and its links) stands on the
    painting's lowest band: a scrim under its last rows only (the partner wall
    above has its own panel), darkest at the bottom edge. */

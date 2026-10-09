@@ -8,26 +8,30 @@
  * WHAT IT DRAWS, BOTTOM TO TOP
  *   sky      a gradient between the world's two sky tokens; the phase cools
  *            it before the event, warms the horizon after
- *   scene    two slots, each holding the world's plate in full colour, and
- *            over it the light of that plate: god rays fanning out of the
- *            painted sun and a bloom on the sun itself, graded per world
- *            (Ayodhya gold, Vanavasa green-gold, Setu teal-gold, Lanka
- *            ember, Vijaya dawn). A world change renders the new scene into
- *            the hidden slot, waits for its plate, then crossfades, so there
- *            is never a flash and never a re-layout
+ *   scene    two slots, each holding a plate in full colour (the world's,
+ *            or the one the mount point asks for), and over it the light of
+ *            that plate: god rays fanning out of the painted sun and a bloom
+ *            on the sun itself, graded per world (Ayodhya gold, Vanavasa
+ *            green-gold, Setu teal-gold, Lanka ember, Vijaya dawn). A change
+ *            of world or plate renders the new scene into the hidden slot,
+ *            waits for its plate, then crossfades, so there is never a flash
+ *            and never a re-layout
  *   relic    the celestial dharma wheel: the official bronze emblem, large
  *            and in full colour high in the sky, turning once in four
- *            minutes; strongest over Ayodhya and Vijaya, softer in the
- *            forest and over the sea, absent over burning Lanka and on the
- *            sign-in page (whose hero has a wheel of its own); on a phone a
- *            small ornament under the nav's torch, clear of the page titles
+ *            minutes, over Ayodhya and Vijaya on the pages whose content
+ *            column leaves it sky (not the board, CSS § Relic). It is not
+ *            rendered at all (so not downloaded) below 768 px, where every
+ *            page header runs the full width; over burning Lanka; on the
+ *            board's own worlds (Vanavasa, Setu), whose event header covers
+ *            that sky; or on the sign-in page, whose hero has its own wheel
  *   motes    one animated canvas: luminous gold motes, green-gold flecks or
  *            rising embers, with a few soft bokeh discs and haze bands on
  *            the high tier
- *   veil     the readability guarantee: darkness only where the interface
- *            is dense (the nav band, the sidebar band on wide screens, the
- *            foot); the centre and the sky are left to glow, and the panels
- *            over them are frosted glass (core.css)
+ *   veil     the readability guarantee, one layer with the vignette:
+ *            darkness only where the interface is dense (the nav band, the
+ *            sidebar band on wide screens, the foot, and over the board's
+ *            forest the upper half where the category headings stand); the
+ *            sky is left to glow
  *
  * THE PLATE
  *   One picture per world (assets/plates): the official event artwork for
@@ -36,12 +40,27 @@
  *   Over a plate no silhouette strip is painted at all (no canvases, no
  *   backing store); the procedural silhouettes are the fallback for a plate
  *   that fails to load, or a mount that asks for none. A plate that has not
- *   loaded is never shown half-way: the new scene is promoted only once its
- *   image has settled (load, error, or a short wait), and the image fades in
- *   on load, its light with it (a plate already in the cache when its scene
- *   mounts appears at once, with no fade). On the high tier the plate drifts very slowly (scale 1.06 → 1
- *   over 40 s, transform only, will-change dropped once it has settled); no
- *   drift on medium or low, nothing at all when still.
+ *   loaded is never shown half-way: a new scene is promoted only once its
+ *   image has settled (load, error, or a short wait) and the crossfade is
+ *   the only fade it gets. The first scene is on screen from the start, so
+ *   its image fades in on its own, briefly, the moment it has loaded (a
+ *   plate already in the cache appears at once, with no fade), and a change
+ *   that arrives before anything was painted replaces the empty scene
+ *   instead of crossfading out of it. On the high tier the plate drifts
+ *   very slowly (scale 1.06 → 1 over 40 s, transform only, will-change
+ *   dropped once it has settled); no drift on medium or low, nothing at all
+ *   when still.
+ *
+ * THE LIGHT
+ *   Anchored on the plate's `sun` (assets/plates), wherever the cover crop
+ *   puts it; the fan opens away from it by height: a low sun throws its
+ *   shafts up into the sky, a sun mid-frame spreads them wide, one above the
+ *   frame lets them fall. The shafts are painted with the plate, in its own
+ *   layer, screened over it (no mask, no layer of their own: the falloff and
+ *   the fan's edges are black, which a screen leaves untouched). On the high
+ *   tier alone one more fan, a few degrees round from the first, breathes in
+ *   and out on its own layer (opacity only), so the light seems to swing;
+ *   nothing of it exists on any other tier.
  *
  * EVERY SILHOUETTE IS ORIGINAL AND DETERMINISTIC
  *   The city, the forest, the causeway and the fortress are built from a
@@ -50,9 +69,8 @@
  *   same skyline and the static tier can emit the same shapes as inline SVG.
  *
  * TIERS
- *   high    110 motes (bokeh and haze included), two fans of rays that
- *           shimmer against each other, the relic turning, scroll + pointer
- *           parallax, plate drift
+ *   high    110 motes (bokeh and haze included), the swinging fan of rays,
+ *           the relic turning, scroll + pointer parallax, plate drift
  *   medium  44 motes, still rays, the relic turning, scroll parallax only
  *   static  'still' / 'low' / fx off / reduced motion: no canvases at all,
  *           the plate, rays and relic as a still picture, no loops, no
@@ -60,12 +78,12 @@
  *
  * Presentation only: props in, pixels out. Nothing here reads data.
  */
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { getCapability } from '../../../components/environment/performance';
 import { subscribeFx } from '../../../components/environment/fx';
 import { WORLDS, type World } from '../config';
-import { useWorldAttributes, type EventPhase } from '../hooks';
+import { useMediaQuery, useWorldAttributes, type EventPhase } from '../hooks';
 import { PLATES, type Plate, type PlateKey } from '../assets/plates';
 import { plateFocal, plateSource } from '../assets/plates/sources';
 import { PINAKA_IMAGES } from '../assets/images';
@@ -80,10 +98,10 @@ export interface PinakaEnvironmentProps {
    */
   intensity?: 'subtle' | 'normal';
   /**
-   * Which plate stands behind the scene. Defaults to the
-   * world's own; a mount point may ask for another (the sign-in page could
-   * take 'hero'); `null` shows the procedural silhouettes alone. Read when a
-   * scene is created, so change it with the world, not on its own.
+   * Which plate stands behind the scene. Defaults to the world's own; a
+   * mount point may ask for another (a chapter's art, the sign-in hero);
+   * `null` shows the procedural silhouettes alone. A change of plate is a
+   * change of scene, crossfaded like a change of world.
    */
   plate?: PlateKey | null;
 }
@@ -127,6 +145,16 @@ const FADE_MS = 1200;
  */
 const PLATE_WAIT_MS = 2500;
 const FRAME_MS = 1000 / 30;
+
+/**
+ * Where the relic is drawn at all. Below 768 px every page header runs the
+ * full width of the screen, so the wheel could only stand behind a title;
+ * there it is not rendered (and its image not fetched). It belongs to the
+ * open sky of Ayodhya and Vijaya; Lanka's light is the fire, and Vanavasa and
+ * Setu are worlds of the board alone, whose event header covers that sky.
+ */
+const RELIC_MEDIA = '(min-width: 48rem)';
+const RELIC_WORLDS: Record<World, boolean> = { ayodhya: true, vijaya: true, vanavasa: false, setu: false, lanka: false };
 
 function layerDepth(layer: Layer): Depth {
   return layer === 'plate' || layer === 'rays' ? 'far' : layer;
@@ -726,13 +754,33 @@ interface SunPoint {
   y: number;
   /** Radius the rays need to reach the farthest corner of the viewport. */
   r: number;
+  /** The fan: where it opens (0deg = straight up, clockwise) and how wide. */
+  from: number;
+  span: number;
+}
+
+/**
+ * Which way the light opens, from how high the sun stands on screen
+ * (0 = top edge, 1 = bottom): a sun low on the horizon throws its shafts up
+ * into the sky; one in the middle of the frame spreads them wide and a
+ * little down; one high in the sky sheds them all round; light from above
+ * the frame falls down into it. The fan is centred on "up" or "down" and
+ * its edges are soft (environment.css), so the bands blend.
+ */
+function fanFor(fy: number): { from: number; span: number } {
+  if (fy < 0) return { from: 180 - 75, span: 150 };
+  if (fy < 0.25) return { from: 0, span: 360 };
+  if (fy < 0.55) return { from: -135, span: 270 };
+  return { from: -100, span: 200 };
 }
 
 /**
  * Where a plate's light source lands on screen. The plate box bleeds
  * BLEED_X past each side and BLEED_Y below the viewport and is covered by
  * the image at its focal point (object-fit: cover), so the painted sun is
- * found with the same arithmetic the browser uses. Without a plate (or one
+ * found with the same arithmetic the browser uses. This is the plate's own
+ * sun whatever world it is shown in (Setu and Vijaya, painted with the
+ * temple-city art, take that painting's sunset). Without a plate (or one
  * without a sun) the light is the world's palette sun, low on the horizon.
  */
 function sunPoint(world: World, plate: Plate | null, vw: number, vh: number): SunPoint {
@@ -751,19 +799,47 @@ function sunPoint(world: World, plate: Plate | null, vw: number, vh: number): Su
     Math.hypot(x, y), Math.hypot(vw - x, y),
     Math.hypot(x, vh - y), Math.hypot(vw - x, vh - y),
   );
-  return { x: Math.round(x), y: Math.round(y), r: Math.round(r * 1.04) };
+  return { x: Math.round(x), y: Math.round(y), r: Math.round(r * 1.04), ...fanFor(y / vh) };
+}
+
+/** The scene's light as custom properties: the sun, the reach, the fan. */
+function sunStyle(sun: SunPoint): CSSProperties {
+  return {
+    ['--pk-sun-px' as string]: `${sun.x}px`,
+    ['--pk-sun-py' as string]: `${sun.y}px`,
+    ['--pk-rays-r' as string]: `${sun.r}px`,
+    ['--pk-rays-from' as string]: `${sun.from}deg`,
+    ['--pk-rays-span' as string]: `${sun.span}deg`,
+  };
 }
 
 /* ── Plate ───────────────────────────────────────────────────────────────── */
 
 /**
+ * The light of a scene: the shafts out of the sun and its bloom, one
+ * screened group. Static on every tier; its fan geometry and colour are
+ * custom properties of the scene (sunStyle, environment.css § 3).
+ */
+function SceneLight() {
+  return (
+    <div className="pk-env-light">
+      <div className="pk-env-rays" />
+      <div className="pk-env-bloom" />
+    </div>
+  );
+}
+
+/**
  * The picture behind a scene. Decorative (alt="", aria-hidden), never
  * draggable, decoded off the main thread, fetched eagerly because the scene
  * that holds it is waiting for it. It reports once: ready or failed. The
- * wrapper is what parallax moves; the image is what the drift scales, about
- * the focal point, so the slow push ends on the subject.
+ * wrapper is what parallax moves; inside it the art (the image and its
+ * light, painted together in one layer) is what the drift scales, about the
+ * focal point, so the slow push ends on the subject and the light stays on
+ * the painted sun. `children` (the high tier's swinging fan) sit over the
+ * art inside the wrapper, so they move with it.
  */
-function PlateLayer({ plate, status, active, vpKey, layerRef, onSettle }: {
+function PlateLayer({ plate, status, active, vpKey, layerRef, onSettle, children }: {
   plate: Plate;
   status: PlateStatus;
   active: boolean;
@@ -772,6 +848,7 @@ function PlateLayer({ plate, status, active, vpKey, layerRef, onSettle }: {
   layerRef: (el: HTMLDivElement | null) => void;
   /** `instant`: the image was already complete when the scene mounted. */
   onSettle: (status: 'ready' | 'failed', instant?: boolean) => void;
+  children?: ReactNode;
 }) {
   const img = useRef<HTMLImageElement>(null);
   // The drift ran its 40 s: drop the animation (its final frame is the
@@ -801,23 +878,29 @@ function PlateLayer({ plate, status, active, vpKey, layerRef, onSettle }: {
       data-drift={drifted ? 'done' : 'on'}
       style={{ ['--pk-plate-focal' as string]: plateFocal(plate) }}
     >
-      <img
-        ref={img}
-        src={source.src}
-        srcSet={source.srcSet}
-        sizes={source.sizes}
-        width={plate.width}
-        height={plate.height}
-        alt=""
-        aria-hidden="true"
-        draggable={false}
-        decoding="async"
-        loading="eager"
-        fetchPriority={active ? 'high' : 'auto'}
-        onLoad={() => settle.current('ready')}
-        onError={() => settle.current('failed')}
-        onAnimationEnd={() => setDrifted(true)}
-      />
+      <div
+        className="pk-env-plate-art"
+        onAnimationEnd={e => { if (e.target === e.currentTarget) setDrifted(true); }}
+      >
+        <img
+          ref={img}
+          src={source.src}
+          srcSet={source.srcSet}
+          sizes={source.sizes}
+          width={plate.width}
+          height={plate.height}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          decoding="async"
+          loading="eager"
+          fetchPriority={active ? 'high' : 'auto'}
+          onLoad={() => settle.current('ready')}
+          onError={() => settle.current('failed')}
+        />
+        <SceneLight />
+      </div>
+      {children}
     </div>
   );
 }
@@ -1111,6 +1194,25 @@ function other(slot: Slot): Slot {
   return slot === 'a' ? 'b' : 'a';
 }
 
+function newScene(world: World, plateKey: PlateKey | null): Scene {
+  return { world, plateKey, plate: plateKey ? 'loading' : 'none' };
+}
+
+/**
+ * The relic stays mounted for one fade after it is no longer wanted, so it
+ * leaves the way it came (environment.css fades it); it is mounted at once
+ * when wanted, and never at all where it is not.
+ */
+function useRelic(wanted: boolean): boolean {
+  const [mounted, setMounted] = useState(wanted);
+  useEffect(() => {
+    if (wanted) { setMounted(true); return; }
+    const t = window.setTimeout(() => setMounted(false), FADE_MS);
+    return () => window.clearTimeout(t);
+  }, [wanted]);
+  return wanted || mounted;
+}
+
 export default function PinakaEnvironment({ world, phase, intensity = 'subtle', plate: plateProp }: PinakaEnvironmentProps) {
   useWorldAttributes(world, phase);
 
@@ -1129,6 +1231,12 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle', 
   // No transitions either when the player turned effects off: the 'still'
   // tier is the same promise as the OS preference, made from Settings.
   const still = reduce || getCapability().tier === 'still';
+  // The swinging fan exists on the high tier alone, and never when still.
+  const sweep = effectiveMode === 'high' && !still;
+
+  const wide = useMediaQuery(RELIC_MEDIA);
+  const relicWanted = wide && intensity !== 'normal' && RELIC_WORLDS[world];
+  const relicMounted = useRelic(relicWanted);
 
   // Re-read whenever the player moves the effects dial (the capability cache
   // is dropped on that event, so this reads a fresh answer).
@@ -1153,33 +1261,39 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle', 
     return () => { window.clearTimeout(timer); window.removeEventListener('resize', onResize); };
   }, []);
 
-  // Two scene slots. The active one holds the world on screen; a change
-  // writes the new world into the other slot as *pending*, rendered but
-  // hidden, and promotes it to active once its plate has settled, so the CSS
-  // crossfade has both complete scenes in the DOM for its whole duration and
-  // a half-loaded plate is never on screen.
-  const newScene = (w: World): Scene => {
-    const plateKey = plateProp === null ? null : (plateProp ?? w);
-    return { world: w, plateKey, plate: plateKey ? 'loading' : 'none' };
-  };
-  const [slots, setSlots] = useState<Slots>(() => ({ a: newScene(world), b: null, active: 'a', pending: null }));
+  // Two scene slots. The active one holds the scene on screen; a change of
+  // world or plate writes the new scene into the other slot as *pending*,
+  // rendered but hidden, and promotes it to active once its plate has
+  // settled, so the CSS crossfade has both complete scenes in the DOM for its
+  // whole duration and a half-loaded plate is never on screen.
+  const plateKey: PlateKey | null = plateProp === null ? null : (plateProp ?? world);
+  const [slots, setSlots] = useState<Slots>(() => ({ a: newScene(world, plateKey), b: null, active: 'a', pending: null }));
+  const isWanted = (scene: Scene | null) => !!scene && scene.world === world && scene.plateKey === plateKey;
   const shown = slots.pending ?? slots.active;
-  if (slots[shown]?.world !== world) {
-    if (slots[slots.active]?.world === world) {
+  if (!isWanted(slots[shown])) {
+    const current = slots[slots.active];
+    if (isWanted(current)) {
       // Flipped back before the pending scene had arrived: abandon it.
       setSlots({ ...slots, [slots.pending as Slot]: null, pending: null });
+    } else if (current && current.plate === 'loading' && !slots[other(slots.active)]) {
+      // Nothing of the scene on screen has been painted yet (its plate is
+      // still on the way, and no earlier scene is fading out under it):
+      // there is nothing to crossfade from, so the new scene simply takes
+      // its place and appears the moment its own plate arrives.
+      setSlots({ ...slots, [slots.active]: newScene(world, plateKey), pending: null });
     } else {
       const target = other(slots.active);
-      setSlots({ ...slots, [target]: newScene(world), pending: target });
+      setSlots({ ...slots, [target]: newScene(world, plateKey), pending: target });
     }
   }
 
   // The plate of a scene reported in. Only the scene that still holds that
-  // world is updated: a late event from a scene already replaced is ignored.
-  const settlePlate = useCallback((slot: Slot, w: World, status: 'ready' | 'failed', instant = false) => {
+  // world and plate is updated: a late event from a scene already replaced
+  // is ignored.
+  const settlePlate = useCallback((slot: Slot, w: World, key: PlateKey, status: 'ready' | 'failed', instant = false) => {
     setSlots(prev => {
       const scene = prev[slot];
-      if (!scene || scene.world !== w || scene.plate === status || scene.plate === 'none') return prev;
+      if (!scene || scene.world !== w || scene.plateKey !== key || scene.plate === status || scene.plate === 'none') return prev;
       return { ...prev, [slot]: { ...scene, plate: status, instant } };
     });
   }, []);
@@ -1197,8 +1311,8 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle', 
     return () => window.clearTimeout(t);
   }, [slots]);
 
-  // Once the retired scene has faded, release it: its canvases and plate are
-  // the most expensive things on this page and nobody can see them any more.
+  // Once the retired scene has faded, release it: its plate is the most
+  // expensive thing on this page and nobody can see it any more.
   useEffect(() => {
     if (slots.pending) return;
     const retired = other(slots.active);
@@ -1285,6 +1399,10 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle', 
 
   const activeScene = slots[slots.active];
   const vpKey = `${vp.w}x${vp.h}`;
+  // Settled: one scene on screen, its plate painted, nothing fading. The sky
+  // under it is then hidden (the plate covers it), so the fixed root paints
+  // a flat colour that costs no texture.
+  const settled = !slots.pending && !slots[other(slots.active)] && activeScene?.plate === 'ready';
 
   return (
     <div
@@ -1297,6 +1415,7 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle', 
       data-intensity={intensity}
       // How far the plate on screen has come.
       data-plate={activeScene?.plate ?? 'none'}
+      data-settled={settled ? 'true' : undefined}
       // The measured viewport height, so the CSS horizon glow and the canvas
       // horizon agree even where 100vh and innerHeight do not (mobile toolbars).
       style={{ ['--pk-env-vh' as string]: `${vp.h}px` }}
@@ -1312,18 +1431,15 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle', 
             className="pk-env-scene"
             data-slot={slot}
             data-world={scene?.world}
+            data-plate-key={scene?.plateKey ?? undefined}
             data-plate={scene?.plate}
             data-instant={scene?.instant ? 'true' : undefined}
             data-active={slots.active === slot ? 'true' : 'false'}
-            style={sun ? {
-              ['--pk-sun-px' as string]: `${sun.x}px`,
-              ['--pk-sun-py' as string]: `${sun.y}px`,
-              ['--pk-rays-r' as string]: `${sun.r}px`,
-            } : undefined}
+            style={sun ? sunStyle(sun) : undefined}
           >
             {/* The horizon glow belongs to its scene so it crossfades with it. */}
             <div className="pk-env-sun" />
-            {scene && plate && (
+            {scene && plate && scene.plateKey && (
               <PlateLayer
                 key={`${scene.world}:${scene.plateKey}`}
                 plate={plate}
@@ -1331,8 +1447,10 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle', 
                 active={slots.active === slot}
                 vpKey={vpKey}
                 layerRef={el => { depthEls.current[`${slot}-plate`] = el; }}
-                onSettle={(status, instant) => settlePlate(slot, scene.world, status, instant)}
-              />
+                onSettle={(status, instant) => settlePlate(slot, scene.world, scene.plateKey as PlateKey, status, instant)}
+              >
+                {sweep && <div className="pk-env-sweep" />}
+              </PlateLayer>
             )}
             {/* The silhouettes are the fallback: over a plate none is painted. */}
             {scene && !plate && DEPTHS.map(depth => (
@@ -1346,41 +1464,40 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle', 
                 <SceneLayer world={scene.world} depth={depth} mode={effectiveMode} vw={vp.w} vh={vp.h} />
               </div>
             ))}
-            {/* The light of the scene: shafts out of the sun, and its bloom. */}
-            {scene && (
-              <div className="pk-env-light" ref={el => { depthEls.current[`${slot}-rays`] = el; }}>
-                <div className="pk-env-rays">
-                  <div className="pk-env-rays-fan" data-fan="a" />
-                  <div className="pk-env-rays-fan" data-fan="b" />
-                </div>
-                <div className="pk-env-bloom" />
+            {/* Without a plate the light rides with the far strip instead. */}
+            {scene && !plate && (
+              <div className="pk-env-light-far" ref={el => { depthEls.current[`${slot}-rays`] = el; }}>
+                <SceneLight />
               </div>
             )}
           </div>
         );
       })}
       {/* The celestial dharma wheel: the official emblem, high in the sky.
-          Not on the sign-in page ('normal'): its hero carries its own wheel,
-          and on a phone the wordmark stands where the relic would. */}
-      {intensity !== 'normal' && <div className="pk-env-relic">
+          Only where it is wanted (RELIC_WORLDS, wide screens, not the
+          sign-in page), so nowhere else is it fetched or turned. */}
+      {relicMounted && <div className="pk-env-relic" data-on={relicWanted ? 'true' : 'false'}>
         <div className="pk-env-relic-halo" />
         <img
           className="pk-env-relic-wheel"
           src={PINAKA_IMAGES.wheelEmblem.small}
           srcSet={`${PINAKA_IMAGES.wheelEmblem.small} 700w, ${PINAKA_IMAGES.wheelEmblem.large} 1000w`}
-          sizes="(max-width: 40rem) 124px, (min-width: 64rem) min(56vmin, 640px), 56vmin"
+          sizes="min(56vmin, 640px)"
           width={700}
           height={700}
           alt=""
           aria-hidden="true"
           draggable={false}
           decoding="async"
+          // Lazy: where the stylesheet hides the wheel (the board) it is
+          // never fetched; where it shows it is in view and loads at once.
+          loading="lazy"
         />
       </div>}
       {effectiveMode !== 'static' && <canvas ref={motesRef} className="pk-env-motes" />}
-      {/* Readability: dark bands only where the interface is dense. */}
+      {/* Readability: dark bands only where the interface is dense, and the
+          vignette, in one layer. */}
       <div className="pk-env-veil" />
-      <div className="pk-env-vignette" />
     </div>
   );
 }

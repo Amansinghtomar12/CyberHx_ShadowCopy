@@ -1,5 +1,4 @@
 import React, { Suspense, useMemo, useState } from 'react';
-import { isPinaka } from '../../themes';
 import {
   Flame, ChevronRight, Layers, Loader2, Download, Check, Lock, X,
   User, Crown, Server,
@@ -11,13 +10,7 @@ import type { B2RBoxVM } from './b2rModel';
 // The chain renderer (canvas + steel/fire assets) is a separate chunk, loaded
 // only when a player actually enters a B2R chain. It is the SAME renderer the
 // Chained mode uses — a B2R chain's nodes are boxes instead of challenges.
-const ClassicChainExperience = React.lazy(() => import('../chain/ChainExperience'));
-// Event skin: the same series drawn as the Setu causeway, as ChainedBoard does.
-const SetuChainExperience = React.lazy(() => import('../../themes/pinaka/components/SetuChain'));
-function ChainExperience(props: React.ComponentProps<typeof ClassicChainExperience>) {
-  const Experience = isPinaka() ? SetuChainExperience : ClassicChainExperience;
-  return <Experience {...props} />;
-}
+const ChainExperience = React.lazy(() => import('../chain/ChainExperience'));
 
 interface Props {
   boxes: B2RBoxVM[];

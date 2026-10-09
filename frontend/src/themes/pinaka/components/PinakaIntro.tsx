@@ -148,9 +148,15 @@ function Plate({ still }: { still: boolean }) {
  * Rama and Ravana, the event's key illustration, in full colour. A
  * transparent cut-out standing on the bottom edge; it comes forward once
  * (opacity and a 4% settle in scale, transform-origin on the ground between
- * the two figures) and is still from then on. The 1200 px file serves
- * phones and the low tier; the 2400 px file wide screens.
+ * the two figures) and is still from then on. The low tier is served the
+ * 1200 px file only. Everyone else chooses by the width the picture is drawn
+ * at (intro.css): the full width of a landscape screen, and on an upright
+ * one its height sets the size (46vh × 2400 / 1160, about 95vh), wider than
+ * the screen. So a 390 × 844 phone at 2× draws it 803 px wide, 1606 device
+ * pixels, and takes the 2400 px file rather than enlarging the 1200.
  */
+const DUEL_SIZES = '(max-aspect-ratio: 1/1) 96vh, 100vw';
+
 function Duel({ still }: { still: boolean }) {
   const low = getCapability().tier === 'low';
   return (
@@ -163,7 +169,7 @@ function Duel({ still }: { still: boolean }) {
       <img
         src={PINAKA_IMAGES.duel.small}
         srcSet={low ? undefined : `${PINAKA_IMAGES.duel.small} 1200w, ${PINAKA_IMAGES.duel.large} 2400w`}
-        sizes={low ? undefined : '(max-aspect-ratio: 1/1) 60vh, 100vw'}
+        sizes={low ? undefined : DUEL_SIZES}
         width={2400}
         height={1160}
         alt=""
