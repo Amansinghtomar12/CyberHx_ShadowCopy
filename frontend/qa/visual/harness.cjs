@@ -19,7 +19,7 @@ const { chromium } = require(execSync('npm root -g').toString().trim() + '/playw
 const { createMock, HOST } = require('./mock.cjs');
 
 const ROOT = __dirname;
-const OUT = path.join(ROOT, 'out');
+const OUT = process.env.QA_OUT ? path.resolve(process.env.QA_OUT) : path.join(ROOT, 'out');
 const FONT_CACHE = path.join(ROOT, '.cache', 'fonts');
 const CHROMIUM = process.env.QA_CHROMIUM || '/opt/pw-browsers/chromium';
 const DEFAULT_BASE = process.env.QA_BASE_URL || 'http://127.0.0.1:5198/';
