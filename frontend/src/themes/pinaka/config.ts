@@ -47,7 +47,6 @@ export const PINAKA_PARTNERS: readonly Partner[] = [
   { name: 'INE Security', role: 'In association with' },
   { name: 'Altered Security' },
   { name: 'Red Team Hacker Academy' },
-  { name: 'CTF7' },
   { name: 'CWL · CyberWarFare Labs' },
   { name: 'BlackPerl DFIR' },
   { name: 'Stellar Data Recovery' },
