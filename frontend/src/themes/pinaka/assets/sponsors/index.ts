@@ -56,6 +56,12 @@ export interface SponsorTile {
   background: string;
   /** Whether that colour is light or dark; the frame and sheen follow it. */
   tone: 'light' | 'dark';
+  /**
+   * Cover only: breathing room (percent of the tile's width) kept clear at
+   * the sides, for files whose mark runs to their own edges. It is filled
+   * with `background`, which is the file's own flat ground, so it is seamless.
+   */
+  inset?: number;
 }
 
 /** A white plate, for marks inked in navy that vanish on the night. */
@@ -70,10 +76,12 @@ export const DEFAULT_TILE: SponsorTile = DARK_PLATE;
 export const SPONSOR_TILES: Record<string, SponsorTile> = {
   // Square files with their own background: the tile is the logo.
   'INE Security': { fit: 'cover', background: '#252525', tone: 'dark' },
-  'CWL · CyberWarFare Labs': { fit: 'cover', background: '#0f0f0f', tone: 'dark' },
-  'Red Team Hacker Academy': { fit: 'cover', background: '#ffffff', tone: 'light' },
-  'Stellar Data Recovery': { fit: 'cover', background: '#ffffff', tone: 'light' },
-  '.XYZ Domains': { fit: 'cover', background: '#ffffff', tone: 'light' },
+  // These four run their marks to within ~5% of the file's edge; the inset
+  // gives them the margin the others have (filled with their own flat ground).
+  'CWL · CyberWarFare Labs': { fit: 'cover', background: '#0f0f0f', tone: 'dark', inset: 7 },
+  'Red Team Hacker Academy': { fit: 'cover', background: '#ffffff', tone: 'light', inset: 7 },
+  'Stellar Data Recovery': { fit: 'cover', background: '#ffffff', tone: 'light', inset: 6 },
+  '.XYZ Domains': { fit: 'cover', background: '#ffffff', tone: 'light', inset: 6 },
   // Transparent marks in navy ink (Altered Security's "s", Unstop's #1C4980).
   'Altered Security': LIGHT_PLATE,
   'Unstop': LIGHT_PLATE,

@@ -2,20 +2,26 @@
    PINAKA — ENVIRONMENT
    The fixed world behind .page-shell, owned by components/PinakaEnvironment.tsx.
    Same place in the stacking order as .ambient-root: fixed, inset 0, z-index 0,
-   pointer-events none. Everything the component animates is transform or
+   pointer-events none. Everything that moves here moves by transform or
    opacity; the sky's colour change rides on two registered custom properties
    so the gradient itself can transition (browsers without @property simply
    switch colour in one step).
 
    Layers, bottom to top:
      .pk-env-sky         gradient between the world's sky tokens (+ phase tints)
-     .pk-env-scene ×2    crossfading slots: horizon glow + the photographic
-                         plate (.pk-env-plate) + the depth strips (only the
-                         near strip while a plate is shown)
-     .pk-env-motes       the one animated canvas
-     .pk-env-veil        readability veil (stronger behind the nav and footer)
-     .pk-env-plate-veil  a second, even veil that is on only over a photograph
+     .pk-env-scene ×2    crossfading slots, each: the horizon glow (only
+                         without a plate), the plate in full colour
+                         (.pk-env-plate), the fallback silhouette strips (only
+                         without a plate), and the light of the scene
+                         (.pk-env-light: god rays fanning out of the painted
+                         sun, and the sun's bloom), graded per world
+     .pk-env-relic       the celestial dharma wheel, high in the sky
+     .pk-env-motes       the one animated canvas, screened over the scene
+     .pk-env-veil        dark bands only where the interface is dense
      .pk-env-vignette
+   The sun's position is measured by the component (--pk-sun-px/-py, in
+   viewport px, with --pk-rays-r the radius that reaches every corner), so
+   the rays leave the sun that is actually painted, at any aspect.
    ========================================================================== */
 
 @property --pk-env-sky-a {
@@ -40,6 +46,8 @@ html[data-theme="pinaka"] .pk-env {
   background-color: #0a0e17;
   --pk-env-fade: 1.2s;
   --pk-env-ease: var(--ease-standard, cubic-bezier(0.4, 0, 0.2, 1));
+  /* The relic's presence per world (see § Relic). */
+  --pk-relic-alpha: 0.9;
 }
 
 /* ── 1. Sky ────────────────────────────────────────────────────────────── */
@@ -70,7 +78,13 @@ html[data-theme="pinaka"] .pk-env[data-phase="before"] .pk-env-sky::before { opa
 html[data-theme="pinaka"] .pk-env[data-phase="during"] .pk-env-sky::after { opacity: 0.35; }
 html[data-theme="pinaka"] .pk-env[data-phase="after"] .pk-env-sky::after { opacity: 1; }
 
-/* ── 2–3. Scene slots: horizon glow + silhouettes, crossfaded ──────────── */
+/* The phase sets how strongly the sun shines: a held breath before the
+   event, full light during it, the brightest after. */
+html[data-theme="pinaka"] .pk-env[data-phase="before"] { --pk-phase-sun: 0.72; --pk-phase-scale: 0.9; }
+html[data-theme="pinaka"] .pk-env[data-phase="during"] { --pk-phase-sun: 1; --pk-phase-scale: 1; }
+html[data-theme="pinaka"] .pk-env[data-phase="after"]  { --pk-phase-sun: 1.2; --pk-phase-scale: 1.12; }
+
+/* ── 2. Scene slots, crossfaded ────────────────────────────────────────── */
 html[data-theme="pinaka"] .pk-env-scene {
   position: absolute;
   inset: 0;
@@ -78,13 +92,99 @@ html[data-theme="pinaka"] .pk-env-scene {
   transition: opacity var(--pk-env-fade) var(--pk-env-ease);
 }
 html[data-theme="pinaka"] .pk-env-scene[data-active="true"] { opacity: 1; }
-/* The first scene fades in as well (a cold load may land it after the UI). */
-@starting-style {
-  html[data-theme="pinaka"] .pk-env-scene[data-active="true"] { opacity: 0; }
+/* The first scene is shown at once: what fades in on a cold load is the
+   plate itself (and its light with it, § 3) the moment it has decoded, so the
+   painting is never held behind a second, stacked fade. A plate that was
+   already in the cache appears without any fade (the component marks it). */
+
+/* Per-world light. --pk-ray-rgb is the shafts' colour, --pk-ray-rgb2 the
+   second fan's; the fan opens from --pk-rays-from (0deg = straight up,
+   clockwise) over --pk-rays-span. A horizon sun throws its light up into
+   the sky; light from above the frame falls down into it. */
+/* Ayodhya: the key art's sunset, pure gold. */
+html[data-theme="pinaka"] .pk-env-scene[data-world="ayodhya"] {
+  --pk-ray-rgb: 255, 194, 96;
+  --pk-ray-rgb2: 255, 228, 160;
+  --pk-rays-from: 262deg;
+  --pk-rays-span: 196deg;
+  --pk-rays-alpha: 0.62;
+  --pk-bloom-alpha: 0.78;
+  --pk-bloom-size: 34;
+  --pk-sun-x: 62%;
+  --pk-sun-core: rgba(227, 187, 102, 0.42);
+  --pk-sun-mid: rgba(181, 139, 98, 0.18);
+  --pk-sun-alpha: 0.85;
+}
+/* Vanavasa: green-gold light falling through the canopy from the haze above.
+   The plate is graded deep emerald, so the shafts stay soft: the category
+   headings of the live board stand on this sky. */
+html[data-theme="pinaka"] .pk-env-scene[data-world="vanavasa"] {
+  --pk-ray-rgb: 214, 232, 138;
+  --pk-ray-rgb2: 255, 222, 150;
+  --pk-rays-from: 122deg;
+  --pk-rays-span: 116deg;
+  --pk-rays-alpha: 0.34;
+  --pk-bloom-alpha: 0.3;
+  --pk-bloom-size: 46;
+  --pk-sun-x: 50%;
+  --pk-sun-w: 48%;
+  --pk-sun-h: 52%;
+  --pk-sun-core: rgba(214, 206, 140, 0.3);
+  --pk-sun-mid: rgba(76, 140, 110, 0.14);
+  --pk-sun-alpha: 0.75;
+}
+/* Setu: teal sea-light with gold in it, coming down onto the water. */
+html[data-theme="pinaka"] .pk-env-scene[data-world="setu"] {
+  --pk-ray-rgb: 116, 222, 214;
+  --pk-ray-rgb2: 255, 214, 138;
+  --pk-rays-from: 128deg;
+  --pk-rays-span: 112deg;
+  --pk-rays-alpha: 0.46;
+  --pk-bloom-alpha: 0.4;
+  --pk-bloom-size: 44;
+  --pk-sun-x: 50%;
+  --pk-sun-w: 80%;
+  --pk-sun-h: 40%;
+  --pk-sun-bottom: 0.34;
+  --pk-sun-core: rgba(235, 203, 132, 0.34);
+  --pk-sun-mid: rgba(90, 150, 190, 0.16);
+  --pk-sun-alpha: 0.85;
+}
+/* Lanka: the fire is the sun — ember red, rising with the smoke. */
+html[data-theme="pinaka"] .pk-env-scene[data-world="lanka"] {
+  --pk-ray-rgb: 255, 88, 36;
+  --pk-ray-rgb2: 255, 150, 64;
+  --pk-rays-from: 236deg;
+  --pk-rays-span: 216deg;
+  --pk-rays-alpha: 0.36;
+  --pk-bloom-alpha: 0.85;
+  --pk-bloom-size: 46;
+  --pk-sun-x: 40%;
+  --pk-sun-w: 70%;
+  --pk-sun-h: 36%;
+  --pk-sun-core: rgba(200, 70, 50, 0.4);
+  --pk-sun-mid: rgba(121, 44, 53, 0.2);
+  --pk-sun-alpha: 0.8;
+}
+/* Vijaya: the homecoming dawn, the brightest gold of the five. */
+html[data-theme="pinaka"] .pk-env-scene[data-world="vijaya"] {
+  --pk-ray-rgb: 255, 204, 116;
+  --pk-ray-rgb2: 255, 238, 190;
+  --pk-rays-from: 250deg;
+  --pk-rays-span: 220deg;
+  --pk-rays-alpha: 0.6;
+  --pk-bloom-alpha: 0.5;
+  --pk-bloom-size: 30;
+  --pk-sun-x: 50%;
+  --pk-sun-w: 76%;
+  --pk-sun-h: 66%;
+  --pk-sun-core: rgba(246, 223, 163, 0.5);
+  --pk-sun-mid: rgba(227, 187, 102, 0.22);
+  --pk-sun-alpha: 1;
 }
 
-/* The sun: a wide, low radial glow at the horizon. Colour and position come
-   from the world the slot holds; the phase scales and brightens it. */
+/* The horizon glow: a wide, low radial at the horizon, for a scene drawn
+   with silhouettes. A plate carries its own light (see .pk-env-light). */
 html[data-theme="pinaka"] .pk-env-sun {
   position: absolute;
   left: 0;
@@ -102,59 +202,13 @@ html[data-theme="pinaka"] .pk-env-sun {
   transform-origin: var(--pk-sun-x, 50%) 100%;
   transition: opacity var(--pk-env-fade) var(--pk-env-ease), transform var(--pk-env-fade) var(--pk-env-ease);
 }
-html[data-theme="pinaka"] .pk-env[data-phase="before"] { --pk-phase-sun: 0.6; --pk-phase-scale: 0.9; }
-html[data-theme="pinaka"] .pk-env[data-phase="during"] { --pk-phase-sun: 1; --pk-phase-scale: 1; }
-html[data-theme="pinaka"] .pk-env[data-phase="after"]  { --pk-phase-sun: 1.25; --pk-phase-scale: 1.12; }
+html[data-theme="pinaka"] .pk-env-scene[data-plate="loading"] .pk-env-sun,
+html[data-theme="pinaka"] .pk-env-scene[data-plate="ready"] .pk-env-sun { opacity: 0; }
 
-/* Per-world sun. Ayodhya: warm sandstone dawn, off to the right. */
-html[data-theme="pinaka"] .pk-env-scene[data-world="ayodhya"] {
-  --pk-sun-x: 62%;
-  --pk-sun-core: rgba(227, 187, 102, 0.42);
-  --pk-sun-mid: rgba(181, 139, 98, 0.18);
-  --pk-sun-alpha: 0.85;
-}
-/* Vanavasa: a pale green-gold light low between the trees. */
-html[data-theme="pinaka"] .pk-env-scene[data-world="vanavasa"] {
-  --pk-sun-x: 50%;
-  --pk-sun-w: 48%;
-  --pk-sun-h: 52%;
-  --pk-sun-core: rgba(214, 206, 140, 0.3);
-  --pk-sun-mid: rgba(76, 140, 110, 0.14);
-  --pk-sun-alpha: 0.75;
-}
-/* Setu: a wide, flat glow on the water line. */
-html[data-theme="pinaka"] .pk-env-scene[data-world="setu"] {
-  --pk-sun-x: 50%;
-  --pk-sun-w: 80%;
-  --pk-sun-h: 40%;
-  --pk-sun-bottom: 0.34;
-  --pk-sun-core: rgba(235, 203, 132, 0.34);
-  --pk-sun-mid: rgba(90, 150, 190, 0.16);
-  --pk-sun-alpha: 0.85;
-}
-/* Lanka: ember-red and low, as if the fortress smoulders. */
-html[data-theme="pinaka"] .pk-env-scene[data-world="lanka"] {
-  --pk-sun-x: 40%;
-  --pk-sun-w: 70%;
-  --pk-sun-h: 36%;
-  --pk-sun-core: rgba(200, 70, 50, 0.4);
-  --pk-sun-mid: rgba(121, 44, 53, 0.2);
-  --pk-sun-alpha: 0.8;
-}
-/* Vijaya: the brightest and warmest horizon of the five. */
-html[data-theme="pinaka"] .pk-env-scene[data-world="vijaya"] {
-  --pk-sun-x: 50%;
-  --pk-sun-w: 76%;
-  --pk-sun-h: 66%;
-  --pk-sun-core: rgba(246, 223, 163, 0.5);
-  --pk-sun-mid: rgba(227, 187, 102, 0.22);
-  --pk-sun-alpha: 1;
-}
-
-/* The plate: the world's photograph, covering the viewport with the same
-   bleed as the far strip (it moves with it under parallax). The image is
-   positioned on the plate's focal point and fades in once it has loaded; a
-   scene is not shown until then (see the component), so there is no flash. */
+/* The plate: the world's picture in full colour, covering the viewport with
+   the same bleed as the far strip (it moves with it under parallax). The
+   image is positioned on the plate's focal point and fades in once it has
+   loaded; a scene is not shown until then (see the component). */
 html[data-theme="pinaka"] .pk-env-plate {
   position: absolute;
   top: 0;
@@ -178,6 +232,10 @@ html[data-theme="pinaka"] .pk-env-plate img {
   -webkit-user-drag: none;
 }
 html[data-theme="pinaka"] .pk-env-plate[data-ready="true"] img { opacity: 1; }
+/* Already decoded when the scene mounted (a cached plate): no fade at all,
+   neither for the picture nor for its light. */
+html[data-theme="pinaka"] .pk-env-scene[data-instant="true"] .pk-env-plate img,
+html[data-theme="pinaka"] .pk-env-scene[data-instant="true"] .pk-env-light { transition: none; }
 /* The slow push in: high tier only, once per plate, transform only. The
    final frame is the identity, so dropping the animation when it ends
    (data-drift="done", with the will-change) changes nothing on screen. */
@@ -190,8 +248,9 @@ html[data-theme="pinaka"] .pk-env[data-mode="high"]:not([data-still="true"]) .pk
   animation: pk-env-plate-drift 40s linear forwards;
 }
 
-/* Depth strips: pinned to the bottom, bled past every edge so parallax never
-   shows a seam. Height is set inline by the component (viewport-derived). */
+/* Depth strips (the fallback without a plate): pinned to the bottom, bled
+   past every edge so parallax never shows a seam. Height is set inline by
+   the component (viewport-derived). */
 html[data-theme="pinaka"] .pk-env-depth {
   position: absolute;
   left: -24px;
@@ -199,14 +258,8 @@ html[data-theme="pinaka"] .pk-env-depth {
   bottom: -96px;
 }
 html[data-theme="pinaka"] .pk-env:not([data-mode="static"]) .pk-env-depth,
-html[data-theme="pinaka"] .pk-env:not([data-mode="static"]) .pk-env-plate { will-change: transform; }
-/* Over a photograph the near silhouettes are depth, not the subject. */
-html[data-theme="pinaka"] .pk-env-scene[data-plate="loading"] .pk-env-depth[data-depth="near"],
-html[data-theme="pinaka"] .pk-env-scene[data-plate="ready"] .pk-env-depth[data-depth="near"] {
-  opacity: 0.58;
-}
-/* The photograph carries its own light; the horizon glow steps back a little. */
-html[data-theme="pinaka"] .pk-env-scene[data-plate="ready"] .pk-env-sun { --pk-sun-alpha: 0.55; }
+html[data-theme="pinaka"] .pk-env:not([data-mode="static"]) .pk-env-plate,
+html[data-theme="pinaka"] .pk-env:not([data-mode="static"]) .pk-env-light { will-change: transform; }
 html[data-theme="pinaka"] .pk-env-canvas,
 html[data-theme="pinaka"] .pk-env-svg {
   position: absolute;
@@ -216,50 +269,230 @@ html[data-theme="pinaka"] .pk-env-svg {
   display: block;
 }
 
-/* ── 4. Motes ──────────────────────────────────────────────────────────── */
+/* ── 3. The light of the scene: god rays and the sun's bloom ───────────── */
+/* One screened group, so the light adds to the picture under it (the
+   wrapper is what parallax moves, which makes it a group of its own: the
+   blend has to sit on it, not on its children). It has the plate's own box
+   (bled 24 px each side and 96 px below, so parallax never shows its edge)
+   and paints nothing outside it: every layer in here is bounded by the
+   viewport plus that bleed, however far away the sun stands. It fades in
+   with its plate, so a cold load never shows rays over an empty sky. */
+html[data-theme="pinaka"] .pk-env-light {
+  /* The sun, in this box's own coordinates. */
+  --pk-light-sx: calc(var(--pk-sun-px, 50vw) + 24px);
+  --pk-light-sy: var(--pk-sun-py, 70vh);
+  position: absolute;
+  top: 0;
+  left: -24px;
+  right: -24px;
+  bottom: -96px;
+  overflow: hidden;
+  contain: paint;
+  mix-blend-mode: screen;
+  opacity: 1;
+  transition: opacity 0.9s var(--pk-env-ease);
+}
+html[data-theme="pinaka"] .pk-env-scene[data-plate="loading"] .pk-env-light { opacity: 0; }
+/* The fan: the light box itself, masked to a soft disc around the sun that
+   fades with distance (its radius reaches the farthest corner) and to the
+   angle the light opens over. Two repeating fans with different periods
+   interfere, so the shafts never look ruled. Every gradient is centred on
+   the sun, which may stand outside the box. */
+html[data-theme="pinaka"] .pk-env-rays {
+  --pk-rays-at: var(--pk-light-sx) var(--pk-light-sy);
+  --pk-rays-mask:
+    radial-gradient(circle var(--pk-rays-r, 100vmax) at var(--pk-rays-at), rgba(0, 0, 0, 0.25) 0%, #000 7%, rgba(0, 0, 0, 0.62) 28%, rgba(0, 0, 0, 0.24) 58%, transparent 94%),
+    conic-gradient(from var(--pk-rays-from, 262deg) at var(--pk-rays-at), transparent 0deg, #000 26deg, #000 calc(var(--pk-rays-span, 196deg) - 26deg), transparent var(--pk-rays-span, 196deg));
+  position: absolute;
+  inset: 0;
+  opacity: calc(var(--pk-rays-alpha, 0.5) * var(--pk-phase-sun, 1));
+  -webkit-mask-image: var(--pk-rays-mask);
+  -webkit-mask-composite: source-in;
+  mask-image: var(--pk-rays-mask);
+  mask-composite: intersect;
+  transition: opacity var(--pk-env-fade) var(--pk-env-ease);
+}
+html[data-theme="pinaka"] .pk-env-rays-fan {
+  position: absolute;
+  inset: 0;
+}
+html[data-theme="pinaka"] .pk-env-rays-fan[data-fan="a"] {
+  background: repeating-conic-gradient(from 0deg at var(--pk-rays-at),
+    rgba(var(--pk-ray-rgb, 255, 194, 96), 0) 0deg,
+    rgba(var(--pk-ray-rgb, 255, 194, 96), 0.55) 1.3deg,
+    rgba(var(--pk-ray-rgb, 255, 194, 96), 0) 3deg,
+    rgba(var(--pk-ray-rgb, 255, 194, 96), 0) 5.6deg,
+    rgba(var(--pk-ray-rgb, 255, 194, 96), 0.26) 6.4deg,
+    rgba(var(--pk-ray-rgb, 255, 194, 96), 0) 7.4deg,
+    rgba(var(--pk-ray-rgb, 255, 194, 96), 0) 10.2deg,
+    rgba(var(--pk-ray-rgb, 255, 194, 96), 0.42) 12deg,
+    rgba(var(--pk-ray-rgb, 255, 194, 96), 0) 14.6deg,
+    rgba(var(--pk-ray-rgb, 255, 194, 96), 0) 18.2deg,
+    rgba(var(--pk-ray-rgb, 255, 194, 96), 0.18) 19deg,
+    rgba(var(--pk-ray-rgb, 255, 194, 96), 0) 20.2deg,
+    rgba(var(--pk-ray-rgb, 255, 194, 96), 0) 23deg);
+}
+html[data-theme="pinaka"] .pk-env-rays-fan[data-fan="b"] {
+  background: repeating-conic-gradient(from 4deg at var(--pk-rays-at),
+    rgba(var(--pk-ray-rgb2, 255, 228, 160), 0) 0deg,
+    rgba(var(--pk-ray-rgb2, 255, 228, 160), 0.45) 2.2deg,
+    rgba(var(--pk-ray-rgb2, 255, 228, 160), 0) 5deg,
+    rgba(var(--pk-ray-rgb2, 255, 228, 160), 0) 11deg,
+    rgba(var(--pk-ray-rgb2, 255, 228, 160), 0.3) 12.4deg,
+    rgba(var(--pk-ray-rgb2, 255, 228, 160), 0) 14deg,
+    rgba(var(--pk-ray-rgb2, 255, 228, 160), 0) 21deg,
+    rgba(var(--pk-ray-rgb2, 255, 228, 160), 0.5) 23.5deg,
+    rgba(var(--pk-ray-rgb2, 255, 228, 160), 0) 27deg,
+    rgba(var(--pk-ray-rgb2, 255, 228, 160), 0) 31deg);
+}
+/* The bloom: a hot white core, the world's colour around it, a long tail. */
+html[data-theme="pinaka"] .pk-env-bloom {
+  --pk-bloom-r: calc(var(--pk-bloom-size, 32) * 1vmin);
+  position: absolute;
+  left: calc(var(--pk-light-sx) - var(--pk-bloom-r));
+  top: calc(var(--pk-light-sy) - var(--pk-bloom-r));
+  width: calc(var(--pk-bloom-r) * 2);
+  height: calc(var(--pk-bloom-r) * 2);
+  background: radial-gradient(closest-side,
+    rgba(255, 246, 222, 0.85) 0%,
+    rgba(var(--pk-ray-rgb, 255, 194, 96), 0.55) 9%,
+    rgba(var(--pk-ray-rgb, 255, 194, 96), 0.2) 36%,
+    rgba(var(--pk-ray-rgb, 255, 194, 96), 0.06) 66%,
+    transparent 100%);
+  opacity: calc(var(--pk-bloom-alpha, 0.7) * var(--pk-phase-sun, 1));
+  transition: opacity var(--pk-env-fade) var(--pk-env-ease);
+}
+/* High tier, not still: the two fans shimmer against each other (one
+   dims while the other brightens, on different periods, so the shafts seem
+   to drift), and the bloom swells and settles. Opacity and transform only,
+   and only the opacity of two box-sized layers; nothing here runs on medium,
+   low, still or reduced motion. A running animation is promoted on its own,
+   so no will-change is held. */
+@keyframes pk-env-rays-shimmer {
+  from { opacity: 1; }
+  to { opacity: 0.4; }
+}
+@keyframes pk-env-rays-breathe {
+  from { opacity: 0.35; }
+  to { opacity: 1; }
+}
+@keyframes pk-env-bloom-swell {
+  from { transform: scale(0.94); }
+  to { transform: scale(1.06); }
+}
+html[data-theme="pinaka"] .pk-env[data-mode="high"]:not([data-still="true"]) .pk-env-rays-fan[data-fan="a"] {
+  animation: pk-env-rays-shimmer 17s ease-in-out infinite alternate;
+}
+html[data-theme="pinaka"] .pk-env[data-mode="high"]:not([data-still="true"]) .pk-env-rays-fan[data-fan="b"] {
+  animation: pk-env-rays-breathe 11s ease-in-out infinite alternate;
+}
+html[data-theme="pinaka"] .pk-env[data-mode="high"]:not([data-still="true"]) .pk-env-bloom {
+  will-change: transform;
+  animation: pk-env-bloom-swell 9s ease-in-out infinite alternate;
+}
+
+/* ── 4. Relic: the celestial dharma wheel ──────────────────────────────── */
+/* The official bronze emblem, unfiltered, high in the sky at the upper
+   right, partly beyond the edge as if the sky were larger than the screen.
+   A warm halo sits behind it so it reads as lit from within, not pasted on.
+   One turn every four minutes on high and medium; still otherwise. */
+html[data-theme="pinaka"] .pk-env-relic {
+  --pk-relic-size: clamp(220px, 56vmin, 640px);
+  position: absolute;
+  width: var(--pk-relic-size);
+  height: var(--pk-relic-size);
+  right: calc(var(--pk-relic-size) * -0.2);
+  top: calc(var(--pk-relic-size) * -0.14 + 48px);
+  opacity: var(--pk-relic-alpha);
+  /* Smaller worlds shrink it toward the corner it rises from. */
+  transform: scale(var(--pk-relic-scale, 1));
+  transform-origin: 100% 0%;
+  transition: opacity var(--pk-env-fade) var(--pk-env-ease), transform var(--pk-env-fade) var(--pk-env-ease);
+}
+html[data-theme="pinaka"] .pk-env-relic-halo {
+  position: absolute;
+  inset: -24%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side,
+    rgba(255, 214, 140, 0.5) 34%,
+    rgba(255, 176, 84, 0.2) 56%,
+    rgba(255, 150, 70, 0.07) 76%,
+    transparent 100%);
+}
+html[data-theme="pinaka"] .pk-env-relic-wheel {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+@keyframes pk-env-relic-turn {
+  to { transform: rotate(360deg); }
+}
+html[data-theme="pinaka"] .pk-env:not([data-mode="static"]):not([data-still="true"]) .pk-env-relic-wheel {
+  will-change: transform;
+  animation: pk-env-relic-turn 240s linear infinite;
+}
+/* Strong over the two Ayodhyas, softer in the forest and over the sea,
+   absent over burning Lanka (the fire is the light there). Over Vijaya it
+   is smaller and higher, in the open sky above the domes on the right. */
+html[data-theme="pinaka"] .pk-env[data-world="vanavasa"] { --pk-relic-alpha: 0.5; }
+html[data-theme="pinaka"] .pk-env[data-world="setu"] { --pk-relic-alpha: 0.6; }
+html[data-theme="pinaka"] .pk-env[data-world="lanka"] { --pk-relic-alpha: 0; --pk-relic-scale: 0.8; }
+html[data-theme="pinaka"] .pk-env[data-world="vijaya"] { --pk-relic-alpha: 1; --pk-relic-scale: 0.66; }
+/* The sign-in page ('normal') renders no relic at all (see the component). */
+/* On a phone every page header runs the full width of the screen, so the
+   wheel would stand behind the title and its subtitle. There it becomes a
+   small ornament instead: tucked under the nav's right-hand torch, mostly
+   above the content's first line, and quieter. */
+@media (max-width: 40rem) {
+  html[data-theme="pinaka"] .pk-env-relic {
+    --pk-relic-size: 124px;
+    right: -54px;
+    top: 14px;
+    opacity: calc(var(--pk-relic-alpha) * 0.6);
+  }
+  html[data-theme="pinaka"] .pk-env-relic-halo { inset: -14%; }
+}
+
+/* ── 5. Motes ──────────────────────────────────────────────────────────── */
 html[data-theme="pinaka"] .pk-env-motes {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   display: block;
+  mix-blend-mode: screen;
 }
 
-/* ── 5. Veil and vignette ──────────────────────────────────────────────── */
-/* The world is beautiful and the text has to win anyway: darker behind the
-   nav, darker again at the foot where the near silhouettes are busiest. */
+/* ── 6. Veil and vignette ──────────────────────────────────────────────── */
+/* Darkness only where the interface is dense: a band behind the nav, a band
+   along the left where the board's sidebar sits on wide screens, and the
+   foot where the footer reads. The centre and the sky are left to glow;
+   the panels over them are frosted glass (core.css). */
 html[data-theme="pinaka"] .pk-env-veil {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(85% 100% at 22% 45%, rgba(6, 8, 16, 0.5) 0%, transparent 70%),
-    radial-gradient(110% 75% at 50% 45%, transparent 0%, rgba(6, 8, 16, 0.46) 84%),
-    linear-gradient(to bottom, rgba(6, 8, 16, 0.58), transparent 24%, transparent 70%, rgba(4, 6, 12, 0.66));
+    linear-gradient(to bottom, rgba(5, 7, 14, 0.62) 0px, rgba(5, 7, 14, 0.3) 72px, rgba(5, 7, 14, 0) 150px),
+    linear-gradient(to top, rgba(4, 6, 12, 0.7) 0%, rgba(4, 6, 12, 0.32) 14%, rgba(4, 6, 12, 0) 34%);
   transition: opacity var(--pk-env-fade) var(--pk-env-ease);
 }
-html[data-theme="pinaka"] .pk-env[data-intensity="normal"] .pk-env-veil { opacity: 0.62; }
-/* Over a photograph the veil alone is not enough: the plates are graded to
-   14–22 % mean luminance but their highlights (lit ghats, a sunlit rock face)
-   are not, and text sits on them without a card on several screens. This
-   second veil is even across the middle, heavier at the top where the nav
-   is, and only on while the active scene holds a plate. The sign-in page
-   ('normal') keeps more of the picture: its text is in a card and a hero
-   column that measured fine with less. */
-html[data-theme="pinaka"] .pk-env-plate-veil {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  background: linear-gradient(to bottom, rgba(6, 8, 16, 0.52) 0%, rgba(6, 8, 16, 0.34) 22%, rgba(6, 8, 16, 0.3) 72%, rgba(6, 8, 16, 0.42) 100%);
-  transition: opacity var(--pk-env-fade) var(--pk-env-ease);
+@media (min-width: 64rem) {
+  html[data-theme="pinaka"] .pk-env-veil {
+    background:
+      linear-gradient(to bottom, rgba(5, 7, 14, 0.62) 0px, rgba(5, 7, 14, 0.3) 72px, rgba(5, 7, 14, 0) 150px),
+      linear-gradient(to right, rgba(5, 7, 14, 0.5) 0px, rgba(5, 7, 14, 0.26) 260px, rgba(5, 7, 14, 0) 440px),
+      linear-gradient(to top, rgba(4, 6, 12, 0.7) 0%, rgba(4, 6, 12, 0.32) 14%, rgba(4, 6, 12, 0) 34%);
+  }
 }
-html[data-theme="pinaka"] .pk-env[data-plate="loading"] .pk-env-plate-veil,
-html[data-theme="pinaka"] .pk-env[data-plate="ready"] .pk-env-plate-veil { opacity: 1; }
-html[data-theme="pinaka"] .pk-env[data-intensity="normal"][data-plate="loading"] .pk-env-plate-veil,
-html[data-theme="pinaka"] .pk-env[data-intensity="normal"][data-plate="ready"] .pk-env-plate-veil { opacity: 0.7; }
+html[data-theme="pinaka"] .pk-env[data-intensity="normal"] .pk-env-veil { opacity: 0.6; }
 html[data-theme="pinaka"] .pk-env-vignette {
   position: absolute;
   inset: 0;
-  background: radial-gradient(115% 85% at 50% 45%, transparent 42%, rgba(4, 6, 12, 0.55) 100%);
+  background: radial-gradient(125% 95% at 50% 42%, transparent 52%, rgba(4, 6, 12, 0.42) 100%);
 }
 
 /* ── Reduced motion: no transitions, no parallax, a complete still picture ── */
@@ -269,17 +502,24 @@ html[data-theme="pinaka"] .pk-env-vignette {
   html[data-theme="pinaka"] .pk-env-sky::after,
   html[data-theme="pinaka"] .pk-env-scene,
   html[data-theme="pinaka"] .pk-env-sun,
+  html[data-theme="pinaka"] .pk-env-light,
+  html[data-theme="pinaka"] .pk-env-rays,
+  html[data-theme="pinaka"] .pk-env-bloom,
+  html[data-theme="pinaka"] .pk-env-relic,
   html[data-theme="pinaka"] .pk-env-veil,
-  html[data-theme="pinaka"] .pk-env-plate-veil,
   html[data-theme="pinaka"] .pk-env-plate img {
     transition: none;
   }
   html[data-theme="pinaka"] .pk-env-depth,
-  html[data-theme="pinaka"] .pk-env-plate {
+  html[data-theme="pinaka"] .pk-env-plate,
+  html[data-theme="pinaka"] .pk-env-light {
     will-change: auto;
     transform: none;
   }
-  html[data-theme="pinaka"] .pk-env-plate img {
+  html[data-theme="pinaka"] .pk-env-plate img,
+  html[data-theme="pinaka"] .pk-env-rays-fan,
+  html[data-theme="pinaka"] .pk-env-bloom,
+  html[data-theme="pinaka"] .pk-env-relic-wheel {
     will-change: auto;
     animation: none;
   }
@@ -291,17 +531,24 @@ html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-sky::before,
 html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-sky::after,
 html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-scene,
 html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-sun,
+html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-light,
+html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-rays,
+html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-bloom,
+html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-relic,
 html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-veil,
-html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-plate-veil,
 html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-plate img {
   transition: none;
 }
 html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-depth,
-html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-plate {
+html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-plate,
+html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-light {
   will-change: auto;
   transform: none;
 }
-html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-plate img {
+html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-plate img,
+html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-rays-fan,
+html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-bloom,
+html[data-theme="pinaka"] .pk-env[data-still="true"] .pk-env-relic-wheel {
   will-change: auto;
   animation: none;
 }

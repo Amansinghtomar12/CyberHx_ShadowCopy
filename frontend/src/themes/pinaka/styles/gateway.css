@@ -1,25 +1,31 @@
 /* ============================================================================
    PINAKA — GATEWAY
-   The hero column of the sign-in page: a palace entrance in carved stone,
-   a dawn behind the horizon, four lamps, and the title lockup inside. All of
-   the drawing is aria-hidden and pointer-transparent; the form column next
-   to it is untouched.
+   The hero column of the sign-in page: a palace entrance in carved stone
+   opening onto the event's painting (drawn by the environment layer behind
+   the page), and inside it the official art in full colour: the bronze
+   wheel beside the name, the archer on his rock, the scroll as a relic, the
+   "Register now" plate. All of the drawing is aria-hidden and pointer-
+   transparent; the form column next to it is untouched.
 
-   Scoped to html[data-theme="pinaka"]. Nothing here moves except the lamps,
-   which breathe by opacity, and the one slow push into the photograph on the
-   high tier (transform only, once); both stop under prefers-reduced-motion.
+   Scoped to html[data-theme="pinaka"]. Only transform and opacity move: the
+   wheel's slow turn, the lamps' breathing and the one-time entrance (set in
+   AuthGateway.tsx). All of it stops under prefers-reduced-motion and on the
+   'still' tier (data-still on .pk-gateway, set by the component).
 
    Layers inside the column, bottom to top:
-     .pk-gateway-plate   the hero photograph, clipped and feathered, with its
-                         dark gradients from the top and the left
-     .pk-gateway-scene   the stone: sun, horizon, pillars, arch, lamps
-     .pk-gateway-body    the words
+     (the environment's painting, behind the whole page)
+     .pk-gateway-veil    feathered darkness under the words
+     .pk-gateway-scene   the stone: pillars, arch, lamps
+     .pk-gateway-body    the stage (art, then words) and the partner foot
    ========================================================================== */
 
 /* ── Column ───────────────────────────────────────────────────────────────── */
+/* A size container: the art scales with the column (cqi), which runs from
+   about 28rem at the lg breakpoint to 48rem on wide screens. */
 html[data-theme="pinaka"] .pk-gateway {
   min-height: 100%;
   isolation: isolate;
+  container: pk-gateway / inline-size;
 }
 
 /* The scene fills the column and takes no pointer. Everything in it is
@@ -34,121 +40,54 @@ html[data-theme="pinaka"] .pk-gateway-scene {
 html[data-theme="pinaka"] .pk-gateway-body {
   z-index: 1;
   /* Inside the pillars (56px each plus a breath), under the arch. */
-  padding: 8.5rem 4.75rem 1.5rem 4.75rem;
+  padding: 7rem 4.75rem 1.5rem 4.75rem;
 }
 
-/* ── The plate: Hampi at dusk, behind the stone ──────────────────────────── */
-/* Absolute inside the column, so it sizes nothing and never reaches the form
-   column. Clipped to the column; the mask feathers its four edges so the
-   photograph dissolves into the page before the pillars rather than ending
-   in a hard rectangle. The same mask fades the overlays with it. */
-html[data-theme="pinaka"] .pk-gateway-plate {
+/* ── The veil: the readability guarantee ─────────────────────────────────── */
+/* The painting is the environment's, behind the whole page, in full colour.
+   Over the first screen of this column, where the words stand, a veil of
+   feathered gradients (no hard edge anywhere: every gradient reaches zero
+   before its box ends) darkens it: heaviest under the lockup and the
+   taglines on the left, open on the right where the archer and the wheel
+   are. It reaches past the column's left edge so it dissolves into the page
+   margin instead of ending on a line. */
+html[data-theme="pinaka"] .pk-gateway-veil {
   position: absolute;
-  inset: 0;
   z-index: 0;
-  overflow: hidden;
+  top: -2.5rem;
+  left: -12rem;
+  right: -1rem;
+  height: clamp(44rem, calc(100svh + 2rem), 62rem);
   pointer-events: none;
-  -webkit-mask-image:
-    linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent),
-    linear-gradient(180deg, transparent, #000 5%, #000 88%, transparent);
-  -webkit-mask-composite: source-in;
-  mask-image:
-    linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent),
-    linear-gradient(180deg, transparent, #000 5%, #000 88%, transparent);
-  mask-composite: intersect;
-}
-html[data-theme="pinaka"] .pk-gateway-plate img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
-  /* object-position and transform-origin are the plate's focal point, set
-     inline by the component from the manifest. */
-  opacity: 0;
-  transition: opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1);
-  user-select: none;
-  -webkit-user-drag: none;
-}
-html[data-theme="pinaka"] .pk-gateway-plate[data-ready="true"] img { opacity: 1; }
-/* The readability guarantee: dark from the top (the lockup) and from the
-   left (every line of text), lightest at the lower right where only the
-   photograph is. Tuned by measurement against the parchment, the secondary
-   and the gold-deep label colours; the lowest point under any text is the
-   fact labels, and they clear 4.5:1 with margin. */
-html[data-theme="pinaka"] .pk-gateway-plate::after {
-  content: "";
-  position: absolute;
-  inset: 0;
   background:
-    linear-gradient(90deg, rgba(6, 8, 16, 0.9) 0%, rgba(6, 8, 16, 0.8) 40%, rgba(6, 8, 16, 0.52) 72%, rgba(6, 8, 16, 0.24) 100%),
-    linear-gradient(180deg, rgba(6, 8, 16, 0.84) 0%, rgba(6, 8, 16, 0.42) 28%, rgba(6, 8, 16, 0.38) 52%, rgba(6, 8, 16, 0.62) 66%, rgba(6, 8, 16, 0.8) 76%, rgba(6, 8, 16, 0.92) 100%);
-}
-/* The slow push in: high tier only (data-drift="on" is set by the component
-   from the capability tier), once, transform only. The final frame is the
-   identity, so dropping the animation when it ends (data-drift="done", with
-   the will-change) changes nothing on screen. */
-@keyframes pk-gateway-plate-drift {
-  from { transform: scale(1.06); }
-  to   { transform: scale(1); }
-}
-html[data-theme="pinaka"] .pk-gateway-plate[data-drift="on"][data-ready="true"] img {
-  will-change: transform;
-  animation: pk-gateway-plate-drift 40s linear forwards;
-}
-
-/* ── Dawn: an ellipse of warm light low behind the horizon ───────────────── */
-html[data-theme="pinaka"] .pk-gateway-sun {
-  position: absolute;
-  left: 50%;
-  top: 62%;
-  width: 72%;
-  height: 46%;
-  transform: translate(-50%, -50%);
-  background:
-    radial-gradient(ellipse at 50% 58%, rgba(246, 223, 163, 0.16) 0%, rgba(227, 187, 102, 0.1) 22%, rgba(181, 139, 98, 0.05) 48%, transparent 72%);
-}
-/* The horizon: one line, brighter where the sun stands behind it. */
-html[data-theme="pinaka"] .pk-gateway-horizon {
-  position: absolute;
-  left: 6%;
-  right: 6%;
-  top: 62%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--pk-gold-line) 25%, rgba(246, 223, 163, 0.55) 50%, var(--pk-gold-line) 75%, transparent);
-}
-html[data-theme="pinaka"] .pk-gateway-horizon::after {
-  /* a second, dimmer line a little below: the ground answering the sky */
-  content: "";
-  position: absolute;
-  left: 12%;
-  right: 12%;
-  top: 7px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--pk-gold-faint) 30%, var(--pk-gold-faint) 70%, transparent);
+    /* under the lockup, taglines and facts */
+    radial-gradient(44% 52% at 46% 44%, rgba(5, 7, 13, 0.72) 0%, rgba(5, 7, 13, 0.62) 42%, rgba(5, 7, 13, 0.32) 72%, rgba(5, 7, 13, 0) 100%),
+    /* a long soft fall toward the left margin */
+    radial-gradient(30% 50% at 32% 50%, rgba(5, 7, 13, 0.5) 0%, rgba(5, 7, 13, 0.28) 55%, rgba(5, 7, 13, 0) 100%),
+    /* the top under the arch, so the eyebrow sits on dark */
+    radial-gradient(50% 24% at 46% 12%, rgba(5, 7, 13, 0.55) 0%, rgba(5, 7, 13, 0) 100%);
 }
 
 /* ── Stone: shared fills and lines for the pillars and the arch ──────────── */
 html[data-theme="pinaka"] .pk-gateway-stone {
-  fill: rgba(227, 187, 102, 0.055);
-  stroke: rgba(227, 187, 102, 0.3);
+  fill: rgba(30, 22, 12, 0.55);
+  stroke: rgba(227, 187, 102, 0.45);
   stroke-width: 1;
 }
 html[data-theme="pinaka"] .pk-gateway-stone.is-light {
-  fill: rgba(227, 187, 102, 0.1);
-  stroke: rgba(246, 223, 163, 0.5);
+  fill: rgba(120, 86, 38, 0.55);
+  stroke: rgba(246, 223, 163, 0.7);
 }
 html[data-theme="pinaka"] .pk-gateway-stone.is-shaft {
-  fill: rgba(17, 20, 34, 0.55);
-  stroke: rgba(227, 187, 102, 0.22);
+  fill: rgba(14, 12, 18, 0.5);
+  stroke: rgba(227, 187, 102, 0.34);
 }
 html[data-theme="pinaka"] .pk-gateway-line {
-  stroke: rgba(246, 223, 163, 0.34);
+  stroke: rgba(246, 223, 163, 0.5);
   stroke-width: 1;
   stroke-linecap: round;
 }
-html[data-theme="pinaka"] .pk-gateway-line.is-faint { stroke: rgba(227, 187, 102, 0.14); }
+html[data-theme="pinaka"] .pk-gateway-line.is-faint { stroke: rgba(227, 187, 102, 0.24); }
 
 /* ── Pillars: full height at each edge of the column ─────────────────────── */
 html[data-theme="pinaka"] .pk-gateway-pillar {
@@ -176,14 +115,14 @@ html[data-theme="pinaka"] .pk-gateway-arch {
 }
 html[data-theme="pinaka"] .pk-gateway-arch-line {
   fill: none;
-  stroke: rgba(246, 223, 163, 0.5);
+  stroke: rgba(246, 223, 163, 0.72);
   stroke-width: 1.25;
 }
-html[data-theme="pinaka"] .pk-gateway-arch-line.is-inner { stroke: rgba(227, 187, 102, 0.26); stroke-width: 1; }
+html[data-theme="pinaka"] .pk-gateway-arch-line.is-inner { stroke: rgba(227, 187, 102, 0.4); stroke-width: 1; }
 html[data-theme="pinaka"] .pk-gateway-arch-haze {
   fill: none;
-  stroke: rgba(227, 187, 102, 0.1);
-  stroke-width: 7;
+  stroke: rgba(255, 196, 102, 0.16);
+  stroke-width: 8;
 }
 
 /* ── Lamps: four small flames at the capitals ────────────────────────────── */
@@ -192,10 +131,13 @@ html[data-theme="pinaka"] .pk-gateway-lamp {
   width: 5px;
   height: 9px;
   border-radius: 50% 50% 45% 45% / 60% 60% 40% 40%;
-  background: linear-gradient(180deg, #fff2cc, var(--pk-gold-bright) 45%, var(--pk-gold-deep));
+  background: linear-gradient(180deg, #fff2cc, #ffc861 45%, #e07a22);
   box-shadow:
-    0 0 6px 1px rgba(246, 223, 163, 0.55),
-    0 0 18px 4px rgba(227, 187, 102, 0.22);
+    0 0 6px 1px rgba(255, 214, 140, 0.7),
+    0 0 20px 5px rgba(255, 160, 60, 0.3);
+  opacity: 0.92;
+}
+html[data-theme="pinaka"] .pk-gateway:not([data-still="true"]) .pk-gateway-lamp {
   animation: pk-gateway-lamp 3.8s ease-in-out infinite;
 }
 /* On the abacus of each pillar, one lamp either side of the shaft. */
@@ -208,9 +150,115 @@ html[data-theme="pinaka"] .pk-gateway-lamp[data-pos="r2"] { right: calc(0.25rem 
   50%      { opacity: 1; }
 }
 
+/* ── The stage: the first screen of the column ───────────────────────────── */
+/* Tall enough to reach the fold on a laptop (the archer's rock stands on its
+   floor), never shorter than its words: when they need more, it grows. */
+html[data-theme="pinaka"] .pk-gateway-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: clamp(34rem, calc(100svh - 10rem), 54rem);
+}
+html[data-theme="pinaka"] .pk-gateway-stage > :not(.pk-gateway-art) {
+  position: relative;
+  z-index: 1;
+}
+
+/* The art box: from the column's top edge to the stage floor, edge to edge
+   of the column, clipped there. Under the words (z-index 0). */
+html[data-theme="pinaka"] .pk-gateway-art {
+  position: absolute;
+  z-index: 0;
+  top: -7rem;
+  bottom: 0;
+  left: -4.75rem;
+  right: -4.75rem;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* ── The archer: on his rock at the foot of the gate, looking in ─────────── */
+/* Full colour, as drawn. His figure and bow keep to the right of the words
+   (the bow's inner edge is 40% into the picture); the rock dissolves to the
+   left and below, and the cape, which the picture crops on its right edge,
+   dissolves into the column's edge, so no edge of the file ever shows. */
+html[data-theme="pinaka"] .pk-gateway-hero {
+  position: absolute;
+  right: -0.75rem;
+  bottom: 0;
+  height: clamp(20rem, 62cqi, 30rem);
+  aspect-ratio: 1069 / 1038;
+}
+html[data-theme="pinaka"] .pk-gateway-archer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+  -webkit-mask-image:
+    linear-gradient(90deg, transparent 0%, #000 30%, #000 93%, transparent 100%),
+    linear-gradient(0deg, transparent 0%, #000 14%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(90deg, transparent 0%, #000 30%, #000 93%, transparent 100%),
+    linear-gradient(0deg, transparent 0%, #000 14%);
+  mask-composite: intersect;
+}
+/* The warm light behind him: the sunset catching his outline. A gradient,
+   not a filter, and only behind the figure. */
+html[data-theme="pinaka"] .pk-gateway-aura {
+  position: absolute;
+  left: 30%;
+  right: -10%;
+  top: -6%;
+  bottom: 18%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 196, 110, 0.34) 0%, rgba(255, 150, 60, 0.16) 48%, rgba(255, 120, 40, 0.05) 74%, transparent 100%);
+}
+
+/* ── The wheel: bronze, beside the name, turning once in 150 s ────────────── */
+html[data-theme="pinaka"] .pk-gateway-wheel {
+  position: absolute;
+  top: calc(7rem + 0.875rem);
+  right: 3.25rem;
+  /* 216px on the widest column, shrinking faster than the name does so the
+     two never touch; gone below 34rem (see the narrow column). */
+  width: clamp(7rem, calc(50cqi - 10.5rem), 13.5rem);
+  aspect-ratio: 1;
+}
+html[data-theme="pinaka"] .pk-gateway-wheel-halo {
+  position: absolute;
+  inset: -26%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side,
+    rgba(255, 214, 140, 0.4) 30%,
+    rgba(255, 176, 84, 0.16) 56%,
+    rgba(255, 150, 70, 0.05) 78%,
+    transparent 100%);
+}
+html[data-theme="pinaka"] .pk-gateway-wheel-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+@keyframes pk-gateway-wheel-turn {
+  to { transform: rotate(360deg); }
+}
+html[data-theme="pinaka"] .pk-gateway:not([data-still="true"]) .pk-gateway-wheel-img {
+  will-change: transform;
+  animation: pk-gateway-wheel-turn 150s linear infinite;
+}
+
 /* ── The lockup ──────────────────────────────────────────────────────────── */
 html[data-theme="pinaka"] .pk-gateway-lockup {
-  margin-top: 1.5rem;
+  margin-top: 1.125rem;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -221,17 +269,18 @@ html[data-theme="pinaka"] .pk-gateway-deva {
   line-height: 1;
   letter-spacing: 0.1em;
   color: var(--pk-gold-soft);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.7);
 }
 html[data-theme="pinaka"] .pk-gateway-name {
   margin: 0.35rem 0 0;
   font-family: var(--pk-font-display);
   font-weight: 700;
-  font-size: clamp(3.5rem, 6.4vw, 6rem);
+  font-size: clamp(3.25rem, 12cqi, 6rem);
   line-height: 0.95;
   letter-spacing: 0.06em;
-  /* .pk-foil-text sets the gradient fill; a trace of glow under it reads as
-     light on metal rather than a text-shadow. */
-  filter: drop-shadow(0 0 18px rgba(227, 187, 102, 0.22));
+  /* .pk-foil-text sets the gradient fill; a dark lift under it separates the
+     metal from the painting, and a trace of warm glow reads as light on it. */
+  filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.75)) drop-shadow(0 0 22px rgba(255, 196, 102, 0.28));
 }
 html[data-theme="pinaka"] .pk-gateway-edition {
   margin-top: 0.75rem;
@@ -240,112 +289,210 @@ html[data-theme="pinaka"] .pk-gateway-edition {
   font-weight: 700;
   letter-spacing: 0.34em;
   text-transform: uppercase;
-  color: var(--pk-gold-deep);
-}
-
-/* ── Scroll art: decorative divider between taglines and facts ──────────── */
-html[data-theme="pinaka"] .pk-gateway-scroll-art {
-  display: block;
-  width: clamp(140px, 28vw, 220px);
-  height: auto;
-  margin: 1.5rem 0 0.25rem;
-  opacity: 0.25;
-  filter: sepia(0.5) brightness(1.4) saturate(0.6);
-  user-select: none;
-  -webkit-user-drag: none;
+  color: var(--pk-gold-soft);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.8);
 }
 
 /* ── Taglines, in the prose face ─────────────────────────────────────────── */
 html[data-theme="pinaka"] .pk-gateway-tagline {
-  margin: 1.75rem 0 0;
-  max-width: 30rem;
+  margin: 1.375rem 0 0;
+  max-width: min(26rem, 56cqi);
   font-family: var(--pk-font-prose);
   font-size: 1.4375rem;
   font-weight: 500;
   line-height: 1.3;
   color: var(--pk-parchment);
   text-wrap: balance;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 18px rgba(0, 0, 0, 0.75);
 }
 html[data-theme="pinaka"] .pk-gateway-tagline.is-secondary {
-  margin-top: 0.5rem;
+  margin-top: 0.375rem;
   font-size: 1.125rem;
   font-weight: 400;
   font-style: italic;
-  color: var(--color-text-secondary);
+  color: #e3d6bd;
 }
 
-/* ── The facts: three rows, label and value ──────────────────────────────── */
+/* ── Register now: the official plate, as a real button ──────────────────── */
+html[data-theme="pinaka"] .pk-gateway-cta {
+  margin-top: 1.25rem;
+}
+html[data-theme="pinaka"] .pk-gateway-register {
+  position: relative;
+  display: block;
+  width: clamp(14rem, 35cqi, 16.5rem);
+  aspect-ratio: 1140 / 281;
+  padding: 0;
+  border: 0;
+  border-radius: 0.875rem;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+html[data-theme="pinaka"] .pk-gateway-register img {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.6));
+}
+/* The glow it gathers on hover and focus: a gradient under the plate whose
+   opacity rises. */
+html[data-theme="pinaka"] .pk-gateway-register::before {
+  content: "";
+  position: absolute;
+  inset: -22% -8%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 190, 90, 0.5) 0%, rgba(255, 150, 60, 0.2) 55%, transparent 100%);
+  opacity: 0;
+  pointer-events: none;
+}
+html[data-theme="pinaka"] .pk-gateway-register:hover::before,
+html[data-theme="pinaka"] .pk-gateway-register:focus-visible::before { opacity: 1; }
+html[data-theme="pinaka"] .pk-gateway-register:focus-visible {
+  outline: 2px solid #ffd98a;
+  outline-offset: 4px;
+}
+html[data-theme="pinaka"] .pk-gateway:not([data-still="true"]) .pk-gateway-register {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+html[data-theme="pinaka"] .pk-gateway:not([data-still="true"]) .pk-gateway-register::before {
+  transition: opacity 0.35s ease;
+}
+html[data-theme="pinaka"] .pk-gateway:not([data-still="true"]) .pk-gateway-register:hover { transform: scale(1.035); }
+html[data-theme="pinaka"] .pk-gateway:not([data-still="true"]) .pk-gateway-register:active { transform: scale(0.99); }
+/* On the Register tab it has done its work: it keeps its place in the column
+   (nothing below it jumps) but is gone from sight, focus and the a11y tree. */
+html[data-theme="pinaka"] .pk-gateway-register[data-hidden="true"] {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── The facts: three rows on a dark tablet ──────────────────────────────── */
 html[data-theme="pinaka"] .pk-gateway-facts {
-  margin: 2.25rem 0 0;
-  max-width: 30rem;
+  margin: 1.25rem 0 0;
+  width: min(25rem, 52cqi);
   display: grid;
-  gap: 0.625rem;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem 0.75rem;
+  border: 1px solid rgba(227, 187, 102, 0.22);
+  border-radius: 0.625rem;
+  background: linear-gradient(180deg, rgba(8, 9, 16, 0.8), rgba(8, 9, 16, 0.7));
+  box-shadow: inset 0 1px 0 rgba(246, 223, 163, 0.08), 0 18px 40px -20px rgba(0, 0, 0, 0.9);
 }
 html[data-theme="pinaka"] .pk-gateway-fact {
   display: grid;
-  grid-template-columns: 7.25rem minmax(0, 1fr);
+  grid-template-columns: 6.5rem minmax(0, 1fr);
   align-items: baseline;
-  gap: 1rem;
-  padding-top: 0.625rem;
-  border-top: 1px solid var(--color-border-subtle);
+  gap: 0.875rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(227, 187, 102, 0.14);
 }
-html[data-theme="pinaka"] .pk-gateway-fact:first-child { border-top-color: var(--pk-gold-line); }
-html[data-theme="pinaka"] .pk-gateway-fact dt { color: var(--pk-gold-deep); }
-html[data-theme="pinaka"] .pk-gateway-fact dd { margin: 0; }
+html[data-theme="pinaka"] .pk-gateway-fact:first-child { border-top: 0; padding-top: 0.125rem; }
+html[data-theme="pinaka"] .pk-gateway-fact dt { color: var(--pk-gold); }
+html[data-theme="pinaka"] .pk-gateway-fact dd { margin: 0; line-height: 1.4; text-wrap: pretty; }
 
-/* ── Archer: silhouette figure on the right side of the gate ────────────── */
-html[data-theme="pinaka"] .pk-gateway-archer {
-  position: absolute;
-  right: 0;
-  bottom: 8%;
-  height: 62%;
-  width: auto;
-  object-fit: contain;
-  object-position: bottom right;
-  opacity: 0.18;
-  mix-blend-mode: screen;
-  filter: sepia(0.5) brightness(0.7) saturate(1.2);
-  -webkit-mask-image: linear-gradient(0deg, transparent 0%, #000 12%, #000 75%, transparent 100%);
-  mask-image: linear-gradient(0deg, transparent 0%, #000 12%, #000 75%, transparent 100%);
-  user-select: none;
-  -webkit-user-drag: none;
+/* ── The relic: the scroll, framed in gold, laid at the foot of the gate ─── */
+/* In the flow (pushed to the stage floor), so it can never sit on the facts:
+   when there is no room it waits below them and the stage grows. Shown only
+   where the column is wide and the screen tall enough (56rem: a 1440x900
+   desktop) for it to stand above the fold beside the archer. */
+html[data-theme="pinaka"] .pk-gateway-relic {
+  display: none;
+  margin-top: auto;
+  margin-left: 0.75rem;
+  padding-top: 1rem;
 }
-
-/* ── Wheel emblem: centred above the lockup, behind the arch ───────────── */
-html[data-theme="pinaka"] .pk-gateway-wheel {
-  position: absolute;
-  left: 50%;
-  top: 22%;
-  width: clamp(100px, 18vw, 180px);
+html[data-theme="pinaka"] .pk-gateway-relic-frame {
+  display: block;
+  width: clamp(8rem, 18.5cqi, 8.875rem);
+  padding: 5px;
+  border-radius: 6px;
+  transform: rotate(-4deg);
+  transform-origin: 50% 100%;
+  background: linear-gradient(145deg, #f6dfa3 0%, #b8862f 28%, #6e4a14 52%, #d9a94e 76%, #fff0c4 100%);
+  box-shadow:
+    0 0 0 1px rgba(30, 18, 4, 0.8),
+    0 22px 36px -14px rgba(0, 0, 0, 0.85),
+    0 0 34px 2px rgba(255, 176, 84, 0.3);
+  /* hidden until its picture is in: never an empty gold slab */
+  opacity: 0;
+}
+html[data-theme="pinaka"] .pk-gateway-relic-frame[data-ready="true"] { opacity: 1; }
+html[data-theme="pinaka"] .pk-gateway:not([data-still="true"]) .pk-gateway-relic-frame {
+  transition: opacity 0.6s ease-out;
+}
+html[data-theme="pinaka"] .pk-gateway-relic-frame img {
+  display: block;
+  width: 100%;
   height: auto;
-  transform: translateX(-50%);
-  opacity: 0.1;
-  filter: sepia(0.6) brightness(1.2) saturate(0.8);
-  mix-blend-mode: screen;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6);
   user-select: none;
   -webkit-user-drag: none;
-  animation: pk-gateway-wheel-glow 8s ease-in-out infinite alternate;
 }
-@keyframes pk-gateway-wheel-glow {
-  from { opacity: 0.08; filter: sepia(0.6) brightness(1.1) saturate(0.8); }
-  to   { opacity: 0.16; filter: sepia(0.6) brightness(1.4) saturate(1); }
-}
-
-/* ── Reduced motion: the lamps hold still, the photograph does not move ──── */
-@media (prefers-reduced-motion: reduce) {
-  html[data-theme="pinaka"] .pk-gateway-lamp { animation: none; opacity: 0.9; }
-  html[data-theme="pinaka"] .pk-gateway-wheel { animation: none; opacity: 0.12; }
-  html[data-theme="pinaka"] .pk-gateway-plate img {
-    transition: none;
-    animation: none;
-    will-change: auto;
-    transform: none;
+@media (min-height: 56rem) {
+  @container pk-gateway (min-width: 40rem) {
+    html[data-theme="pinaka"] .pk-gateway-relic { display: block; }
   }
 }
 
-/* ── Forced colours: no photograph under CanvasText ──────────────────────── */
-/* core.css turns the foil lockup into CanvasText here; a photograph behind it
-   would have no overlay (author backgrounds are dropped), so it goes. */
+/* ── Art that waits for its picture ──────────────────────────────────────── */
+/* The archer, the wheel and the Register plate's picture fade in once decoded
+   (data-ready, set by the component), so nothing ever paints half-arrived. */
+html[data-theme="pinaka"] .pk-gateway-archer[data-ready="false"],
+html[data-theme="pinaka"] .pk-gateway-wheel-img[data-ready="false"],
+html[data-theme="pinaka"] .pk-gateway-register img[data-ready="false"] { opacity: 0; }
+html[data-theme="pinaka"] .pk-gateway:not([data-still="true"]) :is(.pk-gateway-archer, .pk-gateway-wheel-img, .pk-gateway-register img) {
+  transition: opacity 0.5s ease-out;
+}
+
+/* ── The foot: organiser and partners ────────────────────────────────────── */
+html[data-theme="pinaka"] .pk-gateway-foot {
+  margin-top: auto;
+  padding-top: 2rem;
+}
+
+/* ── A narrow column (lg up to about 1280px wide) ─────────────────────────── */
+/* Too narrow for the archer to stand beside the words: he steps down below
+   them, smaller. Narrower still (the lg breakpoint itself), the wheel would
+   cover the name, so it is left out. */
+@container pk-gateway (max-width: 40rem) {
+  html[data-theme="pinaka"] .pk-gateway-body { padding-left: 4.25rem; padding-right: 4.25rem; }
+  html[data-theme="pinaka"] .pk-gateway-stage { padding-bottom: clamp(12rem, 48cqi, 16rem); }
+  html[data-theme="pinaka"] .pk-gateway-hero { height: clamp(12rem, 52cqi, 17rem); }
+  html[data-theme="pinaka"] .pk-gateway-tagline,
+  html[data-theme="pinaka"] .pk-gateway-facts { max-width: none; width: 100%; }
+}
+
+@container pk-gateway (max-width: 34rem) {
+  html[data-theme="pinaka"] .pk-gateway-wheel { display: none; }
+}
+
+/* ── Reduced motion: everything at rest, the picture complete ────────────── */
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme="pinaka"] .pk-gateway-lamp,
+  html[data-theme="pinaka"] .pk-gateway-wheel-img { animation: none !important; }
+  html[data-theme="pinaka"] .pk-gateway-register,
+  html[data-theme="pinaka"] .pk-gateway-register::before,
+  html[data-theme="pinaka"] .pk-gateway-relic-frame,
+  html[data-theme="pinaka"] .pk-gateway-archer,
+  html[data-theme="pinaka"] .pk-gateway-wheel-img,
+  html[data-theme="pinaka"] .pk-gateway-register img { transition: none !important; }
+  html[data-theme="pinaka"] .pk-gateway-register:hover,
+  html[data-theme="pinaka"] .pk-gateway-register:active { transform: none !important; }
+}
+
+/* ── Forced colours: no art under CanvasText ─────────────────────────────── */
+/* core.css turns the foil lockup into CanvasText here; the paintings would sit
+   bare under it (author backgrounds are dropped), so they go. The Register
+   plate keeps its accessible name and gains a system outline. */
 @media (forced-colors: active) {
-  html[data-theme="pinaka"] .pk-gateway-plate { display: none; }
+  html[data-theme="pinaka"] .pk-gateway-art,
+  html[data-theme="pinaka"] .pk-gateway-relic,
+  html[data-theme="pinaka"] .pk-gateway-veil { display: none; }
+  html[data-theme="pinaka"] .pk-gateway-register { border: 1px solid ButtonText; }
 }

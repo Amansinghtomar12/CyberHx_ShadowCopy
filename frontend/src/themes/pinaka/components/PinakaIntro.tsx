@@ -16,23 +16,29 @@
  *   replays it for reviewers and screenshots.
  *
  * THE SEQUENCE (≤ 4.5 s, authored in the `T` table below)
- *   darkness → a horizon line brightens from the centre → silhouettes of
- *   shikharas, domes and a long wall rise out of it in two depths → a gold
- *   line traces the limbs of a recurve bow and the string snaps taut → the
- *   title lockup → the partner line → the one action, which takes focus.
- *   Reduced motion and the 'still' tier skip straight to the finished frame.
+ *   darkness → the event's painting (the temple city at sunset) rises out of
+ *   it → the duel, in full colour, comes forward: Rama drawing on the left,
+ *   ten-headed Ravana on the right, the open sky between them → a gold line
+ *   traces the limbs of a recurve bow in that sky and the string snaps taut
+ *   → the title lockup → the platform line → the one action, which takes
+ *   focus. Reduced motion and the 'still' tier skip straight to the finished
+ *   frame, which is the whole picture at rest.
  *
- * THE PLATE
- *   Behind the city, dim: the hero photograph (assets/plates, Hampi at dusk)
- *   as a same-origin <img> covering the viewport, under every skyline layer,
- *   washed dark across the middle where the words are and dissolved at the
- *   edges by a radial mask (no blur filter). It fades in over 1.2 s from
- *   mount, with the first beat; the still path shows it at rest from the
- *   first frame. Only the bundled URL strings come from the manifest: no
- *   image data is inlined in this chunk.
+ * THE ART
+ *   Both pictures are the event's own artwork, bundled same-origin and shown
+ *   as drawn: no sepia, no grade, no blend. The painting covers the viewport
+ *   on its focal point; the duel (a transparent cut-out) stands on the bottom
+ *   edge, as tall as the screen allows, centred, its sides cropped on a
+ *   portrait phone so the two figures still face each other. The words stand
+ *   on a scrim: a radial darkness at the centre and a fall from the top, both
+ *   gradients, so the title and the lines under it measure >= 4.5:1 whatever
+ *   the art puts behind them. Only the bundled URL strings come from the
+ *   manifests: no image data is inlined in this chunk.
  *
- * Motion is transform, opacity and SVG path length only. The haze is a
- * gradient, never a blur: there is no filter on any full-screen layer.
+ * Motion is transform, opacity and SVG path length only, and none of it
+ * loops: once the frame is finished nothing on the curtain moves. There is no
+ * filter, mask or blend on any full-screen layer, so each frame is cheap to
+ * composite even on a software renderer.
  */
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
@@ -54,10 +60,8 @@ import { PINAKA_IMAGES } from '../assets/images';
  */
 const T = {
   plate: 0,
-  horizon: 0.1,
   glow: 0.3,
-  skylineFar: 0.7,
-  skylineNear: 0.95,
+  duel: 0.45,
   limbs: 1.5,
   tips: 2.3,
   grip: 2.45,
@@ -91,7 +95,7 @@ function useStill(): boolean {
 /* ── The plate ───────────────────────────────────────────────────────────── */
 
 /**
- * The photograph behind the city. Decorative (alt="", aria-hidden), never
+ * The painting behind the duel. Decorative (alt="", aria-hidden), never
  * draggable, decoded off the main thread, fetched eagerly because it is the
  * first thing on screen. The wrapper carries the timeline's fade; the image
  * itself fades up once it has loaded (the attribute, so a cached file that
@@ -138,78 +142,39 @@ function Plate({ still }: { still: boolean }) {
   );
 }
 
-/* ── Skyline geometry ────────────────────────────────────────────────────── */
-
-type Pt = readonly [number, number];
-const fmt = (pts: readonly Pt[]) =>
-  pts.map(([x, y]) => `${Math.round(x * 10) / 10},${Math.round(y * 10) / 10}`).join(' ');
+/* ── The duel ────────────────────────────────────────────────────────────── */
 
 /**
- * A tower seen in silhouette: tiers stepping inward from the base, then the
- * amalaka (the ribbed cushion) and the kalasha (the finial) on top, mirrored
- * about its axis. `taper(t)` is the half-width at height fraction t, so a
- * quadratic taper gives the curvilinear nagara shikhara and a linear one the
- * broad stepped gateway of the south. Returned as polygon/polyline points
- * running base → spire → base, so a stroke never draws the bottom edge.
+ * Rama and Ravana, the event's key illustration, in full colour. A
+ * transparent cut-out standing on the bottom edge; it comes forward once
+ * (opacity and a 4% settle in scale, transform-origin on the ground between
+ * the two figures) and is still from then on. The 1200 px file serves
+ * phones and the low tier; the 2400 px file wide screens.
  */
-function tower(cx: number, base: number, w: number, h: number, tiers: number, taper: (t: number) => number): string {
-  const half = w / 2;
-  const body = h * 0.8;
-  const left: Pt[] = [[cx - half, base]];
-  for (let i = 0; i < tiers; i++) {
-    const t0 = i / tiers;
-    const t1 = (i + 1) / tiers;
-    const hw = half * taper(t0);
-    left.push([cx - hw, base - body * t0], [cx - hw, base - body * t1]);
-  }
-  const top = base - body;
-  const cap = half * taper(1);
-  left.push(
-    [cx - cap * 1.3, top],
-    [cx - cap * 1.3, top - h * 0.05],
-    [cx - cap * 0.5, top - h * 0.08],
-    [cx - cap * 0.2, top - h * 0.13],
-    [cx, top - h * 0.2],
-  );
-  const right = left.slice(0, -1).reverse().map(([x, y]) => [2 * cx - x, y] as Pt);
-  return fmt([...left, ...right]);
-}
-const shikhara = (t: number) => 1 - 0.72 * t * t;
-const gopuram = (t: number) => 1 - 0.56 * t;
-
-/** A dome on a short drum, with a finial. Path data, filled. */
-function dome(cx: number, base: number, r: number, drum: number): string {
-  const crown = base - drum - r;
+function Duel({ still }: { still: boolean }) {
+  const low = getCapability().tier === 'low';
   return (
-    `M${cx - r},${base} V${base - drum} A${r},${r} 0 0 1 ${cx + r},${base - drum} V${base} Z ` +
-    `M${cx - 2.5},${crown + 1} L${cx},${crown - 12} L${cx + 2.5},${crown + 1} Z`
+    <motion.div
+      className="pk-intro-duel"
+      initial={still ? false : { opacity: 0, scale: 1.04 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={still ? { duration: 0 } : { delay: T.duel, duration: 1.8, ease: EASE }}
+    >
+      <img
+        src={PINAKA_IMAGES.duel.small}
+        srcSet={low ? undefined : `${PINAKA_IMAGES.duel.small} 1200w, ${PINAKA_IMAGES.duel.large} 2400w`}
+        sizes={low ? undefined : '(max-aspect-ratio: 1/1) 60vh, 100vw'}
+        width={2400}
+        height={1160}
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+        decoding="async"
+        loading="eager"
+      />
+    </motion.div>
   );
 }
-
-/** A long wall with merlons along its top. Polyline points, base → top → base. */
-function wall(x0: number, x1: number, base: number, top: number, merlon: number, gap: number, rise: number): string {
-  const pts: Pt[] = [[x0, base], [x0, top]];
-  for (let x = x0 + gap; x + merlon <= x1; x += merlon + gap) {
-    pts.push([x, top], [x, top - rise], [x + merlon, top - rise], [x + merlon, top]);
-  }
-  pts.push([x1, top], [x1, base]);
-  return fmt(pts);
-}
-
-/* The city, in two depths. Far: the great shikhara rising behind the gateway,
-   lesser towers and domes along the ridge. Near: the wall, its gateway and two
-   towers that stand just inside it. The viewBox base (y = 220) is the horizon. */
-const FAR_TOWERS = [
-  tower(150, 220, 54, 104, 5, shikhara),
-  tower(400, 220, 68, 136, 6, shikhara),
-  tower(600, 220, 100, 200, 7, shikhara),
-  tower(810, 220, 68, 130, 6, shikhara),
-  tower(1060, 220, 54, 100, 5, shikhara),
-];
-const FAR_DOMES = [dome(270, 220, 34, 36), dome(500, 220, 26, 32), dome(710, 220, 30, 32), dome(930, 220, 40, 42), dome(1160, 220, 26, 32)];
-const NEAR_WALL = wall(0, 1200, 220, 178, 14, 20, 9);
-const NEAR_GATE = tower(600, 178, 150, 116, 5, gopuram);
-const NEAR_TOWERS = [tower(250, 178, 48, 80, 4, shikhara), tower(950, 178, 48, 80, 4, shikhara)];
 
 /* ── The bow ─────────────────────────────────────────────────────────────── */
 
@@ -352,74 +317,21 @@ export default function PinakaIntro({ onDone }: { onDone: () => void }) {
       <button type="button" className="btn btn-ghost btn-sm pk-intro-skip" onClick={leave} aria-label="Skip the introduction">
         Skip
       </button>
-      {/* ── Scene: the photograph, sky, horizon, the city rising. Decoration only. ── */}
+      {/* ── Scene: the painting, the duel, the light. Decoration only. ── */}
       <div className="pk-intro-scene" aria-hidden="true">
         <Plate still={still} />
-
-        <motion.div
-          className="pk-intro-duel"
-          initial={still ? false : { opacity: 0, scale: 1.04 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={still ? { duration: 0 } : { delay: T.skylineFar - 0.2, duration: 1.8, ease: EASE }}
-        >
-          <picture>
-            <source srcSet={PINAKA_IMAGES.duel.large} media="(min-width: 1024px)" />
-            <img
-              src={PINAKA_IMAGES.duel.small}
-              alt=""
-              aria-hidden="true"
-              draggable={false}
-              decoding="async"
-              loading="eager"
-            />
-          </picture>
-        </motion.div>
 
         <motion.div
           className="pk-intro-glow"
           initial={still ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={still ? { duration: 0 } : { delay: T.glow, duration: 1.4, ease: 'easeOut' }}
-        >
-          <span className="pk-intro-glow-core" />
-        </motion.div>
-
-        <motion.div
-          className="pk-intro-layer"
-          initial={still ? false : { opacity: 0, y: 28 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={still ? { duration: 0 } : { delay: T.skylineFar, duration: 1.1, ease: EASE }}
-        >
-          <svg className="pk-intro-skyline is-far" viewBox="0 0 1200 220" preserveAspectRatio="xMidYMax slice" focusable="false">
-            {FAR_TOWERS.map((pts, i) => <polygon key={`t${i}`} points={pts} />)}
-            {FAR_DOMES.map((d, i) => <path key={`d${i}`} d={d} />)}
-            <rect x="0" y="202" width="1200" height="18" />
-          </svg>
-        </motion.div>
-
-        <motion.div
-          className="pk-intro-layer"
-          initial={still ? false : { opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={still ? { duration: 0 } : { delay: T.skylineNear, duration: 1.1, ease: EASE }}
-        >
-          {/* Polylines, not polygons: the fill closes the shape, the stroke
-              does not, so the gold hairline rides the roofline and never the
-              ground. Drawn wall first so the gateway and towers sit on it. */}
-          <svg className="pk-intro-skyline is-near" viewBox="0 0 1200 220" preserveAspectRatio="xMidYMax slice" focusable="false">
-            <polyline points={NEAR_WALL} />
-            {NEAR_TOWERS.map((pts, i) => <polyline key={i} points={pts} />)}
-            <polyline points={NEAR_GATE} />
-          </svg>
-        </motion.div>
-
-        <motion.span
-          className="pk-intro-horizon"
-          initial={still ? false : { scaleX: 0, opacity: 0 }}
-          animate={{ scaleX: 1, opacity: 1 }}
-          transition={still ? { duration: 0 } : { delay: T.horizon, duration: 1.0, ease: EASE }}
         />
-        <div className="pk-intro-ground" />
+
+        <Duel still={still} />
+
+        {/* the darkness the words stand on: centre and top, never a filter */}
+        <span className="pk-intro-scrim" />
       </div>
 
       {/* ── Stage: the bow, the name, the one action. ── */}

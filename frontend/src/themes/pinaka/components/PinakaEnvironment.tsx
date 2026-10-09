@@ -18,7 +18,9 @@
  *   relic    the celestial dharma wheel: the official bronze emblem, large
  *            and in full colour high in the sky, turning once in four
  *            minutes; strongest over Ayodhya and Vijaya, softer in the
- *            forest and over the sea, absent over burning Lanka
+ *            forest and over the sea, absent over burning Lanka and on the
+ *            sign-in page (whose hero has a wheel of its own); on a phone a
+ *            small ornament under the nav's torch, clear of the page titles
  *   motes    one animated canvas: luminous gold motes, green-gold flecks or
  *            rising embers, with a few soft bokeh discs and haze bands on
  *            the high tier
@@ -36,7 +38,8 @@
  *   that fails to load, or a mount that asks for none. A plate that has not
  *   loaded is never shown half-way: the new scene is promoted only once its
  *   image has settled (load, error, or a short wait), and the image fades in
- *   on load. On the high tier the plate drifts very slowly (scale 1.06 → 1
+ *   on load, its light with it (a plate already in the cache when its scene
+ *   mounts appears at once, with no fade). On the high tier the plate drifts very slowly (scale 1.06 → 1
  *   over 40 s, transform only, will-change dropped once it has settled); no
  *   drift on medium or low, nothing at all when still.
  *
@@ -47,8 +50,9 @@
  *   same skyline and the static tier can emit the same shapes as inline SVG.
  *
  * TIERS
- *   high    110 motes (bokeh and haze included), rays that sweep and
- *           breathe, the relic turning, scroll + pointer parallax, plate drift
+ *   high    110 motes (bokeh and haze included), two fans of rays that
+ *           shimmer against each other, the relic turning, scroll + pointer
+ *           parallax, plate drift
  *   medium  44 motes, still rays, the relic turning, scroll parallax only
  *   static  'still' / 'low' / fx off / reduced motion: no canvases at all,
  *           the plate, rays and relic as a still picture, no loops, no
@@ -76,7 +80,7 @@ export interface PinakaEnvironmentProps {
    */
   intensity?: 'subtle' | 'normal';
   /**
-   * Which photographic plate stands behind the scene. Defaults to the
+   * Which plate stands behind the scene. Defaults to the
    * world's own; a mount point may ask for another (the sign-in page could
    * take 'hero'); `null` shows the procedural silhouettes alone. Read when a
    * scene is created, so change it with the world, not on its own.
@@ -753,7 +757,7 @@ function sunPoint(world: World, plate: Plate | null, vw: number, vh: number): Su
 /* ── Plate ───────────────────────────────────────────────────────────────── */
 
 /**
- * The photograph behind a scene. Decorative (alt="", aria-hidden), never
+ * The picture behind a scene. Decorative (alt="", aria-hidden), never
  * draggable, decoded off the main thread, fetched eagerly because the scene
  * that holds it is waiting for it. It reports once: ready or failed. The
  * wrapper is what parallax moves; the image is what the drift scales, about
@@ -766,22 +770,27 @@ function PlateLayer({ plate, status, active, vpKey, layerRef, onSettle }: {
   /** Changes with the viewport: `sizes` states the width the plate is drawn at. */
   vpKey: string;
   layerRef: (el: HTMLDivElement | null) => void;
-  onSettle: (status: 'ready' | 'failed') => void;
+  /** `instant`: the image was already complete when the scene mounted. */
+  onSettle: (status: 'ready' | 'failed', instant?: boolean) => void;
 }) {
   const img = useRef<HTMLImageElement>(null);
   // The drift ran its 40 s: drop the animation (its final frame is the
   // identity) and the will-change with it.
   const [drifted, setDrifted] = useState(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- vpKey stands for the viewport plateSource reads
+  // vpKey stands for the viewport plateSource reads.
   const source = useMemo(() => plateSource(plate), [plate, vpKey]);
   const settle = useRef(onSettle);
   settle.current = onSettle;
 
   // A plate the preload (or an earlier scene) already fetched can be complete
   // before the load event reaches React; the attribute says so either way.
-  useEffect(() => {
+  // Checked before the first paint, so a cached plate is shown at once, with
+  // no fade (the scene is marked `instant`); only on mount, not on a resize.
+  const mounted = useRef(false);
+  useLayoutEffect(() => {
     const el = img.current;
-    if (el && el.complete && el.naturalWidth > 0) settle.current('ready');
+    if (el && el.complete && el.naturalWidth > 0) settle.current('ready', !mounted.current);
+    mounted.current = true;
   }, [source]);
 
   return (
@@ -818,9 +827,29 @@ function PlateLayer({ plate, status, active, vpKey, layerRef, onSettle }: {
 type MoteKind = 'gold' | 'leaf' | 'ember';
 const MOTE_KIND: Record<World, MoteKind> = { ayodhya: 'gold', vanavasa: 'leaf', setu: 'gold', lanka: 'ember', vijaya: 'gold' };
 
+/**
+ * Each kind of mote in a few tints ("r,g,b"), so a population reads as light
+ * rather than as confetti: gold from pale to deep, the forest's green-gold
+ * with a little sun in it, embers from blood-orange to yellow flame.
+ */
+const MOTE_TINTS: Record<MoteKind, readonly string[]> = {
+  gold:  ['255,214,130', '255,236,188', '246,184,92'],
+  leaf:  ['206,232,140', '255,222,150', '150,212,150'],
+  ember: ['255,112,48', '255,168,72', '255,74,40'],
+};
+
+/** Mote populations per tier; bokeh discs are part of the high tier's count. */
+const MOTES_HIGH = 110;
+const MOTES_MEDIUM = 44;
+const BOKEH_SHARE = 0.08;
+
 interface Mote {
   x: number; y: number; vx: number; vy: number;
   r: number; a: number; ph: number; fl: number;
+  /** Which tint of its kind. */
+  tint: number;
+  /** A large, faint, slow disc of out-of-focus light. */
+  bokeh: boolean;
   /** 0..1 fade-in; counts down when `dying`. */
   life: number;
   dying: boolean;
@@ -834,17 +863,36 @@ interface MoteSystem {
   destroy(): void;
 }
 
+/** A glowing point: a white-hot core, the tint around it, a soft halo. */
 function makeSprite(rgb: string): HTMLCanvasElement {
   const c = document.createElement('canvas');
-  c.width = c.height = 16;
+  c.width = c.height = 32;
   const ctx = c.getContext('2d');
   if (ctx) {
-    const g = ctx.createRadialGradient(8, 8, 0, 8, 8, 8);
-    g.addColorStop(0, `rgba(${rgb},1)`);
-    g.addColorStop(0.35, `rgba(${rgb},0.55)`);
+    const g = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+    g.addColorStop(0, 'rgba(255,250,236,1)');
+    g.addColorStop(0.14, `rgba(${rgb},0.95)`);
+    g.addColorStop(0.38, `rgba(${rgb},0.38)`);
     g.addColorStop(1, `rgba(${rgb},0)`);
     ctx.fillStyle = g;
-    ctx.fillRect(0, 0, 16, 16);
+    ctx.fillRect(0, 0, 32, 32);
+  }
+  return c;
+}
+
+/** A soft disc with a faint brighter rim, like a highlight thrown out of focus. */
+function makeBokeh(rgb: string): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const ctx = c.getContext('2d');
+  if (ctx) {
+    const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    g.addColorStop(0, `rgba(${rgb},0.55)`);
+    g.addColorStop(0.72, `rgba(${rgb},0.7)`);
+    g.addColorStop(0.86, `rgba(${rgb},0.9)`);
+    g.addColorStop(1, `rgba(${rgb},0)`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 64, 64);
   }
   return c;
 }
@@ -875,7 +923,7 @@ function makeHaze(rgb: string, w: number, h: number): HTMLCanvasElement {
 
 function createMotes(
   canvas: HTMLCanvasElement,
-  opts: { count: number; haze: boolean; dpr: number; world: World; w: number; h: number },
+  opts: { count: number; haze: boolean; bokeh: boolean; dpr: number; world: World; w: number; h: number },
 ): MoteSystem | null {
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
@@ -886,22 +934,40 @@ function createMotes(
 
   let world = opts.world;
   let kind = MOTE_KIND[world];
-  const sprites: Record<MoteKind, HTMLCanvasElement> = {
-    gold: makeSprite(PALETTE.ayodhya.mote),
-    leaf: makeSprite(PALETTE.vanavasa.mote),
-    ember: makeSprite(PALETTE.lanka.mote),
-  };
+  const kinds: MoteKind[] = ['gold', 'leaf', 'ember'];
+  const sprites = {} as Record<MoteKind, HTMLCanvasElement[]>;
+  const discs = {} as Record<MoteKind, HTMLCanvasElement[]>;
+  for (const k of kinds) {
+    sprites[k] = MOTE_TINTS[k].map(makeSprite);
+    discs[k] = opts.bokeh ? MOTE_TINTS[k].map(makeBokeh) : [];
+  }
   let motes: Mote[] = [];
   let bands: HazeBand[] = [];
 
   const rnd = Math.random;
-  const spawn = (k: MoteKind, fresh: boolean): Mote => {
+  const spawn = (k: MoteKind, fresh: boolean, bokeh = false): Mote => {
     const r = rnd();
-    const m: Mote = { x: rnd() * W, y: rnd() * H, vx: 0, vy: 0, r: 1, a: 0.4, ph: rnd() * Math.PI * 2, fl: 0, life: fresh ? 0 : 1, dying: false, kind: k };
-    if (k === 'gold')       { m.vy = -(6 + r * 12);  m.vx = (rnd() - 0.5) * 4; m.r = 0.9 + r * 1.4; m.a = 0.22 + rnd() * 0.3; }
-    else if (k === 'leaf')  { m.vy = 8 + r * 12;     m.vx = (rnd() - 0.5) * 6; m.r = 1.2 + r * 1.3; m.a = 0.22 + rnd() * 0.3; }
-    else                    { m.vy = -(16 + r * 26); m.vx = (rnd() - 0.5) * 8; m.r = 0.8 + r * 1.5; m.a = 0.3 + rnd() * 0.3; m.fl = 5 + rnd() * 7; }
+    const m: Mote = {
+      x: rnd() * W, y: rnd() * H, vx: 0, vy: 0, r: 1, a: 0.5, ph: rnd() * Math.PI * 2, fl: 0,
+      tint: Math.floor(rnd() * MOTE_TINTS[k].length), bokeh, life: fresh ? 0 : 1, dying: false, kind: k,
+    };
+    if (bokeh) {
+      // Out of focus, close to the eye: big, faint, barely moving.
+      m.r = 8 + r * 12; m.a = 0.09 + rnd() * 0.1;
+      m.vy = k === 'leaf' ? 2 + r * 3 : -(2 + r * 4); m.vx = (rnd() - 0.5) * 3;
+      m.fl = 0.4 + rnd() * 0.6;
+    } else if (k === 'gold') { m.vy = -(6 + r * 14);  m.vx = (rnd() - 0.5) * 5; m.r = 0.9 + r * 2.3; m.a = 0.42 + rnd() * 0.46; m.fl = rnd() < 0.35 ? 1.5 + rnd() * 2.5 : 0; }
+    else if (k === 'leaf') { m.vy = 8 + r * 12;     m.vx = (rnd() - 0.5) * 6; m.r = 1 + r * 1.8;   m.a = 0.36 + rnd() * 0.38; }
+    else {
+      // Embers: they rise fast from below, drift with the heat and flicker.
+      m.vy = -(18 + r * 34); m.vx = (rnd() - 0.5) * 10; m.r = 0.7 + r * 1.8; m.a = 0.5 + rnd() * 0.4; m.fl = 5 + rnd() * 8;
+      m.y = H * (0.35 + rnd() * 0.65);
+    }
     return m;
+  };
+  const populate = (k: MoteKind, fresh: boolean, n: number) => {
+    const nBokeh = opts.bokeh ? Math.round(n * BOKEH_SHARE) : 0;
+    for (let i = 0; i < n; i++) motes.push(spawn(k, fresh, i < nBokeh));
   };
   const buildHaze = (rgb: string, fresh: boolean) => {
     bands = [];
@@ -914,12 +980,12 @@ function createMotes(
         x: rnd() * (W + bw) - bw,
         y: H * (0.48 + i * 0.14),
         v: (6 + i * 4) * (i % 2 ? -1 : 1),
-        a: 0.05 - i * 0.008,
+        a: 0.07 - i * 0.012,
         life: fresh ? 0 : 1,
       });
     }
   };
-  for (let i = 0; i < count; i++) motes.push(spawn(kind, false));
+  populate(kind, false, count);
   buildHaze(PALETTE[world].haze, false);
 
   let raf = 0;
@@ -928,13 +994,14 @@ function createMotes(
 
   const step = (dt: number) => {
     elapsed += dt;
-    const sway = kind === 'leaf' ? 14 : 4;
+    const sway = kind === 'leaf' ? 14 : kind === 'ember' ? 9 : 4;
     for (let i = motes.length - 1; i >= 0; i--) {
       const m = motes[i];
-      m.x += (m.vx + Math.sin(elapsed * 0.7 + m.ph) * sway) * dt;
+      m.x += (m.vx + Math.sin(elapsed * 0.7 + m.ph) * (m.bokeh ? 2 : sway)) * dt;
       m.y += m.vy * dt;
-      if (m.y < -8) m.y = H + 8; else if (m.y > H + 8) m.y = -8;
-      if (m.x < -8) m.x = W + 8; else if (m.x > W + 8) m.x = -8;
+      const edge = m.bokeh ? 40 : 8;
+      if (m.y < -edge) m.y = H + edge; else if (m.y > H + edge) m.y = -edge;
+      if (m.x < -edge) m.x = W + edge; else if (m.x > W + edge) m.x = -edge;
       if (m.dying) {
         m.life -= dt / 0.9;
         // Gone: swap-and-pop in place, so the loop allocates nothing per frame.
@@ -951,16 +1018,25 @@ function createMotes(
 
   const draw = () => {
     ctx.clearRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'source-over';
     for (const b of bands) {
       ctx.globalAlpha = b.a * b.life;
       ctx.drawImage(b.img, b.x, b.y);
     }
+    // Light adds up: where two motes cross they get brighter, not muddier.
+    ctx.globalCompositeOperation = 'lighter';
     for (const m of motes) {
-      const flicker = m.fl ? 0.65 + 0.35 * Math.sin(elapsed * m.fl + m.ph) : 1;
-      ctx.globalAlpha = Math.min(0.6, m.a * m.life * flicker);
-      const s = m.r * 2.4;
-      ctx.drawImage(sprites[m.kind], m.x - s, m.y - s, s * 2, s * 2);
+      const flicker = m.fl ? 0.6 + 0.4 * Math.sin(elapsed * m.fl + m.ph) : 1;
+      ctx.globalAlpha = Math.min(0.95, m.a * m.life * flicker);
+      if (m.bokeh) {
+        const img = discs[m.kind][m.tint] ?? sprites[m.kind][m.tint];
+        ctx.drawImage(img, m.x - m.r, m.y - m.r, m.r * 2, m.r * 2);
+      } else {
+        const s = m.r * 3.2;
+        ctx.drawImage(sprites[m.kind][m.tint], m.x - s, m.y - s, s * 2, s * 2);
+      }
     }
+    ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
   };
 
@@ -996,7 +1072,7 @@ function createMotes(
         // Rapid flips (Challenges → Scoreboard → back) would stack a whole
         // population per flip; the transient total is capped at three.
         const room = Math.max(0, count * 3 - motes.length);
-        for (let i = 0; i < Math.min(count, room); i++) motes.push(spawn(kind, true));
+        populate(kind, true, Math.min(count, room));
       }
       buildHaze(PALETTE[next].haze, true);
     },
@@ -1018,6 +1094,8 @@ interface Scene {
   world: World;
   plateKey: PlateKey | null;
   plate: PlateStatus;
+  /** The plate was already decoded when the scene mounted: shown without a fade. */
+  instant?: boolean;
 }
 
 interface Slots {
@@ -1079,7 +1157,7 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle', 
   // writes the new world into the other slot as *pending*, rendered but
   // hidden, and promotes it to active once its plate has settled, so the CSS
   // crossfade has both complete scenes in the DOM for its whole duration and
-  // a half-loaded photograph is never on screen.
+  // a half-loaded plate is never on screen.
   const newScene = (w: World): Scene => {
     const plateKey = plateProp === null ? null : (plateProp ?? w);
     return { world: w, plateKey, plate: plateKey ? 'loading' : 'none' };
@@ -1098,11 +1176,11 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle', 
 
   // The plate of a scene reported in. Only the scene that still holds that
   // world is updated: a late event from a scene already replaced is ignored.
-  const settlePlate = useCallback((slot: Slot, w: World, status: 'ready' | 'failed') => {
+  const settlePlate = useCallback((slot: Slot, w: World, status: 'ready' | 'failed', instant = false) => {
     setSlots(prev => {
       const scene = prev[slot];
       if (!scene || scene.world !== w || scene.plate === status || scene.plate === 'none') return prev;
-      return { ...prev, [slot]: { ...scene, plate: status } };
+      return { ...prev, [slot]: { ...scene, plate: status, instant } };
     });
   }, []);
 
@@ -1187,8 +1265,9 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle', 
     const canvas = motesRef.current;
     if (!canvas) return;
     const sys = createMotes(canvas, {
-      count: effectiveMode === 'high' ? 90 : 36,
+      count: effectiveMode === 'high' ? MOTES_HIGH : MOTES_MEDIUM,
       haze: effectiveMode === 'high',
+      bokeh: effectiveMode === 'high',
       // Soft 2–6 px sprites: 1× is sharp enough and a quarter of the memory.
       dpr: 1,
       world,
@@ -1205,6 +1284,7 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle', 
   }, [world]);
 
   const activeScene = slots[slots.active];
+  const vpKey = `${vp.w}x${vp.h}`;
 
   return (
     <div
@@ -1215,7 +1295,7 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle', 
       data-mode={effectiveMode}
       data-still={still ? 'true' : undefined}
       data-intensity={intensity}
-      // How far the plate on screen has come; the veil is heavier over a photograph.
+      // How far the plate on screen has come.
       data-plate={activeScene?.plate ?? 'none'}
       // The measured viewport height, so the CSS horizon glow and the canvas
       // horizon agree even where 100vh and innerHeight do not (mobile toolbars).
@@ -1225,6 +1305,7 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle', 
       {(['a', 'b'] as const).map(slot => {
         const scene = slots[slot];
         const plate = scene?.plateKey && scene.plate !== 'failed' ? PLATES[scene.plateKey] : null;
+        const sun = scene ? sunPoint(scene.world, plate, vp.w, vp.h) : null;
         return (
           <div
             key={slot}
@@ -1232,7 +1313,13 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle', 
             data-slot={slot}
             data-world={scene?.world}
             data-plate={scene?.plate}
+            data-instant={scene?.instant ? 'true' : undefined}
             data-active={slots.active === slot ? 'true' : 'false'}
+            style={sun ? {
+              ['--pk-sun-px' as string]: `${sun.x}px`,
+              ['--pk-sun-py' as string]: `${sun.y}px`,
+              ['--pk-rays-r' as string]: `${sun.r}px`,
+            } : undefined}
           >
             {/* The horizon glow belongs to its scene so it crossfades with it. */}
             <div className="pk-env-sun" />
@@ -1242,11 +1329,13 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle', 
                 plate={plate}
                 status={scene.plate}
                 active={slots.active === slot}
+                vpKey={vpKey}
                 layerRef={el => { depthEls.current[`${slot}-plate`] = el; }}
-                onSettle={status => settlePlate(slot, scene.world, status)}
+                onSettle={(status, instant) => settlePlate(slot, scene.world, status, instant)}
               />
             )}
-            {DEPTHS.map(depth => (
+            {/* The silhouettes are the fallback: over a plate none is painted. */}
+            {scene && !plate && DEPTHS.map(depth => (
               <div
                 key={depth}
                 className="pk-env-depth"
@@ -1254,19 +1343,43 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle', 
                 ref={el => { depthEls.current[`${slot}-${depth}`] = el; }}
                 style={{ height: layerHeight(depth, vp.h) }}
               >
-                {/* A plate stands in for the far and mid strips: they are not painted at all while it is there. */}
-                {scene && !(plate && PLATE_REPLACES.has(depth)) && (
-                  <SceneLayer world={scene.world} depth={depth} mode={effectiveMode} vw={vp.w} vh={vp.h} plated={!!plate} />
-                )}
+                <SceneLayer world={scene.world} depth={depth} mode={effectiveMode} vw={vp.w} vh={vp.h} />
               </div>
             ))}
+            {/* The light of the scene: shafts out of the sun, and its bloom. */}
+            {scene && (
+              <div className="pk-env-light" ref={el => { depthEls.current[`${slot}-rays`] = el; }}>
+                <div className="pk-env-rays">
+                  <div className="pk-env-rays-fan" data-fan="a" />
+                  <div className="pk-env-rays-fan" data-fan="b" />
+                </div>
+                <div className="pk-env-bloom" />
+              </div>
+            )}
           </div>
         );
       })}
+      {/* The celestial dharma wheel: the official emblem, high in the sky.
+          Not on the sign-in page ('normal'): its hero carries its own wheel,
+          and on a phone the wordmark stands where the relic would. */}
+      {intensity !== 'normal' && <div className="pk-env-relic">
+        <div className="pk-env-relic-halo" />
+        <img
+          className="pk-env-relic-wheel"
+          src={PINAKA_IMAGES.wheelEmblem.small}
+          srcSet={`${PINAKA_IMAGES.wheelEmblem.small} 700w, ${PINAKA_IMAGES.wheelEmblem.large} 1000w`}
+          sizes="(max-width: 40rem) 124px, (min-width: 64rem) min(56vmin, 640px), 56vmin"
+          width={700}
+          height={700}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          decoding="async"
+        />
+      </div>}
       {effectiveMode !== 'static' && <canvas ref={motesRef} className="pk-env-motes" />}
-      {/* Readability guarantee: the UI always wins against the environment. */}
+      {/* Readability: dark bands only where the interface is dense. */}
       <div className="pk-env-veil" />
-      <div className="pk-env-plate-veil" />
       <div className="pk-env-vignette" />
     </div>
   );

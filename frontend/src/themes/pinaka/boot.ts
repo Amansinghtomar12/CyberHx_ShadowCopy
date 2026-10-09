@@ -37,8 +37,9 @@ function hasStoredSession(): boolean {
 }
 
 export async function bootPinaka(): Promise<void> {
-  // The photographic plate is asked for first, at the width this device will
-  // use, so it is decoded by the time the environment mounts under the UI.
+  // The world's plate (the official key art on the sign-in page) is asked for
+  // first, at the width this device will draw it, so it is decoded by the
+  // time the environment mounts under the UI.
   const world = firstWorld();
   if (world) preloadPlate(PLATES[world]);
 

@@ -27,6 +27,10 @@
  * Motion: a tile lifts (transform) and its glow fades in (opacity) on hover
  * or focus. Nothing moves under prefers-reduced-motion or on the 'still'
  * capability tier (data-still on the root).
+ *
+ * Loading: eager at low fetch priority. The wall sits far below the fold,
+ * but the files are small (≈350 KB in all, cached after the first page), and
+ * a lazy load leaves empty plates in a print or a full-page capture.
  */
 import type { CSSProperties } from 'react';
 import { useReducedMotion } from 'motion/react';
@@ -45,25 +49,46 @@ type Variant = 'footer' | 'gateway';
 
 /** The gold mount, the plate (the tile's own colour), and the file as supplied. */
 function LogoTile({ src, tile }: { src?: string; tile: SponsorTile }) {
-  const plate = { '--pk-tile-bg': tile.background } as CSSProperties;
+  const plate = {
+    '--pk-tile-bg': tile.background,
+    ...(tile.inset ? { '--pk-tile-inset': `${tile.inset}%` } : null),
+  } as CSSProperties;
   return (
     <span className="pk-sponsor-mount" data-tone={tile.tone} aria-hidden="true">
       <span className="pk-sponsor-plate" data-fit={tile.fit} style={plate}>
         {src
-          ? <img className="pk-sponsor-logo" src={src} alt="" aria-hidden="true" draggable={false} loading="lazy" decoding="async" />
+          ? (
+            <img
+              className="pk-sponsor-logo"
+              src={src}
+              alt=""
+              aria-hidden="true"
+              draggable={false}
+              loading="eager"
+              fetchPriority="low"
+              decoding="async"
+            />
+          )
           : <span className="pk-sponsor-blank" />}
       </span>
     </span>
   );
 }
 
-/** One partner: its tile, its name beneath; a link when the partner has a url. */
-function Sponsor({ partner, src, tile, featured = false }: { partner: Partner; src?: string; tile: SponsorTile; featured?: boolean }) {
-  const className = `pk-sponsor${featured ? ' is-featured' : ''}`;
+/**
+ * One partner: its tile, and its name beneath (or, featured, beside it under
+ * the published role); a link when the partner has a url.
+ */
+function Sponsor({ partner, src, tile, role }: { partner: Partner; src?: string; tile: SponsorTile; role?: string }) {
+  const className = `pk-sponsor${role ? ' is-featured' : ''}`;
+  // "MetaCTF · Skillbit" breaks after the dot, never before it.
+  const name = <span className="pk-sponsor-name">{partner.name.replace(/ · /g, '\u00a0· ')}</span>;
   const body = (
     <>
       <LogoTile src={src} tile={tile} />
-      <span className="pk-sponsor-name">{partner.name}</span>
+      {role
+        ? <span className="pk-sponsor-text"><span className="pk-partners-role">{role}</span>{name}</span>
+        : name}
     </>
   );
   return partner.url
@@ -89,12 +114,11 @@ function Featured({ partner }: { partner: Partner }) {
   const featured = FEATURED_SPONSORS[partner.name];
   return (
     <div className="pk-partners-featured">
-      <p className="pk-partners-role">{partner.role}</p>
       <Sponsor
         partner={partner}
         src={featured?.src ?? partner.logo}
         tile={featured?.tile ?? SPONSOR_TILES[partner.name] ?? DEFAULT_TILE}
-        featured
+        role={partner.role}
       />
     </div>
   );
@@ -114,7 +138,8 @@ function InstitutionalMarkFigure({ mark }: { mark: InstitutionalMark }) {
           alt=""
           aria-hidden="true"
           draggable={false}
-          loading="lazy"
+          loading="eager"
+          fetchPriority="low"
           decoding="async"
         />
         <figcaption className="pk-inst-name">{mark.name}</figcaption>
@@ -196,8 +221,10 @@ export default function PartnerStrip({ variant = 'footer' }: { variant?: Variant
   if (variant === 'gateway') {
     return (
       <section className="pk-partners pk-partners-gateway" aria-label="Organiser and partners" data-still={still ? 'true' : undefined}>
-        <InstitutionalPlate />
-        {association.map(p => <Featured key={p.name} partner={p} />)}
+        <div className="pk-partners-honours">
+          <InstitutionalPlate />
+          {association.map(p => <Featured key={p.name} partner={p} />)}
+        </div>
         <div className="pk-partners-field">
           <p className="pk-partners-heading" aria-hidden="true">Partners</p>
           <SponsorGrid partners={field} />
@@ -220,7 +247,8 @@ export default function PartnerStrip({ variant = 'footer' }: { variant?: Variant
           width={53}
           height={44}
           draggable={false}
-          loading="lazy"
+          loading="eager"
+          fetchPriority="low"
           decoding="async"
         />
         <span className="pk-partners-crest-line" />

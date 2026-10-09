@@ -972,9 +972,10 @@ export default function App() {
                   joins in. */}
               {pinaka && (
                 <span
-                  className={`badge badge-neon shrink-0 ${profile?.is_admin ? 'hidden 2xl:inline-flex' : 'hidden xl:inline-flex'}`}
+                  className={`badge badge-neon pk-nav-badge shrink-0 ${profile?.is_admin ? 'hidden 2xl:inline-flex' : 'hidden xl:inline-flex'}`}
                   title="Pinaka CTF 2026 · Scoring platform by CyberHX"
                 >
+                  <span className="pk-nav-compass" aria-hidden="true" />
                   Pinaka CTF
                 </span>
               )}

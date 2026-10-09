@@ -95,7 +95,7 @@ export const PLATES: Record<PlateKey, Plate> = {
     alt: "Mist rolling over layered forested hills of the Western Ghats at Agumbe, seen through foreground foliage",
     focal: { x: 0.55, y: 0.45 },
     // The light falls from the bright haze above the far ridge.
-    sun: { x: 0.5, y: -0.06 },
+    sun: { x: 0.5, y: -0.22 },
     credit: {
       title: "Mystic Layers of Agumbe",
       author: "Pradyumnakp",
@@ -113,7 +113,7 @@ export const PLATES: Record<PlateKey, Plate> = {
     alt: "The chain of limestone shoals between Dhanushkodi and Mannar island, photographed from the International Space Station",
     focal: { x: 0.46, y: 0.42 },
     // Seen from orbit there is no horizon: the light comes down from above.
-    sun: { x: 0.62, y: -0.12 },
+    sun: { x: 0.62, y: -0.26 },
     credit: {
       title: "Limestone shoals between mainland India and Sri Lanka",
       author: "NASA / ISS Expedition 71",
