@@ -6,7 +6,14 @@
    to it is untouched.
 
    Scoped to html[data-theme="pinaka"]. Nothing here moves except the lamps,
-   which breathe by opacity, and that stops under prefers-reduced-motion.
+   which breathe by opacity, and the one slow push into the photograph on the
+   high tier (transform only, once); both stop under prefers-reduced-motion.
+
+   Layers inside the column, bottom to top:
+     .pk-gateway-plate   the hero photograph, clipped and feathered, with its
+                         dark gradients from the top and the left
+     .pk-gateway-scene   the stone: sun, horizon, pillars, arch, lamps
+     .pk-gateway-body    the words
    ========================================================================== */
 
 /* ── Column ───────────────────────────────────────────────────────────────── */
@@ -28,6 +35,67 @@ html[data-theme="pinaka"] .pk-gateway-body {
   z-index: 1;
   /* Inside the pillars (56px each plus a breath), under the arch. */
   padding: 8.5rem 4.75rem 1.5rem 4.75rem;
+}
+
+/* ── The plate: Hampi at dusk, behind the stone ──────────────────────────── */
+/* Absolute inside the column, so it sizes nothing and never reaches the form
+   column. Clipped to the column; the mask feathers its four edges so the
+   photograph dissolves into the page before the pillars rather than ending
+   in a hard rectangle. The same mask fades the overlays with it. */
+html[data-theme="pinaka"] .pk-gateway-plate {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask-image:
+    linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent),
+    linear-gradient(180deg, transparent, #000 5%, #000 88%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent),
+    linear-gradient(180deg, transparent, #000 5%, #000 88%, transparent);
+  mask-composite: intersect;
+}
+html[data-theme="pinaka"] .pk-gateway-plate img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  /* object-position and transform-origin are the plate's focal point, set
+     inline by the component from the manifest. */
+  opacity: 0;
+  transition: opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+html[data-theme="pinaka"] .pk-gateway-plate[data-ready="true"] img { opacity: 1; }
+/* The readability guarantee: dark from the top (the lockup) and from the
+   left (every line of text), lightest at the lower right where only the
+   photograph is. Tuned by measurement against the parchment, the secondary
+   and the gold-deep label colours; the lowest point under any text is the
+   fact labels, and they clear 4.5:1 with margin. */
+html[data-theme="pinaka"] .pk-gateway-plate::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(6, 8, 16, 0.9) 0%, rgba(6, 8, 16, 0.8) 40%, rgba(6, 8, 16, 0.52) 72%, rgba(6, 8, 16, 0.24) 100%),
+    linear-gradient(180deg, rgba(6, 8, 16, 0.84) 0%, rgba(6, 8, 16, 0.42) 28%, rgba(6, 8, 16, 0.38) 52%, rgba(6, 8, 16, 0.62) 66%, rgba(6, 8, 16, 0.8) 76%, rgba(6, 8, 16, 0.92) 100%);
+}
+/* The slow push in: high tier only (data-drift="on" is set by the component
+   from the capability tier), once, transform only. The final frame is the
+   identity, so dropping the animation when it ends (data-drift="done", with
+   the will-change) changes nothing on screen. */
+@keyframes pk-gateway-plate-drift {
+  from { transform: scale(1.06); }
+  to   { transform: scale(1); }
+}
+html[data-theme="pinaka"] .pk-gateway-plate[data-drift="on"][data-ready="true"] img {
+  will-change: transform;
+  animation: pk-gateway-plate-drift 40s linear forwards;
 }
 
 /* ── Dawn: an ellipse of warm light low behind the horizon ───────────────── */
@@ -213,7 +281,20 @@ html[data-theme="pinaka"] .pk-gateway-fact:first-child { border-top-color: var(-
 html[data-theme="pinaka"] .pk-gateway-fact dt { color: var(--pk-gold-deep); }
 html[data-theme="pinaka"] .pk-gateway-fact dd { margin: 0; }
 
-/* ── Reduced motion: the lamps hold still ────────────────────────────────── */
+/* ── Reduced motion: the lamps hold still, the photograph does not move ──── */
 @media (prefers-reduced-motion: reduce) {
   html[data-theme="pinaka"] .pk-gateway-lamp { animation: none; opacity: 0.9; }
+  html[data-theme="pinaka"] .pk-gateway-plate img {
+    transition: none;
+    animation: none;
+    will-change: auto;
+    transform: none;
+  }
+}
+
+/* ── Forced colours: no photograph under CanvasText ──────────────────────── */
+/* core.css turns the foil lockup into CanvasText here; a photograph behind it
+   would have no overlay (author backgrounds are dropped), so it goes. */
+@media (forced-colors: active) {
+  html[data-theme="pinaka"] .pk-gateway-plate { display: none; }
 }

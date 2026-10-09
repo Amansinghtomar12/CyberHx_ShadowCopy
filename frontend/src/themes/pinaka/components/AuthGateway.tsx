@@ -22,11 +22,84 @@
  *   viewport. Only horizontal and vertical geometry stretches, and every
  *   stroke is non-scaling, so nothing reads as distorted. The sun and the
  *   lamps are CSS gradients (no filters). Styles in styles/gateway.css.
+ *
+ * THE PLATE
+ *   Behind the stone, the hero photograph (assets/plates: Hampi at dusk, the
+ *   Virupaksha tower lower-left): a same-origin <img> covering the column,
+ *   positioned on the plate's focal point, clipped to the column and
+ *   feathered at its edges so it never reads as a pasted rectangle. Two dark
+ *   gradients lie over it, from the top and from the left, where the words
+ *   are: the lockup, the taglines and the fact rows measure >= 4.5:1 against
+ *   whatever the photograph puts behind them (see docs/pinaka/TEST_RESULTS).
+ *   On the high tier only, the image drifts once: scale 1.06 -> 1 over 40 s,
+ *   transform only, and the will-change is dropped when it ends. Nothing
+ *   moves under reduced motion or on the 'still' tier. The form column is
+ *   untouched: the plate is absolute inside this column and sizes nothing.
  */
+import { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
+import { getCapability } from '../../../components/environment/performance';
 import { PINAKA_EVENT } from '../config';
+import { PLATES } from '../assets/plates';
+import { plateFocal, plateSource } from '../assets/plates/sources';
 import { Eyebrow } from './BowMotifs';
 import PartnerStrip from './PartnerStrip';
+
+/** Reduced motion from either source: the OS preference or the player's dial. */
+function useStill(): boolean {
+  const reduce = useReducedMotion() ?? false;
+  return reduce || getCapability().tier === 'still';
+}
+
+/* ── Plate: the photograph behind the gate ──────────────────────────────── */
+/**
+ * Decorative (alt="", aria-hidden), never draggable, decoded off the main
+ * thread, fetched eagerly because it is the first thing on the page. It
+ * fades in once loaded (the attribute, so a cached image that completed
+ * before React listened still counts); the drift runs once, on the high
+ * tier, and the animation and its will-change are dropped when it ends.
+ */
+function HeroPlate({ still }: { still: boolean }) {
+  const plate = PLATES.hero;
+  const source = plateSource(plate);
+  const focal = plateFocal(plate);
+  const img = useRef<HTMLImageElement>(null);
+  const [ready, setReady] = useState(false);
+  const [drifted, setDrifted] = useState(false);
+  const drift = !still && getCapability().tier === 'high';
+
+  useEffect(() => {
+    const el = img.current;
+    if (el && el.complete && el.naturalWidth > 0) setReady(true);
+  }, []);
+
+  return (
+    <div
+      className="pk-gateway-plate"
+      aria-hidden="true"
+      data-ready={ready ? 'true' : 'false'}
+      data-drift={drift ? (drifted ? 'done' : 'on') : 'off'}
+    >
+      <img
+        ref={img}
+        src={source.src}
+        srcSet={source.srcSet}
+        sizes={source.sizes}
+        width={plate.width}
+        height={plate.height}
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+        decoding="async"
+        loading="eager"
+        fetchPriority="high"
+        style={{ objectPosition: focal, transformOrigin: focal }}
+        onLoad={() => setReady(true)}
+        onAnimationEnd={() => setDrifted(true)}
+      />
+    </div>
+  );
+}
 
 /* ── Pillar: shaft, three flutes, stepped capital, stepped base ─────────── */
 /* viewBox 60 wide × 1000 tall; the component stretches it to the column. */
@@ -113,10 +186,14 @@ const FACTS: readonly { label: string; value: string }[] = [
 
 export default function AuthGateway() {
   const reduce = useReducedMotion();
+  const still = useStill();
   const ease = [0.22, 1, 0.36, 1] as const;
 
   return (
     <div className="pk-gateway relative flex flex-1 flex-col">
+      {/* ── The photograph, under everything, clipped to this column ── */}
+      <HeroPlate still={still} />
+
       {/* ── The entrance: all decoration, none of it reachable ── */}
       <div className="pk-gateway-scene" aria-hidden="true">
         <span className="pk-gateway-sun" />
@@ -165,7 +242,7 @@ export default function AuthGateway() {
 
         {/* The organiser and the partners, at the foot of the gate. */}
         <motion.div
-          className="mt-auto pt-10"
+          className="mt-auto pt-8"
           initial={reduce ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.6, ease, delay: reduce ? 0 : 0.45 }}

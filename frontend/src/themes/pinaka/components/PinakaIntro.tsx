@@ -22,6 +22,15 @@
  *   title lockup → the partner line → the one action, which takes focus.
  *   Reduced motion and the 'still' tier skip straight to the finished frame.
  *
+ * THE PLATE
+ *   Behind the city, dim: the hero photograph (assets/plates, Hampi at dusk)
+ *   as a same-origin <img> covering the viewport, under every skyline layer,
+ *   washed dark across the middle where the words are and dissolved at the
+ *   edges by a radial mask (no blur filter). It fades in over 1.2 s from
+ *   mount, with the first beat; the still path shows it at rest from the
+ *   first frame. Only the bundled URL strings come from the manifest: no
+ *   image data is inlined in this chunk.
+ *
  * Motion is transform, opacity and SVG path length only. The haze is a
  * gradient, never a blur: there is no filter on any full-screen layer.
  */
@@ -30,6 +39,8 @@ import { motion, useReducedMotion } from 'motion/react';
 import { getCapability } from '../../../components/environment/performance';
 import { PINAKA_EVENT } from '../config';
 import { PINAKA_STORAGE_KEYS } from '../keys';
+import { PLATES } from '../assets/plates';
+import { plateFocal, plateSource } from '../assets/plates/sources';
 // Whether to play at all is decided by ../intro-gate (shouldShowIntro), which
 // the app can read without downloading this chunk.
 
@@ -41,6 +52,7 @@ import { PINAKA_STORAGE_KEYS } from '../keys';
  * finished arriving by 4.35 s.
  */
 const T = {
+  plate: 0,
   horizon: 0.1,
   glow: 0.3,
   skylineFar: 0.7,
@@ -73,6 +85,56 @@ const EASE = [0.22, 1, 0.36, 1] as const;
 function useStill(): boolean {
   const reduce = useReducedMotion() ?? false;
   return reduce || getCapability().tier === 'still';
+}
+
+/* ── The plate ───────────────────────────────────────────────────────────── */
+
+/**
+ * The photograph behind the city. Decorative (alt="", aria-hidden), never
+ * draggable, decoded off the main thread, fetched eagerly because it is the
+ * first thing on screen. The wrapper carries the timeline's fade; the image
+ * itself fades up once it has loaded (the attribute, so a cached file that
+ * completed before React listened still counts), so a late arrival never
+ * pops. Under `still` both happen at once and at rest.
+ */
+function Plate({ still }: { still: boolean }) {
+  const plate = PLATES.hero;
+  const source = plateSource(plate);
+  const focal = plateFocal(plate);
+  const img = useRef<HTMLImageElement>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const el = img.current;
+    if (el && el.complete && el.naturalWidth > 0) setReady(true);
+  }, []);
+
+  return (
+    <motion.div
+      className="pk-intro-plate"
+      data-ready={ready ? 'true' : 'false'}
+      initial={still ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={still ? { duration: 0 } : { delay: T.plate, duration: 1.2, ease: 'easeOut' }}
+    >
+      <img
+        ref={img}
+        src={source.src}
+        srcSet={source.srcSet}
+        sizes={source.sizes}
+        width={plate.width}
+        height={plate.height}
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+        decoding="async"
+        loading="eager"
+        fetchPriority="high"
+        style={{ objectPosition: focal }}
+        onLoad={() => setReady(true)}
+      />
+    </motion.div>
+  );
 }
 
 /* ── Skyline geometry ────────────────────────────────────────────────────── */
@@ -277,6 +339,7 @@ export default function PinakaIntro({ onDone }: { onDone: () => void }) {
   return (
     <div
       className={`pk-intro${leaving ? ' is-leaving' : ''}`}
+      data-still={still ? 'true' : undefined}
       role="dialog"
       aria-modal="false"
       aria-label="Welcome to Pinaka CTF"
@@ -288,8 +351,10 @@ export default function PinakaIntro({ onDone }: { onDone: () => void }) {
       <button type="button" className="btn btn-ghost btn-sm pk-intro-skip" onClick={leave} aria-label="Skip the introduction">
         Skip
       </button>
-      {/* ── Scene: sky, horizon, the city rising. Decoration only. ── */}
+      {/* ── Scene: the photograph, sky, horizon, the city rising. Decoration only. ── */}
       <div className="pk-intro-scene" aria-hidden="true">
+        <Plate still={still} />
+
         <motion.div
           className="pk-intro-glow"
           initial={still ? false : { opacity: 0 }}

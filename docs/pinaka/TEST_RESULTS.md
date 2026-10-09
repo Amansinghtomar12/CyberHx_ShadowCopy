@@ -205,6 +205,45 @@ Text colours against the three surfaces they appear on. The ground is
 Two tokens were raised during the review to get here: `--color-text-faint`
 (was 3.5:1) and `--color-status-locked` (was 3.4:1 on its wash).
 
+### Contrast over the photographic plates (measured on screenshots) — 2026-10-09
+
+Method: the harness scene is run through `runScene` at 1440×900, the text
+layer is hidden with `visibility: hidden` once the plate reports
+`data-ready="true"`, the bare backdrop is screenshotted, and every pixel under
+each text element's bounding box is compared (PIL, WCAG relative luminance)
+with that element's own computed colour. The minimum is the number reported.
+The gateway was measured twice: during the drift (~3 s in, scale 1.054) and
+under `prefers-reduced-motion` (the resting transform, which is also the
+state after the 40 s drift has ended).
+
+| Screen | Element (colour) | min during drift | min at rest |
+|---|---|---|---|
+| Sign-in hero | "The Gateway to Ayodhya" eyebrow (gold-deep `#c49a45`) | 7.29 | 7.35 |
+| Sign-in hero | पिनाक (gold-soft) | 12.39 | 12.40 |
+| Sign-in hero | PINAKA (foil; measured against parchment `#f3e8d1`) | 13.80 | 13.94 |
+| Sign-in hero | CTF 2026 (gold-deep) | 7.29 | 7.29 |
+| Sign-in hero | tagline (parchment) | 12.81 | 12.95 |
+| Sign-in hero | secondary tagline (text-secondary `#cdc0a6`) | 8.36 | 8.55 |
+| Sign-in hero | fact labels (gold-deep), three rows | 7.07–7.29 | 7.05–7.28 |
+| Sign-in hero | fact values (parchment), three rows | 10.92–12.75 | 10.62–12.88 |
+| Sign-in hero | partner plate: eyebrow (gold-deep, over the dawn glow) | **4.69** | **4.70** |
+| Sign-in hero | partner plate: organiser line / marks / platform line / credits | 7.10 / 6.13 / 6.79 / 7.06 | 7.24 / 6.18 / 6.84 / 7.06 |
+| Intro | पिनाक / CTF 2026 / tagline / platform line / Skip | 11.26 / 10.25 / 9.42 / **6.10** / 10.67 | — (same frame) |
+
+Every line clears 4.5:1 in its own colour; the lowest point is the gold-deep
+eyebrow at the top of the partner plate, which sits on the existing dawn
+glow as well as the photograph. The drift state was also read from the DOM:
+`data-drift="on"`, `animation-name: pk-gateway-plate-drift`,
+`will-change: transform`, `matrix(1.0538, …)` at 3 s; `data-drift="done"`,
+`animation-name: none`, `will-change: auto`, `transform: none` at 44.5 s;
+under reduced motion `data-drift="off"` from the first frame with the plate
+at opacity 1. The default theme was re-shot (`auth-login`, `board-live`,
+desktop) after the change: zero `pk-*` elements, zero plate images and zero
+theme stylesheet or preload links in its DOM, and the pixel difference
+against the previous run (4.8 % / 2.1 %) equals the run-to-run noise of two
+consecutive default-theme runs (4.9 % / 2.1 %: the animated hero radar and
+the lattice).
+
 ### Keyboard and focus (automated, on the mock)
 
 Sixteen automated checks (Playwright, mock backend, desktop), all passing on the final commit:

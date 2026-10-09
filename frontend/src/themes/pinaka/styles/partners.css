@@ -1,7 +1,8 @@
 /* ============================================================================
    PINAKA — PARTNERS
    Organiser and partner recognition: text, hairlines and small diamonds.
-   Two shapes — a compact footer row and a small plate for the sign-in hero.
+   Two shapes — a compact footer row and a small plate for the sign-in hero —
+   and, under both, the photographs' credit line (.pk-partners-credits).
    Nothing here moves. Scoped to html[data-theme="pinaka"].
    ========================================================================== */
 
@@ -162,7 +163,54 @@ html[data-theme="pinaka"] .pk-partners-platform {
   color: var(--color-text-muted);
 }
 
+/* ── The photographs' credit line ──────────────────────────────────────── */
+/* One inline run in the small muted mono of the platform line. It wraps at
+   spaces (two lines on a desktop, a short paragraph on a phone); nothing is
+   truncated, because the CC BY-SA deeds ask for the whole attribution. The
+   links keep the text colour and show as underlines, gold on hover. */
+html[data-theme="pinaka"] .pk-partners-credits {
+  margin: 0;
+  max-width: 78rem;
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  line-height: 1.7;
+  color: var(--color-text-muted);
+  text-align: center;
+  text-wrap: pretty;
+}
+html[data-theme="pinaka"] .pk-partners-credits-label {
+  color: var(--color-text-secondary);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+html[data-theme="pinaka"] .pk-partners-credits-sep {
+  display: inline-block;
+  margin: 0 0.5em;
+  color: var(--pk-gold-deep);
+}
+html[data-theme="pinaka"] .pk-partners-credit-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--pk-gold-line);
+  text-underline-offset: 3px;
+  border-radius: 2px;
+}
+html[data-theme="pinaka"] .pk-partners-credit-link:hover {
+  color: var(--pk-gold-soft);
+  text-decoration-color: var(--pk-gold);
+}
+html[data-theme="pinaka"] .pk-partners-footer .pk-partners-credits { padding-top: 0.125rem; }
+/* In the gateway plate the line is the smallest thing there, below the
+   platform line, inside the plate's own width. */
+html[data-theme="pinaka"] .pk-partners-gateway .pk-partners-credits {
+  margin-top: 0;
+  max-width: none;
+  font-size: 0.625rem;
+  line-height: 1.55;
+}
+
 @media (max-width: 639.98px) {
   html[data-theme="pinaka"] .pk-partners-line { flex-direction: column; gap: 0.2rem; }
   html[data-theme="pinaka"] .pk-partners-line .pk-diamond { display: none; }
+  html[data-theme="pinaka"] .pk-partners-credits { line-height: 1.75; }
 }

@@ -45,7 +45,11 @@ Everything in this directory is removable: delete `src/themes/pinaka/`, drop the
 9. **No new dependencies.** React, `motion/react`, `lucide-react` and the
    platform's own modules only. No three.js.
 10. **Security.** No external scripts, no `dangerouslySetInnerHTML`, no remote
-    assets other than Google Fonts (already in the CSP). Inline SVG only.
+    assets other than Google Fonts (already in the CSP). Every drawing is
+    inline SVG (or Canvas 2D); the only raster assets are the same-origin
+    photographic plates in `assets/plates` (WebP, bundled by Vite, `img-src
+    'self'`), credited in the footer's `PartnerStrip` and in
+    `docs/pinaka/ASSETS.md`. No other image file, ever.
 
 ## Public surface
 
@@ -57,6 +61,7 @@ src/themes/pinaka/pinaka.css     stylesheet entry (loaded on demand)
 src/themes/pinaka/styles/*.css   tokens.css, core.css, + one file per component family
 src/themes/pinaka/components/    the components listed below
 src/themes/pinaka/lazy.tsx       React.lazy wrappers for the heavy components
+src/themes/pinaka/assets/plates/ PLATES, PLATE_CREDITS (index.ts); plateSource, plateFocal, preloadPlate (sources.ts); the twelve WebP files
 ```
 
 ## Components (file → default export → props)
@@ -66,11 +71,11 @@ src/themes/pinaka/lazy.tsx       React.lazy wrappers for the heavy components
 | `components/PinakaEnvironment.tsx` | `PinakaEnvironment` | `{ world: World; phase: EventPhase; intensity?: 'subtle' \| 'normal' }` | Fixed full-viewport layer behind `.page-shell` (z-index 0, `pointer-events:none`, `aria-hidden`). Replaces `<AmbientBackground/>` under the theme. Crossfades between worlds. Writes `data-world`/`data-phase` via `useWorldAttributes`. CSS in `styles/environment.css`. |
 | `components/BowMotifs.tsx` | named: `BowLoader`, `BowProgress`, `BowstringCountdown`, `ArrowSolveLight`, `GoldRule`, `Eyebrow`, `CornerFrame` | see file | The signature motif family. CSS in `styles/motifs.css`. |
 | `components/CategoryGlyph.tsx` | named: `PINAKA_CATEGORY_ICON`, `CategoryGlyph` | `Record<string, React.ComponentType<{className?: string}>>` | Ten original 24×24 stroke icons, `currentColor`, drop-in for the Lucide map in App.tsx. |
-| `components/PinakaIntro.tsx` | `PinakaIntro` | `{ onDone: () => void }` | First-visit, skippable, ≤ 4.5 s, non-blocking; the page behind it is `inert`; focus returns to the nav on leave. Whether to play it is `intro-gate.ts#shouldShowIntro()`, which the app reads without downloading this chunk. CSS in `styles/intro.css`. |
+| `components/PinakaIntro.tsx` | `PinakaIntro` | `{ onDone: () => void }` | First-visit, skippable, ≤ 4.5 s, non-blocking; the page behind it is `inert`; focus returns to the nav on leave. Whether to play it is `intro-gate.ts#shouldShowIntro()`, which the app reads without downloading this chunk. The hero plate (`PLATES.hero`) sits dim behind the city — opacity ≈ 0.58 under a wash that is darkest across the middle, edges dissolved by a radial mask, no blur filter — fading in over 1.2 s from mount; the still path shows it at rest; forced colours drop it. Only the plate's URL strings enter this chunk. CSS in `styles/intro.css`. |
 | `components/JourneyMap.tsx` | `JourneyMap` | `{ world: World; phase: EventPhase; progress: number; collapsed?: boolean }` | Narrative overview strip; purely descriptive. Lays itself out by its own width (container query on `.pk-journey-host`): one row from 700px, stacked below, a scrolling map under 560px with the lit station centred. Animations pause while off screen. CSS in `styles/journey.css`. |
-| `components/PartnerStrip.tsx` | `PartnerStrip` | `{ variant?: 'footer' \| 'gateway' }` | Organiser + partner recognition from `config.ts`. |
+| `components/PartnerStrip.tsx` | `PartnerStrip` | `{ variant?: 'footer' \| 'gateway' }` | Organiser + partner recognition from `config.ts`, and under it the photographs' credit line from `assets/plates#PLATE_CREDITS` ("Photographs · title by author (licence) · …", title → source, licence → deed, `rel="noopener noreferrer"`). Present in both variants, never truncated (CC BY-SA asks for it wherever a plate is shown). CSS in `styles/partners.css`. |
 | `components/SetuChain.tsx` | `SetuChain` | same as `ChainExperience`: `{ series: ChainSeriesVM; onOpenChallenge(id); onBack() }` | The bridge-of-stones chain. Same data, same controls as `ChainExperience`. CSS in `styles/setu.css`. |
-| `components/AuthGateway.tsx` | `AuthGateway` | `{}` | The hero column of the sign-in page under the theme. CSS in `styles/gateway.css`. |
+| `components/AuthGateway.tsx` | `AuthGateway` | `{}` | The hero column of the sign-in page under the theme (desktop only; the page hides the column below `lg`). The hero plate is the column's own backdrop: an `<img>` from `plateSource`/`plateFocal`, clipped to the column, feathered at its edges, under the stone and under two dark gradients (from the top and from the left) tuned so the lockup, taglines, fact rows and partner plate measure ≥ 4.5:1 against the photograph. Drifts once on the high tier only (scale 1.06 → 1 over 40 s, transform only, `will-change` dropped when it ends); nothing moves under reduced motion or on 'still'. Sizes nothing, never reaches the form column. CSS in `styles/gateway.css`. |
 | `components/PodiumFrame.tsx` | `PodiumFrame` | `{ rank: 1\|2\|3; children }` | Ornamental frame around the existing podium cards. CSS in `styles/lanka.css`. |
 | `components/ProfileJourney.tsx` | `ProfileJourney` | `{ solves: { title; category; at; points }[] }` | Chronology of real solves on the profile. |
 | `components/ThemeSwitch.tsx` | `ThemeSwitch` | `{}` | Settings → Experience: Pinaka / Classic, per device. |
