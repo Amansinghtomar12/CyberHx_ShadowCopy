@@ -34,9 +34,9 @@ frontend/src/themes/pinaka/components/PodiumFrame.tsx
 frontend/src/themes/pinaka/components/ProfileJourney.tsx
 frontend/src/themes/pinaka/components/ThemeSwitch.tsx
 frontend/src/themes/pinaka/components/journey/geo.ts   journey-map geography: Natural Earth coastlines (public domain), five stations, one road; pure data
-frontend/src/themes/pinaka/assets/plates/index.ts  PLATES / PLATE_CREDITS: the six photographic plates, focal points, licences and sources
+frontend/src/themes/pinaka/assets/plates/index.ts  PLATES / PLATE_CREDITS: the world plates (two official paintings, three licensed photographs), focal and sun points, credits
 frontend/src/themes/pinaka/assets/plates/sources.ts   plateSource / plateFocal / preloadPlate — the one place that picks a plate's file for an <img> or a preload
-frontend/src/themes/pinaka/assets/plates/*.webp    twelve same-origin WebP files (1920×1080 + 960×540 per plate, 552 KB in all; see ASSETS.md)
+frontend/src/themes/pinaka/assets/plates/*.webp    ten same-origin WebP files (1920 + 960 px wide per plate, 817 KB in all; see ASSETS.md)
 frontend/src/themes/pinaka/README.md               module contract
 frontend/src/lib/brand.ts                          tokenValue(): read a CSS token as a literal (charts)
 frontend/qa/visual/{harness,mock,scenes}.cjs, README.md   screenshot harness (dev tool, not shipped)
@@ -74,6 +74,20 @@ hero plate dim behind the city), `components/PartnerStrip.tsx` +
 `styles/journey.css` (the map from `journey/geo.ts`), `boot.ts` (one plate
 preload). No platform file outside the table above changed for it except the
 `personal` prop on `JourneyMap` in `App.tsx`.
+
+### Theme files touched by the official-art round
+
+`assets/plates` (the temple and Lanka paintings as the Ayodhya/hero and
+Lanka plates, the three replaced photographs deleted, a `sun` point per
+plate, `sizes` from the drawn width), `components/PinakaEnvironment.tsx` +
+`styles/environment.css` (plates in full colour with no silhouettes over
+them; god rays and a sun bloom graded per world; the dharma wheel emblem as
+a slowly turning celestial relic; brighter motes, bokeh and embers; veils
+only where the interface is dense), `styles/core.css` (no body image; glass
+panels and sidebar; badges legible on bright art; the nav bar's full-height
+torch-lit corners, stone and compass). In `App.tsx`, only the pinaka-only
+nav badge changed: a `pk-nav-badge` class and an `aria-hidden` compass span
+inside it.
 
 ## Unavoidable deviations from "presentation only"
 

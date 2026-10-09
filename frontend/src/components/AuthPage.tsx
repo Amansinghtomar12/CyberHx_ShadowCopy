@@ -442,7 +442,13 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
               className="hidden lg:flex lg:flex-col min-w-0 relative"
             >
               {pinaka ? (
-                <React.Suspense fallback={null}><AuthGateway /></React.Suspense>
+                <React.Suspense fallback={null}>
+                  <AuthGateway
+                    onRegister={() => { setMode('register'); setError(''); }}
+                    registrationOpen={registrationOpen}
+                    mode={mode}
+                  />
+                </React.Suspense>
               ) : (
               <>
               <BackgroundRadar reduceMotion={reduceMotion} />

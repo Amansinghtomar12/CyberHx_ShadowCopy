@@ -1,18 +1,20 @@
 /* ============================================================================
    PINAKA — INTRO
-   The first-visit curtain: a midnight sky, a horizon that brightens from the
-   centre, a city of shikharas and domes rising in two depths, the bow, the
-   name. Sequencing lives in PinakaIntro.tsx (motion/react, from one timing
-   table); this file is the look, the layout and the two ambient loops.
+   The first-visit curtain: darkness, the event's painting rising out of it,
+   the duel coming forward in full colour, the bow traced in the sky between
+   the two figures, the name. Sequencing lives in PinakaIntro.tsx
+   (motion/react, from one timing table); this file is the look and layout.
 
-   Scoped to html[data-theme="pinaka"]. Only transform and opacity move. No
-   backdrop-filter and no blur anywhere: the haze is gradients, and the
-   photograph's soft edges are a mask. Reduced motion is handled twice over —
-   the component renders the finished frame (and sets data-still), and the
-   loops and transitions below switch off under the media query.
+   Scoped to html[data-theme="pinaka"]. Only transform and opacity move, and
+   nothing loops. No filter, mask, blend or backdrop-filter on any full-screen
+   layer: every soft edge and every darkening is a gradient, so a frame stays
+   cheap to composite. Reduced motion is handled twice over — the component
+   renders the finished frame (and sets data-still), and the transitions
+   below switch off under the media query.
 
-   Scene layers, bottom to top: .pk-intro-plate (the photograph, dim),
-   .pk-intro-glow, the two skyline depths, .pk-intro-horizon, .pk-intro-ground.
+   Scene layers, bottom to top: .pk-intro-plate (the painting, with its
+   vignette), .pk-intro-glow (warm light low in the middle), .pk-intro-duel
+   (the cut-out), .pk-intro-scrim (the darkness the words stand on).
    ========================================================================== */
 
 /* ── The curtain ───────────────────────────────────────────────────────── */
@@ -32,28 +34,36 @@ html[data-theme="pinaka"] .pk-intro.is-leaving {
   opacity: 0;
   pointer-events: none;
 }
+/* The curtain is opaque, so while it is up (and until it starts to leave)
+   the page under it is not painted at all: the app keeps its layout and
+   state (visibility, not display), but its animated environment and the
+   board stop costing a composite every frame behind a wall nobody can see
+   through. On a software renderer that is the difference between about one
+   frame a second and sixty. The moment the curtain starts to fade, the page
+   is painted again and shows through it. */
+html[data-theme="pinaka"]:has(.pk-intro:not(.is-leaving)) :is(.page-shell, .pk-env) {
+  visibility: hidden;
+}
 
 /* ── Scene (decoration, pointer-transparent) ───────────────────────────── */
 html[data-theme="pinaka"] .pk-intro-scene {
   position: absolute;
   inset: 0;
+  overflow: hidden;
   pointer-events: none;
-  /* the horizon's height from the bottom edge, shared by every layer */
-  --pk-intro-ground: clamp(56px, 13vh, 120px);
-  --pk-intro-skyline: clamp(110px, 21vh, 210px);
+  /* The duel's height: the full width of the picture where the screen is
+     wide enough (2400:1160), never less than 46% of a tall phone's height,
+     never more than 86% of a wide screen's (so up to 16:9 it still spans the
+     full width). Its width follows its height. */
+  --pk-intro-duel-h: clamp(46vh, calc(100vw * 0.4833), 86vh);
 }
 
-/* The photograph: Hampi at dusk, under the city, dim. The mask dissolves its
-   edges into the sky (a radial falloff, not a blur), the image sits at a
-   little over half strength once loaded, and the wash over it is darkest
-   across the middle, where the lockup and the lines beneath it stand. The
-   skyline, horizon and ground are drawn over it. */
+/* The painting: the temple city at sunset, in full colour, covering the
+   viewport on its focal point. Its vignette is an overlay, not a mask. */
 html[data-theme="pinaka"] .pk-intro-plate {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  -webkit-mask-image: radial-gradient(82% 78% at 50% 56%, #000 40%, rgba(0, 0, 0, 0.55) 70%, transparent 100%);
-  mask-image: radial-gradient(82% 78% at 50% 56%, #000 40%, rgba(0, 0, 0, 0.55) 70%, transparent 100%);
 }
 html[data-theme="pinaka"] .pk-intro-plate img {
   position: absolute;
@@ -68,136 +78,81 @@ html[data-theme="pinaka"] .pk-intro-plate img {
   user-select: none;
   -webkit-user-drag: none;
 }
-html[data-theme="pinaka"] .pk-intro-plate[data-ready="true"] img { opacity: 0.58; }
+html[data-theme="pinaka"] .pk-intro-plate[data-ready="true"] img { opacity: 1; }
 html[data-theme="pinaka"] .pk-intro-plate::after {
   content: "";
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(46% 44% at 50% 42%, rgba(8, 11, 19, 0.8) 0%, rgba(8, 11, 19, 0.55) 55%, rgba(8, 11, 19, 0) 100%),
-    linear-gradient(180deg, rgba(8, 11, 19, 0.62) 0%, rgba(8, 11, 19, 0.22) 28%, rgba(8, 11, 19, 0.24) 68%, rgba(8, 11, 19, 0.7) 100%);
+    /* the storm sky darker at the top, under Skip and the bow */
+    linear-gradient(180deg, rgba(6, 8, 14, 0.62) 0%, rgba(6, 8, 14, 0.28) 30%, rgba(6, 8, 14, 0.08) 58%, rgba(6, 8, 14, 0.3) 100%),
+    /* the corners fall away */
+    radial-gradient(130% 100% at 50% 60%, rgba(6, 8, 14, 0) 52%, rgba(6, 8, 14, 0.55) 100%);
 }
 
-/* The duel: the official artwork of the archer facing the ten-headed king,
-   in full colour across the foot of the frame. Contained, not cropped, so
-   both figures stand whole at the edges and the title owns the gap between
-   them; a dark pool in the centre keeps the title readable. Only visible at
-   rest; reduced-motion gets it from the start. */
+/* Warm light low in the middle, between the two figures: the painting's sun
+   carried forward a little. Still once it has arrived. */
+html[data-theme="pinaka"] .pk-intro-glow {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 70vh;
+  background:
+    radial-gradient(38% 46% at 50% 92%, rgba(255, 196, 110, 0.3) 0%, rgba(255, 150, 60, 0.12) 46%, transparent 100%);
+}
+
+/* The duel: a transparent cut-out on the bottom edge, centred. As tall as
+   --pk-intro-duel-h; on a portrait phone it is wider than the screen and
+   its outer edges are cropped, so the two figures still face each other. */
 html[data-theme="pinaka"] .pk-intro-duel {
   position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 22%);
-  mask-image: linear-gradient(to bottom, transparent 0%, #000 22%);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--pk-intro-duel-h);
+  transform-origin: 50% 100%;
 }
 html[data-theme="pinaka"] .pk-intro-duel img {
   position: absolute;
-  inset: 0;
-  width: 100%;
+  bottom: 0;
+  left: 50%;
   height: 100%;
+  width: auto;
+  max-width: none;
+  aspect-ratio: 2400 / 1160;
+  transform: translateX(-50%);
   display: block;
-  object-fit: contain;
-  object-position: center bottom;
-  opacity: 0.95;
-  filter: drop-shadow(0 0 40px rgba(240, 120, 40, 0.25));
   user-select: none;
   -webkit-user-drag: none;
 }
-html[data-theme="pinaka"] .pk-intro-duel::after {
-  content: "";
+
+/* Wider than 16:9 (ultra-wide monitors, landscape phones) the picture is
+   narrower than the screen: its two cut edges dissolve into the painting
+   instead of ending on a line. A static mask on the image alone. */
+@media (min-aspect-ratio: 178/100) {
+  html[data-theme="pinaka"] .pk-intro-duel img {
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 9%, #000 91%, transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0%, #000 9%, #000 91%, transparent 100%);
+  }
+}
+
+/* The scrim the words stand on: a soft darkness at the centre, where the bow,
+   the name and the lines under it are, reaching into the inner edges of the
+   two figures (the arrow, the outstretched hand) and no further. */
+html[data-theme="pinaka"] .pk-intro-scrim {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(34% 40% at 50% 46%, rgba(8, 11, 19, 0.72) 0%, rgba(8, 11, 19, 0.35) 60%, transparent 100%),
-    linear-gradient(to top, rgba(8, 11, 19, 0.55) 0%, transparent 18%);
+    radial-gradient(36% 40% at 50% 46%, rgba(6, 8, 14, 0.74) 0%, rgba(6, 8, 14, 0.6) 40%, rgba(6, 8, 14, 0.26) 72%, rgba(6, 8, 14, 0) 100%);
 }
-/* On a phone the pair is shown wider than the screen, cropped to the centre. */
-@media (max-width: 639.98px) {
-  html[data-theme="pinaka"] .pk-intro-duel img { object-fit: cover; object-position: center 70%; }
-}
-
-/* The dawn behind the city: gold haze rising from the horizon, two gradients
-   deep. The core breathes very slowly once the frame is at rest. */
-html[data-theme="pinaka"] .pk-intro-glow {
-  position: absolute;
-  left: -10%;
-  right: -10%;
-  bottom: var(--pk-intro-ground);
-  height: 52vh;
-  background:
-    radial-gradient(62% 58% at 50% 100%, rgba(227, 187, 102, 0.22) 0%, rgba(227, 187, 102, 0.08) 40%, transparent 74%),
-    radial-gradient(120% 40% at 50% 100%, rgba(181, 139, 98, 0.14) 0%, transparent 70%);
-}
-html[data-theme="pinaka"] .pk-intro-glow-core {
-  position: absolute;
-  left: 20%;
-  right: 20%;
-  bottom: 0;
-  height: 40%;
-  background: radial-gradient(50% 70% at 50% 100%, rgba(246, 223, 163, 0.16), transparent 72%);
-  animation: pk-intro-breathe 6s ease-in-out infinite alternate;
-}
-
-/* The two depths of the city share one box, bottom edge on the horizon. */
-html[data-theme="pinaka"] .pk-intro-layer {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: var(--pk-intro-ground);
-  height: var(--pk-intro-skyline);
-}
-html[data-theme="pinaka"] .pk-intro-skyline {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-/* far: hazed stone, barely lighter than the sky */
-html[data-theme="pinaka"] .pk-intro-skyline.is-far {
-  fill: #141628;
-  fill-opacity: 0.92;
-}
-/* near: the dark of the wall, a hairline of light along the roofline */
-html[data-theme="pinaka"] .pk-intro-skyline.is-near {
-  fill: #06080f;
-  stroke: rgba(227, 187, 102, 0.3);
-  stroke-width: 1;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-}
-html[data-theme="pinaka"] .pk-intro-skyline.is-near polyline { vector-effect: non-scaling-stroke; }
-
-/* The horizon: a 1px line that scales out from the centre, with a soft 3px
-   band beneath it standing in for bloom. */
-html[data-theme="pinaka"] .pk-intro-horizon {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: var(--pk-intro-ground);
-  height: 1px;
-  transform-origin: 50% 50%;
-  background: linear-gradient(90deg, transparent, rgba(227, 187, 102, 0.4) 22%, #f6dfa3 50%, rgba(227, 187, 102, 0.4) 78%, transparent);
-}
-html[data-theme="pinaka"] .pk-intro-horizon::after {
-  content: "";
-  position: absolute;
-  left: 10%;
-  right: 10%;
-  top: -1px;
-  height: 3px;
-  background: linear-gradient(90deg, transparent, rgba(246, 223, 163, 0.28) 50%, transparent);
-}
-
-/* The ground below the horizon: dark, falling away. */
-html[data-theme="pinaka"] .pk-intro-ground {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: var(--pk-intro-ground);
-  background: linear-gradient(180deg, #0a0c15 0%, #06080f 100%);
+/* A portrait screen: the words span nearly its width and stand over the
+   brightest band of the sunset, so the scrim is a wide band there. */
+@media (max-aspect-ratio: 4/5) {
+  html[data-theme="pinaka"] .pk-intro-scrim {
+    background:
+      radial-gradient(95% 34% at 50% 44%, rgba(6, 8, 14, 0.8) 0%, rgba(6, 8, 14, 0.68) 48%, rgba(6, 8, 14, 0.3) 78%, rgba(6, 8, 14, 0) 100%);
+  }
 }
 
 /* ── Stage ─────────────────────────────────────────────────────────────── */
@@ -222,7 +177,7 @@ html[data-theme="pinaka"] .pk-intro-bow {
   color: var(--pk-gold);
   margin-bottom: 0.25rem;
 }
-html[data-theme="pinaka"] .pk-intro-bow-haze { opacity: 0.18; }
+html[data-theme="pinaka"] .pk-intro-bow-haze { opacity: 0.22; }
 
 /* The Devanagari name, small, above the roman lockup. The prose face has no
    Devanagari of its own; the system's falls in behind it. */
@@ -232,6 +187,7 @@ html[data-theme="pinaka"] .pk-intro-deva {
   letter-spacing: 0.18em;
   color: var(--pk-gold-soft);
   margin-bottom: 0.35rem;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.8);
 }
 html[data-theme="pinaka"] .pk-intro-title {
   font-family: var(--pk-font-display);
@@ -242,6 +198,8 @@ html[data-theme="pinaka"] .pk-intro-title {
   /* the trailing tracking would otherwise push the word off-centre */
   padding-left: 0.16em;
   margin: 0 0 0.9rem;
+  /* the foil separated from the art by a dark lift, warmed by a trace of glow */
+  filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.8)) drop-shadow(0 0 26px rgba(255, 196, 102, 0.3));
 }
 html[data-theme="pinaka"] .pk-intro-meta {
   /* .pk-eyebrow from core.css; a touch larger here, it is the subtitle */
@@ -249,23 +207,26 @@ html[data-theme="pinaka"] .pk-intro-meta {
   letter-spacing: 0.4em;
   color: var(--pk-gold);
   margin-bottom: 1.1rem;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.85);
 }
 html[data-theme="pinaka"] .pk-intro-tagline {
   font-family: var(--pk-font-prose);
   font-style: italic;
   font-size: clamp(1.0625rem, 2vw, 1.25rem);
   line-height: 1.4;
-  color: var(--color-text-secondary);
+  color: #ecdfc4;
   max-width: 34ch;
   margin: 0 0 0.6rem;
   text-wrap: balance;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 16px rgba(0, 0, 0, 0.8);
 }
 html[data-theme="pinaka"] .pk-intro-platform {
   font-family: var(--font-mono);
   font-size: 0.75rem;
   letter-spacing: 0.06em;
-  color: var(--color-text-muted);
+  color: #c9bfae;
   margin: 0 0 1.6rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95), 0 0 12px rgba(0, 0, 0, 0.85);
 }
 html[data-theme="pinaka"] .pk-intro-action { display: flex; }
 html[data-theme="pinaka"] .pk-intro-action .btn-primary {
@@ -278,23 +239,15 @@ html[data-theme="pinaka"] .pk-intro-skip {
   top: calc(1rem + env(safe-area-inset-top, 0px));
   right: calc(1rem + env(safe-area-inset-right, 0px));
   z-index: 2;
-  color: var(--color-text-secondary);
+  color: #ecdfc4;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
 }
 html[data-theme="pinaka"] .pk-intro-skip:hover:not(:disabled) { color: var(--pk-parchment); }
 
-/* ── Loops ─────────────────────────────────────────────────────────────── */
-@keyframes pk-intro-breathe {
-  from { opacity: 0.55; }
-  to   { opacity: 1; }
-}
-
-/* ── Short viewports (landscape phones): tighter stack, lower city ─────── */
+/* ── Short viewports (landscape phones): a tighter stack ───────────────── */
 @media (max-height: 560px) {
-  html[data-theme="pinaka"] .pk-intro-scene {
-    --pk-intro-ground: 36px;
-    --pk-intro-skyline: 90px;
-  }
-  html[data-theme="pinaka"] .pk-intro-stage { padding-bottom: 110px; padding-top: 3rem; }
+  html[data-theme="pinaka"] .pk-intro-scene { --pk-intro-duel-h: 78vh; }
+  html[data-theme="pinaka"] .pk-intro-stage { padding-bottom: 2.5rem; padding-top: 3rem; }
   html[data-theme="pinaka"] .pk-intro-bow { width: 120px; }
   html[data-theme="pinaka"] .pk-intro-title { margin-bottom: 0.5rem; }
   html[data-theme="pinaka"] .pk-intro-tagline { display: none; }
@@ -303,13 +256,11 @@ html[data-theme="pinaka"] .pk-intro-skip:hover:not(:disabled) { color: var(--pk-
 /* ── Reduced motion: the finished frame, still ─────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   html[data-theme="pinaka"] .pk-intro { transition: none; }
-  html[data-theme="pinaka"] .pk-intro-glow-core { animation: none; opacity: 1; }
   html[data-theme="pinaka"] .pk-intro-plate img { transition: none; }
 }
 /* The same stillness when the player turned effects off in Settings
    (data-still, set by the component from the capability tier). */
 html[data-theme="pinaka"] .pk-intro[data-still="true"] { transition: none; }
-html[data-theme="pinaka"] .pk-intro[data-still="true"] .pk-intro-glow-core { animation: none; opacity: 1; }
 html[data-theme="pinaka"] .pk-intro[data-still="true"] .pk-intro-plate img { transition: none; }
 
 /* ── Forced colours: no photograph under CanvasText ────────────────────── */
@@ -317,5 +268,6 @@ html[data-theme="pinaka"] .pk-intro[data-still="true"] .pk-intro-plate img { tra
    background is dropped with every other author background, so the plate
    would sit bare under the words. It goes. */
 @media (forced-colors: active) {
-  html[data-theme="pinaka"] .pk-intro-plate { display: none; }
+  html[data-theme="pinaka"] .pk-intro-plate,
+  html[data-theme="pinaka"] .pk-intro-duel { display: none; }
 }
