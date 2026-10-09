@@ -70,7 +70,6 @@ src/themes/pinaka/lazy.tsx       React.lazy wrappers for the heavy components
 | `components/JourneyMap.tsx` | `JourneyMap` | `{ world: World; phase: EventPhase; progress: number; collapsed?: boolean }` | Narrative overview strip; purely descriptive. CSS in `styles/journey.css`. |
 | `components/PartnerStrip.tsx` | `PartnerStrip` | `{ variant?: 'footer' \| 'gateway' }` | Organiser + partner recognition from `config.ts`. |
 | `components/SetuChain.tsx` | `SetuChain` | same as `ChainExperience`: `{ series: ChainSeriesVM; onOpenChallenge(id); onBack() }` | The bridge-of-stones chain. Same data, same controls as `ChainExperience`. CSS in `styles/setu.css`. |
-| `components/WorldBanner.tsx` | `WorldBanner` | `{ world; phase; status; eventName?; startTime?; endTime?; paused? }` | Chapter plate above `CommandHeader` with the bowstring countdown. |
 | `components/AuthGateway.tsx` | `AuthGateway` | `{}` | The hero column of the sign-in page under the theme. CSS in `styles/gateway.css`. |
 | `components/PodiumFrame.tsx` | `PodiumFrame` | `{ rank: 1\|2\|3; children }` | Ornamental frame around the existing podium cards. CSS in `styles/lanka.css`. |
 | `components/ProfileJourney.tsx` | `ProfileJourney` | `{ solves: { title; category; at; points }[] }` | Chronology of real solves on the profile. |

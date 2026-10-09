@@ -15,7 +15,6 @@ import React from 'react';
 export const PinakaEnvironment = React.lazy(() => import('./components/PinakaEnvironment'));
 export const PinakaIntro = React.lazy(() => import('./components/PinakaIntro'));
 export const JourneyMap = React.lazy(() => import('./components/JourneyMap'));
-export const WorldBanner = React.lazy(() => import('./components/WorldBanner'));
 export const PartnerStrip = React.lazy(() => import('./components/PartnerStrip'));
 export const AuthGateway = React.lazy(() => import('./components/AuthGateway'));
 export const PodiumFrame = React.lazy(() => import('./components/PodiumFrame'));

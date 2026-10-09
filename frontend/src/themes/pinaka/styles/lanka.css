@@ -127,6 +127,14 @@ html[data-theme="pinaka"] .pk-podium-bow {
   opacity: 0.9;
 }
 
+/* ── Phones: the podium stacks, and each cartouche needs headroom ────────── */
+/* The cartouche straddles the top edge of a frame that already sits 7px
+   outside its card; stacked at the grid's own gap the numeral lands on the
+   frame above. A little margin on every wrapper keeps the three apart. */
+@media (max-width: 639.98px) {
+  html[data-theme="pinaka"] .pk-podium { margin-top: 0.75rem; }
+}
+
 /* ── Reduced motion: the sheen holds still ───────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   html[data-theme="pinaka"] .pk-podium-sheen { animation: none; opacity: 0; }

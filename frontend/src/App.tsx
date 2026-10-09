@@ -84,7 +84,7 @@ import AdminThemeControl from './themes/AdminThemeControl';
 import { deriveWorld, derivePhase } from './themes/pinaka/hooks';
 import { shouldShowIntro } from './themes/pinaka/intro-gate';
 import {
-  PinakaEnvironment, PinakaIntro, JourneyMap, WorldBanner, PartnerStrip, ArrowSolveLight,
+  PinakaEnvironment, PinakaIntro, JourneyMap, PartnerStrip, ArrowSolveLight,
 } from './themes/pinaka/lazy';
 import { buildB2RBoxVM, buildB2RSeriesVM } from './components/b2r/b2rModel';
 
@@ -942,7 +942,7 @@ export default function App() {
                 {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
 
-              <h1 className="min-w-0">
+              <h1 className="shrink-0">
                 <button
                   type="button"
                   className="group flex items-center gap-2.5 focus-ring rounded-inset"
@@ -954,8 +954,15 @@ export default function App() {
                   <span className="hidden sm:inline text-h3 tracking-tight text-cyber-text">CYBERHX</span>
                 </button>
               </h1>
+              {/* Event skin: the event's name beside the platform's. Only where
+                  the header has room for it — the admins' row carries two
+                  more controls, so it needs a wider screen before the badge
+                  joins in. */}
               {pinaka && (
-                <span className="badge badge-neon hidden md:inline-flex shrink-0" title="Pinaka CTF 2026 · Scoring platform by CyberHX">
+                <span
+                  className={`badge badge-neon shrink-0 ${profile?.is_admin ? 'hidden 2xl:inline-flex' : 'hidden xl:inline-flex'}`}
+                  title="Pinaka CTF 2026 · Scoring platform by CyberHX"
+                >
                   Pinaka CTF
                 </span>
               )}
@@ -1049,6 +1056,12 @@ export default function App() {
                     <button onClick={() => { setCurrentView('admin'); setMobileMenuOpen(false); }} className={`flex items-center gap-3 rounded-control px-3 py-3 text-label uppercase transition-colors ${currentView === 'admin' ? 'bg-surface-raised text-cyber-neon' : 'text-text-secondary hover:bg-surface-card hover:text-cyber-text'}`}>
                       <SettingsIcon className="w-4 h-4" /> Admin
                     </button>
+                  )}
+                  {/* The organisers' switch for the event skin, in reach on a phone too. */}
+                  {profile?.is_admin && (
+                    <div className="mt-1 px-3 py-2">
+                      <AdminThemeControl variant="nav" />
+                    </div>
                   )}
 
                   <p className="label-micro mt-6 mb-2">Account</p>
@@ -1223,19 +1236,6 @@ export default function App() {
                     </p>
                   </div>
                 )}
-                {pinaka && (
-                  <React.Suspense fallback={null}>
-                    <WorldBanner
-                      world={world}
-                      phase={worldPhase}
-                      status={eventStatus}
-                      paused={paused}
-                      eventName={eventSettings?.name}
-                      startTime={eventSettings?.start_time}
-                      endTime={eventSettings?.end_time}
-                    />
-                  </React.Suspense>
-                )}
                 <CommandHeader
                   status={eventStatus}
                   paused={paused}
@@ -1250,7 +1250,10 @@ export default function App() {
                   mine={solvedIds.length}
                   hasTeam={!!profile?.team_id}
                 />
-                {pinaka && challenges.length > 0 && canSeeChallenges && !needsTeam && (
+                {/* Event skin: the chapter plate. Rendered whenever the board
+                    is, including the waiting and closed states, so the world
+                    is named even when there is nothing to solve yet. */}
+                {pinaka && canSeeChallenges && !needsTeam && (
                   <React.Suspense fallback={null}>
                     <JourneyMap
                       world={world}

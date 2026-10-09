@@ -8,9 +8,15 @@
  * --color-neon before the first render is honoured, and the default theme
  * gets exactly the value index.css declares.
  *
- * Cached per token: the stylesheet does not change during a session.
+ * Cached per token until the theme changes: themes/index.ts resets the cache
+ * when it switches the skin in place, so charts follow the new tokens.
  */
 const cache = new Map<string, string>();
+
+/** Forget every cached token; the next read sees the stylesheet as it is now. */
+export function resetTokenCache(): void {
+  cache.clear();
+}
 
 export function tokenValue(name: string, fallback: string): string {
   const hit = cache.get(name);

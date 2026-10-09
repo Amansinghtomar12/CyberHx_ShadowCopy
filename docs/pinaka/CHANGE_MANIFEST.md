@@ -28,7 +28,6 @@ frontend/src/themes/pinaka/components/PinakaIntro.tsx
 frontend/src/themes/pinaka/components/JourneyMap.tsx
 frontend/src/themes/pinaka/components/PartnerStrip.tsx
 frontend/src/themes/pinaka/components/SetuChain.tsx
-frontend/src/themes/pinaka/components/WorldBanner.tsx
 frontend/src/themes/pinaka/components/AuthGateway.tsx
 frontend/src/themes/pinaka/components/PodiumFrame.tsx
 frontend/src/themes/pinaka/components/ProfileJourney.tsx
@@ -45,7 +44,7 @@ docs/pinaka/*.md                                   this documentation set
 | File | What changed | Default-theme effect |
 |---|---|---|
 | `src/main.tsx` | `bootTheme(() => supabase.rpc('public_theme'))` then `createRoot(...).render(...)` | one anonymous RPC before first paint (cached per device; a first visit waits ≤ 900 ms for it) |
-| `src/App.tsx` | imports; `CATEGORY_ICON` wrapped in `registerCategoryIcons()`; `pinaka` (from `useTheme()`), `world/worldPhase/introOpen` locals; environment swap; intro mount; nav badge + the admins' `AdminThemeControl` button; `noteServerTheme(data.theme)` in the event-settings poll; `WorldBanner` above and `JourneyMap` below `CommandHeader`; `PartnerStrip` in the footer; `ArrowSolveLight` beside `BreachConfirm`; two lime literals → `color-mix(... var(--color-neon) ...)` with the same alpha | none for players (identical elements and pixels); admins gain one header button |
+| `src/App.tsx` | imports; `CATEGORY_ICON` wrapped in `registerCategoryIcons()`; `pinaka` (from `useTheme()`), `world/worldPhase/introOpen` locals; environment swap; intro mount; nav badge + the admins' `AdminThemeControl` button; `noteServerTheme(data.theme)` in the event-settings poll; `JourneyMap` below `CommandHeader` (whenever the board renders, so the waiting and closed states are named too); the nav badge hides until the header has room for it (`xl`, `2xl` for admins); `PartnerStrip` in the footer; `ArrowSolveLight` beside `BreachConfirm`; two lime literals → `color-mix(... var(--color-neon) ...)` with the same alpha | none for players (identical elements and pixels); admins gain one header button |
 | `src/components/AuthPage.tsx` | environment swap; hero column → `AuthGateway` under the theme; four copy strings ternaried | none |
 | `src/Scoreboard.tsx` | `PodiumFrame` around the three podium cards; `pk-lanka-hall` class on the page wrapper; one label; `seriesColor()` reads the accent via `lib/brand` | none (same hex on the default theme) |
 | `src/components/chain/ChainedBoard.tsx` | two lazy renderers; `SetuChain` chosen at render under the theme; one lime glow → `color-mix` | none |

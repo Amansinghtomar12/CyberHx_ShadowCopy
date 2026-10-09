@@ -11,30 +11,39 @@
  *   1. VITE_THEME_UNTIL has passed    -> 'cyberhx'. A temporary event skin
  *      must not outlive its event because somebody forgot to switch it off.
  *   2. VITE_THEME_SWITCH is '0'        -> no per-device overrides.
- *   3. ?theme=pinaka|cyberhx|auto      -> persisted per device, then used.
- *   4. the device override            -> localStorage 'cyberhx.theme'
- *   5. the organisers' switch         -> event_settings.theme on the server,
+ *   3. ?preview=pinaka|cyberhx|off     -> this tab only (sessionStorage).
+ *   4. ?theme=pinaka|cyberhx|auto      -> persisted per device, then used.
+ *   5. the device override            -> localStorage 'cyberhx.theme'
+ *   6. the organisers' switch         -> event_settings.theme on the server,
  *      read through the public_theme() RPC and the event-settings poll
- *   6. VITE_THEME                      -> the build default ('cyberhx').
+ *   7. VITE_THEME                      -> the build default ('cyberhx').
  *
  * The organisers' switch is the one that matters during an event: an admin
  * opens the skin for every visitor from Admin → Event (or the nav button) and
  * every open tab follows within the event-settings poll interval, without a
- * reload and without losing a half-typed flag. The device override exists so
- * a reviewer can preview the skin before it is opened, and so a player who
- * prefers the classic look can keep it (presentation only, so letting them
- * is harmless). See docs/pinaka/RESTORE.md.
+ * reload and without losing a half-typed flag. The tab preview exists so a
+ * reviewer or an admin can look at the skin before it is opened without
+ * pinning their own device; the device override so a player who prefers the
+ * classic look can keep it (presentation only, so letting them is harmless).
+ * See docs/pinaka/RESTORE.md.
  */
 import type React from 'react';
 import { useSyncExternalStore } from 'react';
+import { resetTokenCache } from '../lib/brand';
 
 export type ThemeId = 'cyberhx' | 'pinaka';
 
 const THEMES: readonly ThemeId[] = ['cyberhx', 'pinaka'];
 const OVERRIDE_KEY = 'cyberhx.theme';
+/** This tab's preview, if any: lives and dies with the tab. */
+const PREVIEW_KEY = 'cyberhx.theme.preview';
 /** The last theme the server reported, so a return visit paints it at once. */
 const SERVER_CACHE_KEY = 'cyberhx.theme.server';
 const DEFAULT_THEME_COLOR = '#060b10';
+/** How long a first visit waits for the organisers' answer before painting. */
+const SERVER_WAIT_MS = 700;
+/** How long the first paint waits for the skin's own chunks before going ahead without them. */
+const APPLY_WAIT_MS = 2500;
 
 const env = import.meta.env as Record<string, string | undefined>;
 
@@ -74,6 +83,18 @@ export function setThemeOverride(theme: ThemeId | null): void {
   } catch { /* storage unavailable: the server/build default applies */ }
 }
 
+/** The preview this tab is showing, if it opened one (?preview=…). */
+export function getPreviewTheme(): ThemeId | null {
+  try { return asTheme(sessionStorage.getItem(PREVIEW_KEY)); } catch { return null; }
+}
+
+export function setPreviewTheme(theme: ThemeId | null): void {
+  try {
+    if (theme) sessionStorage.setItem(PREVIEW_KEY, theme);
+    else sessionStorage.removeItem(PREVIEW_KEY);
+  } catch { /* no session storage: no preview */ }
+}
+
 /* ── Server theme ──────────────────────────────────────────────────────── */
 
 let serverTheme: ThemeId | null = null;
@@ -97,33 +118,68 @@ export function getServerTheme(): ThemeId | null {
 /**
  * Record what the server says the skin is. Called at boot (public_theme RPC)
  * and from every event-settings poll, so a switch made by an admin reaches
- * every open tab. Unknown or missing values mean "the server has no opinion".
+ * every open tab.
+ *
+ * Anything that is not a known theme — a missing column before the migration,
+ * an RPC that failed and resolved with null, a typo — is "no opinion" and
+ * changes nothing: the device keeps what it last knew. Only an explicit value
+ * from the server moves the skin, in either direction.
  */
 export function noteServerTheme(value: unknown): void {
   const t = asTheme(value);
+  if (!t) return;
+  const changed = t !== serverTheme;
   serverTheme = t;
-  try {
-    if (t) localStorage.setItem(SERVER_CACHE_KEY, t);
-    else localStorage.removeItem(SERVER_CACHE_KEY);
-  } catch { /* fine */ }
-  serverListeners.forEach(fn => fn(t));
+  try { localStorage.setItem(SERVER_CACHE_KEY, t); } catch { /* fine */ }
+  if (changed) serverListeners.forEach(fn => fn(t));
   void applyTheme(effectiveTheme());
 }
 
 /* ── Resolution ────────────────────────────────────────────────────────── */
 
-/** Lift ?theme= off the URL once, so a copied address carries no preference. */
+let introRequested = false;
+
+/** Whether this page load asked for the introduction (?intro=1), read once at boot. */
+export function wasIntroRequested(): boolean {
+  return introRequested;
+}
+
+/**
+ * Lift the theme parameters off the URL once, so a copied address carries no
+ * preference: ?theme= (this device), ?preview= (this tab), ?intro= (replay
+ * the introduction this load).
+ */
 function consumeUrlOverride(): void {
-  if (typeof window === 'undefined' || !canSwitchTheme()) return;
+  if (typeof window === 'undefined') return;
   try {
     const url = new URL(window.location.href);
-    const q = url.searchParams.get('theme');
-    if (q === null) return;
-    const wanted = asTheme(q);
-    if (wanted) setThemeOverride(wanted);
-    else if (q === 'auto') setThemeOverride(null);
-    url.searchParams.delete('theme');
-    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+    const q = url.searchParams;
+    let touched = false;
+
+    if (q.has('intro')) {
+      introRequested = q.get('intro') === '1';
+      q.delete('intro');
+      touched = true;
+    }
+    if (canSwitchTheme()) {
+      const theme = q.get('theme');
+      if (theme !== null) {
+        const wanted = asTheme(theme);
+        if (wanted) setThemeOverride(wanted);
+        else if (theme === 'auto') setThemeOverride(null);
+        q.delete('theme');
+        touched = true;
+      }
+      const preview = q.get('preview');
+      if (preview !== null) {
+        const wanted = asTheme(preview);
+        if (wanted) setPreviewTheme(wanted);
+        else if (preview === 'off') setPreviewTheme(null);
+        q.delete('preview');
+        touched = true;
+      }
+    }
+    if (touched) window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
   } catch { /* malformed URL: ignore */ }
 }
 
@@ -131,8 +187,8 @@ function consumeUrlOverride(): void {
 export function effectiveTheme(): ThemeId {
   if (themeExpired()) return 'cyberhx';
   if (canSwitchTheme()) {
-    const o = getThemeOverride();
-    if (o) return o;
+    const chosen = getPreviewTheme() ?? getThemeOverride();
+    if (chosen) return chosen;
   }
   return getServerTheme() ?? buildTheme();
 }
@@ -192,11 +248,23 @@ export function restoreCategoryIcons(): void {
 
 let applying: Promise<void> | null = null;
 
+/** Commit a theme to the document and tell every subscriber. */
+function commit(next: ThemeId): void {
+  document.documentElement.dataset.theme = next;
+  // Charts read tokens as literals through lib/brand; the values just changed.
+  resetTokenCache();
+  if (next !== current) {
+    current = next;
+    listeners.forEach(fn => fn(next));
+  }
+}
+
 /**
  * Put a theme on the page: the attribute the stylesheet keys on, the
  * stylesheet itself (fetched once, on demand), fonts, the browser chrome
- * colour, the glyphs. Then tell every subscriber. Safe to call repeatedly;
- * a theme that fails to load leaves the page as it was.
+ * colour, the glyphs. Then tell every subscriber. Safe to call repeatedly.
+ * A theme that fails to load commits the default instead, so the DOM and
+ * every component always agree on which skin is in force.
  */
 export async function applyTheme(next: ThemeId): Promise<void> {
   if (typeof document === 'undefined') { current = next; return; }
@@ -209,6 +277,8 @@ export async function applyTheme(next: ThemeId): Promise<void> {
         await mod.bootPinaka();
       } catch (err) {
         console.warn('[theme] Pinaka theme failed to load; staying on the default look', err);
+        restoreCategoryIcons();
+        commit('cyberhx');
         return;
       }
     } else {
@@ -216,14 +286,12 @@ export async function applyTheme(next: ThemeId): Promise<void> {
       const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
       if (meta) meta.content = DEFAULT_THEME_COLOR;
     }
-    document.documentElement.dataset.theme = next;
-    if (next !== current) {
-      current = next;
-      listeners.forEach(fn => fn(next));
-    }
+    commit(next);
   })();
   try { await applying; } finally { applying = null; }
 }
+
+const delay = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
 /**
  * Decide and apply the theme before the first render.
@@ -231,7 +299,10 @@ export async function applyTheme(next: ThemeId): Promise<void> {
  * The server's choice is read through the anonymous `public_theme()` RPC.
  * A return visit paints the cached answer immediately and refreshes it in
  * the background; a first visit waits for the answer, but never more than a
- * moment — the platform must come up even if that call is slow or refused.
+ * moment. Likewise the skin's own chunks get a moment to arrive so the first
+ * paint wears them; past that the platform paints with the default look and
+ * the skin lands in place when the chunks do. The platform must come up even
+ * if any of this is slow, stalled or refused.
  */
 export async function bootTheme(fetchServerTheme?: () => Promise<unknown>): Promise<ThemeId> {
   consumeUrlOverride();
@@ -244,9 +315,15 @@ export async function bootTheme(fetchServerTheme?: () => Promise<unknown>): Prom
       () => { /* offline or refused: keep the cached/build answer */ },
     );
     // Nothing cached: this is the only way to know, so give it a moment.
-    if (!cached) await Promise.race([ask, new Promise<void>(r => setTimeout(r, 900))]);
+    if (!cached) await Promise.race([ask, delay(SERVER_WAIT_MS)]);
   }
 
-  await applyTheme(effectiveTheme());
+  await Promise.race([applyTheme(effectiveTheme()), delay(APPLY_WAIT_MS)]);
+  if (current === null) {
+    // The skin is still on its way. Paint the default now; applyTheme will
+    // commit the skin, and re-render everything, the moment it has it.
+    if (!document.documentElement.dataset.theme) document.documentElement.dataset.theme = 'cyberhx';
+    current = 'cyberhx';
+  }
   return getTheme();
 }

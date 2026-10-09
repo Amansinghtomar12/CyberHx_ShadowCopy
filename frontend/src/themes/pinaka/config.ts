@@ -94,7 +94,5 @@ export function devanagariNumber(n: number): string {
 }
 
 /** Storage keys owned by the theme. Listed so the restore guide can clear them. */
-export const PINAKA_STORAGE_KEYS = {
-  introSeen: 'cyberhx.pinaka.intro.v1',
-  journeyCollapsed: 'cyberhx.pinaka.journey.collapsed',
-} as const;
+// The storage keys live in keys.ts (see the note there).
+export { PINAKA_STORAGE_KEYS } from './keys';

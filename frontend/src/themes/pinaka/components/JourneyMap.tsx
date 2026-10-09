@@ -24,7 +24,8 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { getCapability } from '../../../components/environment/performance';
-import { PINAKA_STORAGE_KEYS, WORLDS, devanagariNumber, type World } from '../config';
+import { WORLDS, devanagariNumber, type World } from '../config';
+import { PINAKA_STORAGE_KEYS } from '../keys';
 import type { EventPhase } from '../hooks';
 
 interface JourneyMapProps {
@@ -110,6 +111,18 @@ export default function JourneyMap({ world, phase, progress, collapsed }: Journe
     }
   }, [p, still, isCollapsed]);
 
+  // On a phone the map is wider than its box and scrolls. Bring the lit
+  // station into the middle of the box, so the current chapter is the first
+  // thing seen rather than whatever happens to be at the left edge.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (isCollapsed) return;
+    const el = scrollRef.current;
+    if (!el || el.scrollWidth <= el.clientWidth) return;
+    const x = (NODES[idx].x / 720) * el.scrollWidth;
+    el.scrollLeft = Math.max(0, Math.min(x - el.clientWidth / 2, el.scrollWidth - el.clientWidth));
+  }, [idx, isCollapsed]);
+
   function toggle() {
     const next = !isCollapsed;
     setCollapsed(next);
@@ -151,7 +164,7 @@ export default function JourneyMap({ world, phase, progress, collapsed }: Journe
   return (
     <section className={`surface pk-carved pk-journey${still ? ' is-still' : ''}`} aria-label="Campaign map">
       <div className="pk-journey-head">
-        <span className="label-micro pk-journey-eyebrow">The campaign · Chapter {current.chapter}</span>
+        <span className="label-micro pk-journey-eyebrow"><span className="hidden sm:inline">The campaign · </span>Chapter {current.chapter}</span>
         <h2 className="pk-journey-title">{current.title}</h2>
         <p className="pk-journey-line">{PHASE_LINE[phase]}</p>
       </div>
@@ -164,7 +177,7 @@ export default function JourneyMap({ world, phase, progress, collapsed }: Journe
         {toggleButton}
       </div>
 
-      <div className="pk-journey-scroll" id={mapId}>
+      <div className="pk-journey-scroll" id={mapId} ref={scrollRef}>
         <svg
           className="pk-journey-svg"
           viewBox="0 0 720 100"

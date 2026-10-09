@@ -94,7 +94,10 @@ export default function ProfileJourney({ solves }: ProfileJourneyProps) {
         </p>
       ) : (
         <>
-          <div className="custom-scrollbar mt-5 -mx-1 overflow-x-auto px-1 pb-2">
+          {/* contain:inline-size — the row is wider than the page and scrolls here.
+              Without containment, Chrome on a phone sizes the layout viewport to
+              the row's max-content and the whole page zooms out. */}
+          <div className="custom-scrollbar mt-5 -mx-1 overflow-x-auto px-1 pb-2 [contain:inline-size]">
             <ol className="relative flex min-w-max items-start gap-6 pt-1" aria-label="Solves, oldest first">
               {/* the road: one hairline under every mark */}
               <span
@@ -113,7 +116,7 @@ export default function ProfileJourney({ solves }: ProfileJourneyProps) {
                   <span className="mt-2.5 w-full truncate text-small font-semibold text-text-primary" title={s.title}>
                     {s.title}
                   </span>
-                  <span className="mt-0.5 flex w-full items-baseline justify-between gap-2">
+                  <span className="mt-0.5 flex w-full items-baseline gap-2.5">
                     <span className="font-mono text-small tabular-nums text-cyber-neon">
                       +{Math.max(0, Math.round(Number(s.points) || 0))}
                     </span>

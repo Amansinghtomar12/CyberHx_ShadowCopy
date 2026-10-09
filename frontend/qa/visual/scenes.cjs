@@ -45,7 +45,7 @@ module.exports = [
   scene('auth-register', {
     loggedOut: true,
     before: async (page, h) => { await page.locator('#auth-email').waitFor({ timeout: 25000 }); await page.getByRole('button', { name: 'Register', exact: true }).click(); await h.park(); },
-    shots: [{ waitText: 'Enter the arena', at: 800 }],
+    shots: [{ waitSelector: '#auth-username', at: 800 }],
   }),
 
   // ── Board states ────────────────────────────────────────────────────────

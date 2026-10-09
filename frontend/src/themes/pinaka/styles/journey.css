@@ -186,6 +186,9 @@ html[data-theme="pinaka"] .pk-journey.is-collapsed .pk-journey-progress { margin
   html[data-theme="pinaka"] .pk-journey-scroll {
     overflow-x: auto;
     overflow-y: hidden;
+    /* The map is wider than the box; keep that width out of the page's own
+       intrinsic size, or a phone's layout viewport grows to fit it. */
+    contain: inline-size;
     overscroll-behavior-x: contain;
     scrollbar-width: thin;
     -webkit-overflow-scrolling: touch;

@@ -28,24 +28,10 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { getCapability } from '../../../components/environment/performance';
-import { PINAKA_EVENT, PINAKA_STORAGE_KEYS } from '../config';
-
-/**
- * Whether the introduction should play on this page load. Once per device;
- * `?intro=1` forces it. Without storage the answer is no: once per load is
- * worse than never.
- */
-export function shouldShowIntro(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    if (new URLSearchParams(window.location.search).get('intro') === '1') return true;
-  } catch { /* malformed URL: fall through to the storage test */ }
-  try {
-    return localStorage.getItem(PINAKA_STORAGE_KEYS.introSeen) === null;
-  } catch {
-    return false;
-  }
-}
+import { PINAKA_EVENT } from '../config';
+import { PINAKA_STORAGE_KEYS } from '../keys';
+// Whether to play at all is decided by ../intro-gate (shouldShowIntro), which
+// the app can read without downloading this chunk.
 
 /* ── Timeline ────────────────────────────────────────────────────────────── */
 
@@ -257,7 +243,13 @@ export default function PinakaIntro({ onDone }: { onDone: () => void }) {
     if (closing.current) return;
     closing.current = true;
     setLeaving(true);
-    timers.current.push(window.setTimeout(() => onDoneRef.current(), still ? 0 : LEAVE_MS));
+    timers.current.push(window.setTimeout(() => {
+      // Hand focus to the page the curtain was covering, so a keyboard user
+      // resumes at the top of the nav rather than at <body>.
+      const target = document.querySelector<HTMLElement>('.page-shell h1 button, .page-shell nav button');
+      target?.focus({ preventScroll: true });
+      onDoneRef.current();
+    }, still ? 0 : LEAVE_MS));
   }
 
   function onBackdrop(e: MouseEvent<HTMLDivElement>) {
@@ -282,6 +274,11 @@ export default function PinakaIntro({ onDone }: { onDone: () => void }) {
       aria-label="Welcome to Pinaka CTF"
       onClick={onBackdrop}
     >
+      {/* First in the DOM as it is first on the screen: visible from the first
+          frame, before anything has moved. */}
+      <button type="button" className="btn btn-ghost btn-sm pk-intro-skip" onClick={leave} aria-label="Skip the introduction">
+        Skip
+      </button>
       {/* ── Scene: sky, horizon, the city rising. Decoration only. ── */}
       <div className="pk-intro-scene" aria-hidden="true">
         <motion.div
@@ -361,10 +358,6 @@ export default function PinakaIntro({ onDone }: { onDone: () => void }) {
         )}
       </div>
 
-      {/* Visible from the first frame, before anything has moved. */}
-      <button type="button" className="btn btn-ghost btn-sm pk-intro-skip" onClick={leave} aria-label="Skip the introduction">
-        Skip
-      </button>
     </div>
   );
 }
