@@ -5,14 +5,16 @@
  * the two always agree and the bytes the preload fetched are the bytes the
  * image then uses. Presentation only: no data is read here.
  *
- * Two files per plate: 960×540 and 1920×1080. A viewport up to 960 CSS px
- * wide (phones, small tablets) is served the 960 outright, whatever its
- * pixel ratio: under the veil, the vignette and the near strip the extra
- * resolution is invisible, and a 3× phone would otherwise be sent the 1920
- * (sizes="100vw" × DPR) and decode 8 MB of backing store per plate. So is
- * the low tier (≤ 2 GB or ≤ 2 cores, or no WebGL), at any width. Everyone
- * else gets `srcset` + `sizes="100vw"`, and the browser chooses by viewport
- * width × pixel ratio (a 1440 px desktop takes the 1920).
+ * Up to four files per plate: 960, 1920 and (for the paintings) 3840 px
+ * wide, and a 9:16 portrait crop. The low tier (≤ 2 GB or ≤ 2 cores, or no
+ * WebGL) is served the 960 at any width. A viewport up to 960 CSS px wide is
+ * served one file outright, not a srcset (a 3× phone would otherwise pick
+ * the 3840): the portrait crop when the screen is upright and the plate has
+ * one, the 1920 otherwise. Both decode to about 8 MB; the 960 that used to
+ * be served here was stretched five-fold up a tall screen and read as blur
+ * now that the veils are light. Everyone else gets `srcset` + `sizes=100vw`,
+ * and the browser chooses by viewport width × pixel ratio (a 1440 px
+ * desktop takes the 1920, the same desktop at 2× or a 4K screen the 3840).
  */
 import { getCapability } from '../../../../components/environment/performance';
 import type { Plate } from './index';
@@ -29,17 +31,24 @@ export interface PlateSource {
 /** The widest viewport that is served the 960 file outright. */
 export const PLATE_SMALL_MAX_PX = 960;
 
-function narrowViewport(): boolean {
+function matches(query: string): boolean {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
-  return window.matchMedia(`(max-width: ${PLATE_SMALL_MAX_PX}px)`).matches;
+  return window.matchMedia(query).matches;
+}
+
+function narrowViewport(): boolean {
+  return matches(`(max-width: ${PLATE_SMALL_MAX_PX}px)`);
 }
 
 /** The `src`/`srcset`/`sizes` an <img> (or a preload) should carry for this plate, on this device. */
 export function plateSource(plate: Plate): PlateSource {
-  if (getCapability().tier === 'low' || narrowViewport()) return { src: plate.w960 };
+  if (getCapability().tier === 'low') return { src: plate.w960 };
+  if (narrowViewport()) {
+    return { src: plate.portrait && matches('(orientation: portrait)') ? plate.portrait : plate.w1920 };
+  }
   return {
     src: plate.w1920,
-    srcSet: `${plate.w960} 960w, ${plate.w1920} 1920w`,
+    srcSet: `${plate.w960} 960w, ${plate.w1920} 1920w${plate.w3840 ? `, ${plate.w3840} 3840w` : ''}`,
     sizes: PLATE_SIZES,
   };
 }
