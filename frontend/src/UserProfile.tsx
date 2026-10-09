@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
+import { isPinaka } from './themes';
+import { accent } from './lib/brand';
+import { ProfileJourney } from './themes/pinaka/lazy';
 import {
   Activity,
   CalendarDays,
@@ -145,6 +148,7 @@ export default function UserProfile() {
       title: s.challenges?.title ?? '?',
       category: s.challenges?.category ?? '?',
       value: s.challenges?.points ?? 0,
+      at: s.submitted_at as string,
       time: new Date(s.submitted_at).toLocaleString('en-US', {
         month: 'long', day: 'numeric', year: 'numeric',
         hour: '2-digit', minute: '2-digit'
@@ -171,7 +175,7 @@ export default function UserProfile() {
   });
   const totalCatPoints = Object.values(categoryMap).reduce((a, b) => a + b, 0) || 1;
   // Category ramp, mirroring --color-cat-* in src/index.css (recharts needs literals).
-  const COLORS = ['#c6ff00', '#4fb3a4', '#8e86d6', '#c97fa0', '#cfa15c', '#6d9fd4', '#8fb573', '#e0894f', '#e05a8d', '#93a1ad'];
+  const COLORS = [accent(), '#4fb3a4', '#8e86d6', '#c97fa0', '#cfa15c', '#6d9fd4', '#8fb573', '#e0894f', '#e05a8d', '#93a1ad'];
   const categories = Object.entries(categoryMap).map(([name, val], i) => ({
     name, value: (val / totalCatPoints) * 100, color: COLORS[i % COLORS.length]
   }));
@@ -321,6 +325,15 @@ export default function UserProfile() {
             </div>
           </div>
         </motion.header>
+
+        {/* Event skin: the same solves, read as a journey. Nothing new is claimed. */}
+        {isPinaka() && !loading && (
+          <motion.div {...rise} className="mt-6">
+            <React.Suspense fallback={null}>
+              <ProfileJourney solves={solves.map(s => ({ title: s.title, category: s.category, at: s.at, points: s.value }))} />
+            </React.Suspense>
+          </motion.div>
+        )}
 
         {/* ── stat rail ───────────────────────────────────────────────── */}
         <section aria-label="Performance summary" className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">

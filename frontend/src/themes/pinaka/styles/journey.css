@@ -1,0 +1,217 @@
+/* ============================================================================
+   PINAKA — JOURNEY MAP
+   The campaign strip above the board: five stations on a rising path, the
+   current chapter lit, the team's board share drawn as a gold length. One
+   carved panel, ≤ 150px tall on a desktop, a single plate when collapsed.
+
+   Scoped to html[data-theme="pinaka"]. Motion: the lit node pulses by
+   opacity, the gleam translates behind a mask, the fill settles by
+   stroke-dashoffset. All of it stops under prefers-reduced-motion and the
+   component adds .is-still so the two never disagree.
+   ========================================================================== */
+
+/* ── Panel ─────────────────────────────────────────────────────────────── */
+/* The host measures the panel's own width (a container query), so the layout
+   answers to the room the board column actually has — with or without the
+   rail — and never to the viewport. Stacked by default: head and side on one
+   row, the map full-width beneath. */
+html[data-theme="pinaka"] .pk-journey-host { container-type: inline-size; }
+html[data-theme="pinaka"] .pk-journey {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "head side"
+    "map  map";
+  align-items: center;
+  column-gap: 1.25rem;
+  row-gap: 0.5rem;
+  padding: 0.75rem 1rem 0.625rem 1rem;
+  overflow: hidden;
+}
+/* Room for the map beside the head (≥ 700px of panel): one row, ≤ 150px tall. */
+@container (min-width: 700px) {
+  html[data-theme="pinaka"] .pk-journey {
+    grid-template-columns: minmax(200px, 250px) minmax(360px, 1fr) auto;
+    grid-template-areas: "head map side";
+    row-gap: 0;
+    padding-left: 1.25rem;
+    max-height: 150px;
+  }
+  html[data-theme="pinaka"] .pk-journey-side { align-self: stretch; }
+}
+html[data-theme="pinaka"] .pk-journey-head { grid-area: head; min-width: 0; }
+html[data-theme="pinaka"] .pk-journey-side {
+  grid-area: side;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-self: start;
+}
+html[data-theme="pinaka"] .pk-journey-scroll { grid-area: map; min-width: 0; }
+
+/* ── Head: eyebrow, chapter title, one line of prose ───────────────────── */
+html[data-theme="pinaka"] .pk-journey-eyebrow {
+  display: block;
+  color: var(--pk-gold-deep);
+  margin-bottom: 0.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+html[data-theme="pinaka"] .pk-journey-title {
+  font-family: var(--pk-font-display);
+  font-weight: 600;
+  font-size: 1.25rem;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  color: var(--pk-parchment);
+  margin: 0;
+}
+html[data-theme="pinaka"] .pk-journey-line {
+  font-family: var(--pk-font-prose);
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+  margin: 0.2rem 0 0;
+  text-wrap: balance;
+}
+
+/* ── Board progress: a label and a figure, nothing else ────────────────── */
+html[data-theme="pinaka"] .pk-journey-progress {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+html[data-theme="pinaka"] .pk-journey-pct { color: var(--pk-gold-soft); }
+html[data-theme="pinaka"] .pk-journey-toggle { color: var(--color-text-secondary); gap: 0.35rem; }
+html[data-theme="pinaka"] .pk-journey-toggle:hover:not(:disabled) { color: var(--pk-parchment); }
+
+/* ── Map ───────────────────────────────────────────────────────────────── */
+html[data-theme="pinaka"] .pk-journey-svg {
+  display: block;
+  width: 100%;
+  height: 100px;
+  overflow: visible;
+}
+html[data-theme="pinaka"] .pk-journey-track {
+  fill: none;
+  stroke: rgba(181, 139, 98, 0.32);
+  stroke-width: 1.25;
+  stroke-linecap: round;
+}
+html[data-theme="pinaka"] .pk-journey-fill {
+  fill: none;
+  stroke: var(--pk-gold);
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  transition: stroke-dashoffset 600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+html[data-theme="pinaka"] .pk-journey-gleam {
+  fill: none;
+  stroke: var(--pk-gold-bright);
+  stroke-width: 2.25;
+  stroke-linecap: round;
+}
+/* A gradient rect, 160 wide, crossing the 720-wide map in six seconds. It
+   lives inside the mask, so what the eye sees is the bright path copy
+   revealed where the rect passes: a gleam that follows the curve. */
+html[data-theme="pinaka"] .pk-journey-gleam-sweep {
+  animation: pk-journey-gleam 6s linear infinite;
+}
+@keyframes pk-journey-gleam {
+  from { transform: translateX(0); }
+  to   { transform: translateX(880px); }
+}
+
+/* ── Stations ──────────────────────────────────────────────────────────── */
+html[data-theme="pinaka"] .pk-journey-ring {
+  fill: #0d1020;
+  stroke: rgba(181, 139, 98, 0.45);
+  stroke-width: 1;
+}
+html[data-theme="pinaka"] .pk-journey-dot { fill: rgba(181, 139, 98, 0.6); }
+html[data-theme="pinaka"] .pk-journey-node[data-state="passed"] .pk-journey-ring { stroke: rgba(227, 187, 102, 0.5); }
+html[data-theme="pinaka"] .pk-journey-node[data-state="passed"] .pk-journey-dot { fill: var(--pk-gold-deep); }
+html[data-theme="pinaka"] .pk-journey-node[data-state="lit"] .pk-journey-ring {
+  stroke: var(--pk-gold);
+  stroke-width: 1.5;
+}
+html[data-theme="pinaka"] .pk-journey-node[data-state="lit"] .pk-journey-dot { fill: var(--pk-gold-bright); }
+html[data-theme="pinaka"] .pk-journey-pulse {
+  fill: none;
+  stroke: var(--pk-gold);
+  stroke-width: 1;
+  opacity: 0.35;
+  animation: pk-journey-pulse 2.6s ease-in-out infinite;
+}
+@keyframes pk-journey-pulse {
+  0%, 100% { opacity: 0.12; }
+  50%      { opacity: 0.5; }
+}
+
+html[data-theme="pinaka"] .pk-journey-numeral {
+  font-family: var(--pk-font-prose);
+  font-size: 12.5px;
+  fill: var(--pk-gold-deep);
+}
+html[data-theme="pinaka"] .pk-journey-node[data-state="lit"] .pk-journey-numeral { fill: var(--pk-gold-soft); }
+html[data-theme="pinaka"] .pk-journey-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  fill: var(--color-text-muted);
+}
+html[data-theme="pinaka"] .pk-journey-node[data-state="lit"] .pk-journey-label { fill: var(--pk-parchment); }
+
+/* ── Collapsed: a single plate ─────────────────────────────────────────── */
+html[data-theme="pinaka"] .pk-journey.is-collapsed {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.5rem 0.75rem 0.5rem 1.25rem;
+  max-height: none;
+}
+html[data-theme="pinaka"] .pk-journey.is-collapsed .pk-journey-eyebrow { margin: 0; flex-shrink: 0; }
+html[data-theme="pinaka"] .pk-journey.is-collapsed .pk-journey-title { font-size: 1rem; flex-shrink: 0; }
+html[data-theme="pinaka"] .pk-journey.is-collapsed .pk-journey-line {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+html[data-theme="pinaka"] .pk-journey.is-collapsed .pk-journey-progress { margin-left: auto; }
+
+/* ── Narrow panels: the map keeps a readable size and scrolls in its box ── */
+@container (max-width: 559.98px) {
+  html[data-theme="pinaka"] .pk-journey-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* The map is wider than the box; keep that width out of the page's own
+       intrinsic size, or a phone's layout viewport grows to fit it. */
+    contain: inline-size;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -0.25rem;
+    padding: 0 0.25rem;
+  }
+  html[data-theme="pinaka"] .pk-journey-svg { min-width: 560px; height: 92px; }
+  html[data-theme="pinaka"] .pk-journey.is-collapsed .pk-journey-progress .label-micro { display: none; }
+}
+
+/* ── Reduced motion ────────────────────────────────────────────────────── */
+html[data-theme="pinaka"] .pk-journey.is-still .pk-journey-fill { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme="pinaka"] .pk-journey-fill { transition: none; }
+  html[data-theme="pinaka"] .pk-journey-pulse { animation: none; opacity: 0.3; }
+  html[data-theme="pinaka"] .pk-journey-gleam-sweep { animation: none; }
+  html[data-theme="pinaka"] .pk-journey-gleam { display: none; }
+}

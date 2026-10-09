@@ -1,0 +1,254 @@
+/* ============================================================================
+   PINAKA — SETU
+   The chained board as a causeway of stones across indigo water. Pairs with
+   components/SetuChain.tsx, which lays the scene out (positions are inline
+   transforms computed once from a Bézier); this file carries the material:
+   the water, the stone, the gold thread and the three animations.
+
+   Scoped to html[data-theme="pinaka"]. Only transform and opacity move:
+     pk-setu-drift  the water bands, 14 s, two layers in counter-phase
+     pk-setu-gleam  a short dash of light riding each lit thread
+     pk-setu-pulse  the ring around the stone the player stands on
+   All three stop under prefers-reduced-motion and under .is-still, which the
+   component adds from useReducedMotion / the 'still' tier.
+   ========================================================================== */
+
+/* ── Frame ──────────────────────────────────────────────────────────────── */
+html[data-theme="pinaka"] .pk-setu {
+  position: relative;
+  background-color: rgba(10, 14, 23, 0.84);
+  border-color: var(--pk-gold-line);
+  box-shadow: var(--shadow-e3), inset 0 0 0 1px rgba(246, 223, 163, 0.04);
+}
+html[data-theme="pinaka"] .pk-setu-head {
+  border-bottom: 1px solid var(--color-border-subtle);
+  background-image: linear-gradient(to bottom, rgba(246, 223, 163, 0.03), transparent);
+}
+html[data-theme="pinaka"] .pk-setu-desc {
+  max-width: 68ch;
+  font-size: 1rem;
+}
+html[data-theme="pinaka"] .pk-setu-foot {
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+/* ── Water: calm indigo, two drifting layers of soft bands ───────────────── */
+html[data-theme="pinaka"] .pk-setu-sea {
+  background:
+    linear-gradient(180deg, #0b1322 0%, #0e1b30 48%, #0a1426 100%);
+  box-shadow: inset 0 1px 0 rgba(246, 223, 163, 0.06), inset 0 -1px 0 rgba(246, 223, 163, 0.05);
+}
+html[data-theme="pinaka"] .pk-setu-water {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+html[data-theme="pinaka"] .pk-setu-water::before,
+html[data-theme="pinaka"] .pk-setu-water::after {
+  content: "";
+  position: absolute;
+  inset: -10% -14%;
+  /* long, barely-there swells: hairlines of lighter water */
+  background-image:
+    repeating-linear-gradient(176deg,
+      transparent 0px, transparent 22px,
+      rgba(126, 167, 216, 0.05) 23px, rgba(126, 167, 216, 0.05) 25px,
+      transparent 26px, transparent 54px),
+    radial-gradient(60% 50% at 30% 40%, rgba(90, 150, 170, 0.08), transparent 70%),
+    radial-gradient(50% 45% at 75% 65%, rgba(227, 187, 102, 0.045), transparent 70%);
+  will-change: transform;
+  animation: pk-setu-drift 14s ease-in-out infinite alternate;
+}
+html[data-theme="pinaka"] .pk-setu-water::after {
+  background-image:
+    repeating-linear-gradient(184deg,
+      transparent 0px, transparent 36px,
+      rgba(246, 223, 163, 0.035) 37px, rgba(246, 223, 163, 0.035) 38px,
+      transparent 39px, transparent 82px),
+    radial-gradient(55% 45% at 65% 30%, rgba(90, 150, 170, 0.06), transparent 70%);
+  animation-direction: alternate-reverse;
+  animation-delay: -7s;
+  opacity: 0.9;
+}
+@keyframes pk-setu-drift {
+  from { transform: translate3d(-3%, -1.5%, 0); }
+  to   { transform: translate3d(3%, 1.5%, 0); }
+}
+
+/* Vertical layout: the stage is a fixed-width column, centred by the component. */
+html[data-theme="pinaka"] .pk-setu[data-layout="column"] .pk-setu-stage { overflow-x: hidden; }
+
+/* ── The wake: the line the stones were laid along ───────────────────────── */
+html[data-theme="pinaka"] .pk-setu-wake {
+  fill: none;
+  stroke: rgba(246, 223, 163, 0.07);
+  stroke-width: 1;
+  stroke-dasharray: 2 6;
+}
+
+/* ── Threads ─────────────────────────────────────────────────────────────── */
+html[data-theme="pinaka"] .pk-setu-thread-line {
+  stroke: rgba(205, 192, 166, 0.16);
+  stroke-width: 1;
+  stroke-linecap: round;
+}
+html[data-theme="pinaka"] .pk-setu-thread[data-active="true"] .pk-setu-thread-line {
+  stroke: var(--pk-gold);
+  stroke-width: 1.5;
+}
+/* the glow, without a filter: the same line, wide and faint */
+html[data-theme="pinaka"] .pk-setu-thread-haze {
+  stroke: var(--pk-gold);
+  stroke-width: 9;
+  stroke-linecap: round;
+  opacity: 0.12;
+}
+html[data-theme="pinaka"] .pk-setu-gleam {
+  fill: var(--pk-gold-bright);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: pk-setu-gleam 3.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  animation-delay: var(--pk-seg-delay, 0s);
+}
+/* --pk-seg-len is set per segment by the component: the chord's length. */
+@keyframes pk-setu-gleam {
+  0%   { transform: translateX(0); opacity: 0; }
+  12%  { opacity: 0.95; }
+  78%  { opacity: 0.95; }
+  100% { transform: translateX(var(--pk-seg-len, 300px)); opacity: 0; }
+}
+
+/* ── Stones ──────────────────────────────────────────────────────────────── */
+html[data-theme="pinaka"] .pk-setu-rock {
+  stroke: none;
+}
+html[data-theme="pinaka"] .pk-setu-rim {
+  stroke: rgba(205, 192, 166, 0.22);
+  stroke-width: 1;
+  stroke-linejoin: round;
+}
+/* the light along the top edge: a wide stroke clipped by the body's own
+   outline would need a mask; a fine stroke with a short dash does it */
+html[data-theme="pinaka"] .pk-setu-rock-light {
+  stroke: rgba(246, 223, 163, 0.18);
+  stroke-width: 1.25;
+  stroke-linejoin: round;
+  stroke-dasharray: 90 400;
+  stroke-dashoffset: 20;
+}
+html[data-theme="pinaka"] .pk-setu-reflection {
+  fill: rgba(246, 223, 163, 0.05);
+}
+html[data-theme="pinaka"] .pk-setu-stone[data-state="solved"] .pk-setu-rim {
+  stroke: var(--pk-gold-deep);
+  stroke-width: 1.5;
+}
+html[data-theme="pinaka"] .pk-setu-stone[data-state="solved"] .pk-setu-rock-light { stroke: rgba(246, 223, 163, 0.5); }
+html[data-theme="pinaka"] .pk-setu-stone[data-state="solved"] .pk-setu-reflection { fill: rgba(227, 187, 102, 0.14); }
+html[data-theme="pinaka"] .pk-setu-stone[data-state="current"] .pk-setu-rim {
+  stroke: var(--pk-gold-soft);
+  stroke-width: 1.5;
+}
+html[data-theme="pinaka"] .pk-setu-stone[data-state="current"] .pk-setu-reflection { fill: rgba(235, 203, 132, 0.12); }
+html[data-theme="pinaka"] .pk-setu-stone[data-state="locked"] { opacity: 0.62; }
+
+/* the player's stone: a slow breath of gold around it */
+html[data-theme="pinaka"] .pk-setu-ring {
+  fill: none;
+  stroke: var(--pk-gold);
+  stroke-width: 1;
+  opacity: 0.35;
+  will-change: opacity;
+  animation: pk-setu-pulse 3.6s ease-in-out infinite;
+}
+html[data-theme="pinaka"] .pk-setu-ring-still {
+  fill: none;
+  stroke: var(--pk-gold-soft);
+  stroke-width: 0.75;
+  opacity: 0.28;
+}
+@keyframes pk-setu-pulse {
+  0%, 100% { opacity: 0.12; }
+  50%      { opacity: 0.55; }
+}
+
+/* ── Cards ───────────────────────────────────────────────────────────────── */
+html[data-theme="pinaka"] .pk-setu-card {
+  background-color: rgba(16, 19, 32, 0.86);
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-e2);
+  will-change: transform;
+}
+html[data-theme="pinaka"] .pk-setu-card:not(:disabled):hover {
+  border-color: rgba(227, 187, 102, 0.5);
+  box-shadow: var(--shadow-e3), 0 0 24px -10px var(--pk-gold-glow);
+}
+html[data-theme="pinaka"] .pk-setu-card[data-state="solved"] {
+  border-color: rgba(227, 187, 102, 0.6);
+  background-color: rgba(28, 25, 26, 0.9);
+  box-shadow: var(--shadow-e2), 0 0 0 1px rgba(227, 187, 102, 0.12), 0 0 22px -8px var(--pk-gold-glow);
+}
+html[data-theme="pinaka"] .pk-setu-card[data-state="current"] {
+  border-color: rgba(235, 203, 132, 0.55);
+  background-color: rgba(18, 20, 34, 0.92);
+}
+html[data-theme="pinaka"] .pk-setu-card[data-state="locked"] {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+html[data-theme="pinaka"] .pk-setu-check { color: var(--pk-gold); }
+
+/* The Devanagari position numeral over the current stone. Decorative: the
+   card's label already says which stone this is. */
+html[data-theme="pinaka"] .pk-setu-numeral {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translate(-50%, -8px);
+  font-family: var(--pk-font-display);
+  font-size: 1.125rem;
+  line-height: 1;
+  color: var(--pk-gold-soft);
+  text-shadow: 0 0 14px var(--pk-gold-glow);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* ── Progress ────────────────────────────────────────────────────────────── */
+html[data-theme="pinaka"] .pk-setu-progress {
+  position: relative;
+  height: 4px;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(227, 187, 102, 0.1);
+  box-shadow: var(--shadow-well), 0 0 0 1px rgba(227, 187, 102, 0.08);
+}
+html[data-theme="pinaka"] .pk-setu-progress-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  transform-origin: left center;
+  background: linear-gradient(90deg, var(--pk-gold-deep), var(--pk-gold) 55%, var(--pk-gold-bright));
+  box-shadow: 0 0 10px -1px var(--pk-gold-glow);
+  transition: transform 700ms var(--ease-out-quint, cubic-bezier(0.22, 1, 0.36, 1));
+  will-change: transform;
+}
+
+/* ── Still: reduced motion or the 'still' tier. A finished picture. ──────── */
+html[data-theme="pinaka"] .pk-setu.is-still .pk-setu-water::before,
+html[data-theme="pinaka"] .pk-setu.is-still .pk-setu-water::after {
+  animation: none;
+  transform: none;
+}
+html[data-theme="pinaka"] .pk-setu.is-still .pk-setu-gleam { animation: none; opacity: 0; }
+html[data-theme="pinaka"] .pk-setu.is-still .pk-setu-ring { animation: none; opacity: 0.4; }
+html[data-theme="pinaka"] .pk-setu.is-still .pk-setu-progress-fill { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme="pinaka"] .pk-setu-water::before,
+  html[data-theme="pinaka"] .pk-setu-water::after { animation: none; transform: none; }
+  html[data-theme="pinaka"] .pk-setu-gleam { animation: none; opacity: 0; }
+  html[data-theme="pinaka"] .pk-setu-ring { animation: none; opacity: 0.4; }
+  html[data-theme="pinaka"] .pk-setu-progress-fill { transition: none; }
+}

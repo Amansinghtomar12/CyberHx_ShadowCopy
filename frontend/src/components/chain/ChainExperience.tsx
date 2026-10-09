@@ -139,7 +139,7 @@ export default function ChainExperience({ series, onOpenChallenge, onBack }: Pro
                 className={[
                   'absolute left-0 top-0 flex w-[150px] flex-col items-start gap-1 rounded-md border px-3 py-2 text-left backdrop-blur-sm transition-colors',
                   node.solved
-                    ? 'border-border-neon bg-cyber-neon/10 shadow-[0_0_18px_rgba(198,255,0,0.25)]'
+                    ? 'border-border-neon bg-cyber-neon/10 shadow-[0_0_18px_color-mix(in_srgb,var(--color-neon)_25%,transparent)]'
                     : 'border-border-strong bg-surface-raised/90 hover:border-border-neon',
                   locked ? 'cursor-not-allowed opacity-70' : 'cursor-pointer',
                 ].join(' ')}
@@ -168,7 +168,7 @@ export default function ChainExperience({ series, onOpenChallenge, onBack }: Pro
           <span className="font-mono">{series.solvedCount} / {series.total}</span>
         </div>
         <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-sunken">
-          <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${pct}%`, background: 'linear-gradient(90deg,#8fb800,#c6ff00)' }} />
+          <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, var(--color-neon-dim), var(--color-neon))' }} />
         </div>
       </div>
 

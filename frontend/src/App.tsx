@@ -79,6 +79,14 @@ import MilestoneBanner from './components/MilestoneBanner';
 import { pendingInvite, clearInvite, type InvitePreview } from './lib/invite';
 import { detectMilestones, type Milestone } from './lib/milestones';
 import { buildChainSeriesVM } from './components/chain/chainModel';
+import { isPinaka, useTheme, noteServerTheme, registerCategoryIcons } from './themes';
+// Admins only, so it is not in the default bundle.
+const AdminThemeControl = React.lazy(() => import('./themes/AdminThemeControl'));
+import { deriveWorld, derivePhase } from './themes/pinaka/hooks';
+import { shouldShowIntro } from './themes/pinaka/intro-gate';
+import {
+  PinakaEnvironment, PinakaIntro, JourneyMap, PartnerStrip, ArrowSolveLight,
+} from './themes/pinaka/lazy';
 import { buildB2RBoxVM, buildB2RSeriesVM } from './components/b2r/b2rModel';
 
 // The entire Chained Challenges subsystem (series board + heavy WebGL engine)
@@ -122,8 +130,9 @@ const DIFFICULTIES: { id: string; label: string }[] =
 // ─────────────────────────────────────────
 type IconCmp = React.ComponentType<{ className?: string }>;
 
-/** Category → glyph. Keys match `Category` in types.ts; unknown values fall back. */
-const CATEGORY_ICON: Record<string, IconCmp> = {
+/** Category → glyph. Keys match `Category` in types.ts; unknown values fall back.
+    Registered with the theme layer, which may swap the glyphs in place at boot. */
+const CATEGORY_ICON: Record<string, IconCmp> = registerCategoryIcons({
   web: Globe,
   crypto: KeyRound,
   steg: ImageIcon,
@@ -134,7 +143,7 @@ const CATEGORY_ICON: Record<string, IconCmp> = {
   mobile: Smartphone,
   b2r: Server,
   misc: Boxes,
-};
+});
 
 /** Category → hue, with a safe fallback if the DB carries an unmapped value. */
 const catVar = (category: string) => `var(--color-cat-${category}, var(--color-cat-misc))`;
@@ -432,6 +441,24 @@ export default function App() {
 
   const reduce = useReducedMotion();
 
+  // ── Event skin (presentation only) ───────────────────────
+  // Resolved once per page load. The world is a pure function of the view,
+  // the board mode and the server-derived event status; nothing below reads
+  // it for anything but pixels.
+  const pinaka = useTheme() === 'pinaka';
+  const world = deriveWorld(currentView, boardMode, eventStatus);
+  const worldPhase = derivePhase(eventStatus);
+  const [introOpen, setIntroOpen] = useState(() => pinaka && shouldShowIntro());
+  // Event skin: once the curtain has closed (and the page is no longer inert),
+  // a keyboard user resumes at the top of the nav rather than at <body>.
+  const introWasOpen = useRef(false);
+  useEffect(() => {
+    if (introOpen) { introWasOpen.current = true; return; }
+    if (!introWasOpen.current) return;
+    introWasOpen.current = false;
+    document.querySelector<HTMLElement>('.page-shell h1 button')?.focus({ preventScroll: true });
+  }, [introOpen]);
+
   // Your score, derived rather than fetched. Mirrors the database exactly --
   // GREATEST(total_points - hint_spend, 0) -- so the number in the header and
   // the number on the scoreboard cannot drift apart. Costs no query.
@@ -699,7 +726,12 @@ export default function App() {
   // comes back into view.
   const loadEventSettings = useCallback(async () => {
     const { data } = await supabase.from('event_settings').select('*').order('id', { ascending: false }).limit(1).maybeSingle();
-    if (data) setEventSettings(data);
+    if (data) {
+      setEventSettings(data);
+      // The organisers' look rides on the same row, so a switch made in the
+      // dashboard reaches every open tab on this poll.
+      noteServerTheme(data.theme);
+    }
   }, []);
   useEffect(() => {
     void loadEventSettings();
@@ -896,11 +928,19 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-cyber-bg text-cyber-text font-sans" data-tier={getCapability().tier}>
-      <AmbientBackground />
+      {pinaka
+        ? <React.Suspense fallback={null}><PinakaEnvironment world={world} phase={worldPhase} /></React.Suspense>
+        : <AmbientBackground />}
       <SurfaceLight />
       <CursorRing />
+      {/* First visit only, skippable from the first frame; the app is live underneath. */}
+      {pinaka && introOpen && (
+        <React.Suspense fallback={null}><PinakaIntro onDone={() => setIntroOpen(false)} /></React.Suspense>
+      )}
 
-      <div className="page-shell min-h-screen flex flex-col">
+      {/* Under the event skin's intro curtain the page is inert: nothing behind
+          the curtain can take focus or a click until it has gone. */}
+      <div className="page-shell min-h-screen flex flex-col" inert={pinaka && introOpen ? true : undefined}>
         {/* Header */}
         <nav className="bg-cyber-bg/85 backdrop-blur-xl border-b border-border-base sticky top-0 z-50">
           <div className="max-w-screen-2xl mx-auto px-3 sm:px-5 lg:px-6 h-16 flex items-center justify-between gap-2">
@@ -914,7 +954,7 @@ export default function App() {
                 {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
 
-              <h1 className="min-w-0">
+              <h1 className={pinaka ? 'shrink-0' : 'min-w-0'}>
                 <button
                   type="button"
                   className="group flex items-center gap-2.5 focus-ring rounded-inset"
@@ -926,6 +966,18 @@ export default function App() {
                   <span className="hidden sm:inline text-h3 tracking-tight text-cyber-text">CYBERHX</span>
                 </button>
               </h1>
+              {/* Event skin: the event's name beside the platform's. Only where
+                  the header has room for it — the admins' row carries two
+                  more controls, so it needs a wider screen before the badge
+                  joins in. */}
+              {pinaka && (
+                <span
+                  className={`badge badge-neon shrink-0 ${profile?.is_admin ? 'hidden 2xl:inline-flex' : 'hidden xl:inline-flex'}`}
+                  title="Pinaka CTF 2026 · Scoring platform by CyberHX"
+                >
+                  Pinaka CTF
+                </span>
+              )}
 
               <div className="hidden lg:flex items-center gap-1">
                 {navItems.map(item => (
@@ -946,6 +998,10 @@ export default function App() {
                   >
                     Admin
                   </button>
+                )}
+                {/* The organisers' switch for the event skin, one click from anywhere. */}
+                {profile?.is_admin && (
+                  <React.Suspense fallback={null}><AdminThemeControl variant="nav" /></React.Suspense>
                 )}
               </div>
             </div>
@@ -1014,6 +1070,12 @@ export default function App() {
                     <button onClick={() => { setCurrentView('admin'); setMobileMenuOpen(false); }} className={`flex items-center gap-3 rounded-control px-3 py-3 text-label uppercase transition-colors ${currentView === 'admin' ? 'bg-surface-raised text-cyber-neon' : 'text-text-secondary hover:bg-surface-card hover:text-cyber-text'}`}>
                       <SettingsIcon className="w-4 h-4" /> Admin
                     </button>
+                  )}
+                  {/* The organisers' switch for the event skin, in reach on a phone too. */}
+                  {profile?.is_admin && (
+                    <div className="mt-1 px-3 py-2">
+                      <React.Suspense fallback={null}><AdminThemeControl variant="nav" /></React.Suspense>
+                    </div>
                   )}
 
                   <p className="label-micro mt-6 mb-2">Account</p>
@@ -1202,6 +1264,18 @@ export default function App() {
                   mine={solvedIds.length}
                   hasTeam={!!profile?.team_id}
                 />
+                {/* Event skin: the chapter plate. Rendered whenever the board
+                    is, including the waiting and closed states, so the world
+                    is named even when there is nothing to solve yet. */}
+                {pinaka && canSeeChallenges && !needsTeam && (
+                  <React.Suspense fallback={null}>
+                    <JourneyMap
+                      world={world}
+                      phase={worldPhase}
+                      progress={challenges.length ? totalSolvedCount / challenges.length : 0}
+                    />
+                  </React.Suspense>
+                )}
 
                 {/* Search and category, above the cards. Difficulty stays in
                     the rail: it is a mode; these are a flick of the eye. */}
@@ -1706,6 +1780,11 @@ export default function App() {
         </AnimatePresence>
 
         <footer className="mt-auto border-t border-border-base py-8 px-4 sm:px-6">
+          {pinaka && (
+            <div className="max-w-screen-2xl mx-auto mb-6">
+              <React.Suspense fallback={null}><PartnerStrip variant="footer" /></React.Suspense>
+            </div>
+          )}
           <div className="max-w-screen-2xl mx-auto flex flex-col md:flex-row justify-between items-center gap-5">
             <div className="flex items-center gap-2.5">
               <span aria-hidden="true" className="w-5 h-5 bg-neon-wash border border-border-neon rounded-inset flex items-center justify-center">
@@ -1800,7 +1879,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
           /* The tier's frame, idle behaviour and hue all key off this. */
           data-diff={challenge.difficulty}
           className={`card-interactive group relative flex h-full w-full flex-col overflow-hidden p-3.5 text-left ${
-            isSolved ? 'border-border-neon shadow-[0_0_14px_rgba(198,255,0,0.18)]' : ''
+            isSolved ? 'border-border-neon shadow-[0_0_14px_color-mix(in_srgb,var(--color-neon)_18%,transparent)]' : ''
           }`}
         >
           {/* category hairline */}
@@ -1814,7 +1893,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
             <span
               aria-hidden="true"
               className="pointer-events-none absolute inset-0 rounded-[inherit]"
-              style={{ background: 'rgba(198, 255, 0, 0.06)' }}
+              style={{ background: 'color-mix(in srgb, var(--color-neon) 6%, transparent)' }}
             />
           )}
           {/* pointer specular — transform + opacity only */}
@@ -2277,7 +2356,10 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
         {isInsane && <OperationIntro operationId={challenge.id} />}
         <AnimatePresence>
           {justBreached && (
-            <BreachConfirm points={points} legendary={isInsane} onDone={() => setJustBreached(false)} />
+            <BreachConfirm key="breach" points={points} legendary={isInsane} onDone={() => setJustBreached(false)} />
+          )}
+          {justBreached && isPinaka() && (
+            <React.Suspense key="arrow" fallback={null}><ArrowSolveLight points={points} legendary={isInsane} /></React.Suspense>
           )}
         </AnimatePresence>
         <div className="flex items-center justify-between gap-3 px-3 sm:px-5 py-3 border-b border-border-base bg-surface-rail">

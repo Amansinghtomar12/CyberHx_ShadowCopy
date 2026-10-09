@@ -1,0 +1,219 @@
+/* ============================================================================
+   PINAKA — GATEWAY
+   The hero column of the sign-in page: a palace entrance in carved stone,
+   a dawn behind the horizon, four lamps, and the title lockup inside. All of
+   the drawing is aria-hidden and pointer-transparent; the form column next
+   to it is untouched.
+
+   Scoped to html[data-theme="pinaka"]. Nothing here moves except the lamps,
+   which breathe by opacity, and that stops under prefers-reduced-motion.
+   ========================================================================== */
+
+/* ── Column ───────────────────────────────────────────────────────────────── */
+html[data-theme="pinaka"] .pk-gateway {
+  min-height: 100%;
+  isolation: isolate;
+}
+
+/* The scene fills the column and takes no pointer. Everything in it is
+   decoration; z-index 0 keeps it under the body copy. */
+html[data-theme="pinaka"] .pk-gateway-scene {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+html[data-theme="pinaka"] .pk-gateway-body {
+  z-index: 1;
+  /* Inside the pillars (56px each plus a breath), under the arch. */
+  padding: 8.5rem 4.75rem 1.5rem 4.75rem;
+}
+
+/* ── Dawn: an ellipse of warm light low behind the horizon ───────────────── */
+html[data-theme="pinaka"] .pk-gateway-sun {
+  position: absolute;
+  left: 50%;
+  top: 62%;
+  width: 72%;
+  height: 46%;
+  transform: translate(-50%, -50%);
+  background:
+    radial-gradient(ellipse at 50% 58%, rgba(246, 223, 163, 0.16) 0%, rgba(227, 187, 102, 0.1) 22%, rgba(181, 139, 98, 0.05) 48%, transparent 72%);
+}
+/* The horizon: one line, brighter where the sun stands behind it. */
+html[data-theme="pinaka"] .pk-gateway-horizon {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: 62%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--pk-gold-line) 25%, rgba(246, 223, 163, 0.55) 50%, var(--pk-gold-line) 75%, transparent);
+}
+html[data-theme="pinaka"] .pk-gateway-horizon::after {
+  /* a second, dimmer line a little below: the ground answering the sky */
+  content: "";
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 7px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--pk-gold-faint) 30%, var(--pk-gold-faint) 70%, transparent);
+}
+
+/* ── Stone: shared fills and lines for the pillars and the arch ──────────── */
+html[data-theme="pinaka"] .pk-gateway-stone {
+  fill: rgba(227, 187, 102, 0.055);
+  stroke: rgba(227, 187, 102, 0.3);
+  stroke-width: 1;
+}
+html[data-theme="pinaka"] .pk-gateway-stone.is-light {
+  fill: rgba(227, 187, 102, 0.1);
+  stroke: rgba(246, 223, 163, 0.5);
+}
+html[data-theme="pinaka"] .pk-gateway-stone.is-shaft {
+  fill: rgba(17, 20, 34, 0.55);
+  stroke: rgba(227, 187, 102, 0.22);
+}
+html[data-theme="pinaka"] .pk-gateway-line {
+  stroke: rgba(246, 223, 163, 0.34);
+  stroke-width: 1;
+  stroke-linecap: round;
+}
+html[data-theme="pinaka"] .pk-gateway-line.is-faint { stroke: rgba(227, 187, 102, 0.14); }
+
+/* ── Pillars: full height at each edge of the column ─────────────────────── */
+html[data-theme="pinaka"] .pk-gateway-pillar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 56px;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+html[data-theme="pinaka"] .pk-gateway-pillar[data-side="left"]  { left: 0.25rem; }
+html[data-theme="pinaka"] .pk-gateway-pillar[data-side="right"] { right: 0.25rem; }
+
+/* ── Arch: spans the column, rests on the capitals ───────────────────────── */
+html[data-theme="pinaka"] .pk-gateway-arch {
+  position: absolute;
+  top: -14px;
+  left: 0.25rem;
+  right: 0.25rem;
+  width: calc(100% - 0.5rem);
+  height: 140px;
+  display: block;
+  overflow: visible;
+}
+html[data-theme="pinaka"] .pk-gateway-arch-line {
+  fill: none;
+  stroke: rgba(246, 223, 163, 0.5);
+  stroke-width: 1.25;
+}
+html[data-theme="pinaka"] .pk-gateway-arch-line.is-inner { stroke: rgba(227, 187, 102, 0.26); stroke-width: 1; }
+html[data-theme="pinaka"] .pk-gateway-arch-haze {
+  fill: none;
+  stroke: rgba(227, 187, 102, 0.1);
+  stroke-width: 7;
+}
+
+/* ── Lamps: four small flames at the capitals ────────────────────────────── */
+html[data-theme="pinaka"] .pk-gateway-lamp {
+  position: absolute;
+  width: 5px;
+  height: 9px;
+  border-radius: 50% 50% 45% 45% / 60% 60% 40% 40%;
+  background: linear-gradient(180deg, #fff2cc, var(--pk-gold-bright) 45%, var(--pk-gold-deep));
+  box-shadow:
+    0 0 6px 1px rgba(246, 223, 163, 0.55),
+    0 0 18px 4px rgba(227, 187, 102, 0.22);
+  animation: pk-gateway-lamp 3.8s ease-in-out infinite;
+}
+/* On the abacus of each pillar, one lamp either side of the shaft. */
+html[data-theme="pinaka"] .pk-gateway-lamp[data-pos="l1"] { left: calc(0.25rem + 14px); top: 32px; }
+html[data-theme="pinaka"] .pk-gateway-lamp[data-pos="l2"] { left: calc(0.25rem + 38px); top: 32px; animation-delay: -1.3s; }
+html[data-theme="pinaka"] .pk-gateway-lamp[data-pos="r1"] { right: calc(0.25rem + 38px); top: 32px; animation-delay: -2.1s; }
+html[data-theme="pinaka"] .pk-gateway-lamp[data-pos="r2"] { right: calc(0.25rem + 14px); top: 32px; animation-delay: -0.6s; }
+@keyframes pk-gateway-lamp {
+  0%, 100% { opacity: 0.78; }
+  50%      { opacity: 1; }
+}
+
+/* ── The lockup ──────────────────────────────────────────────────────────── */
+html[data-theme="pinaka"] .pk-gateway-lockup {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+html[data-theme="pinaka"] .pk-gateway-deva {
+  font-family: var(--pk-font-display);
+  font-size: 1.25rem;
+  line-height: 1;
+  letter-spacing: 0.1em;
+  color: var(--pk-gold-soft);
+}
+html[data-theme="pinaka"] .pk-gateway-name {
+  margin: 0.35rem 0 0;
+  font-family: var(--pk-font-display);
+  font-weight: 700;
+  font-size: clamp(3.5rem, 6.4vw, 6rem);
+  line-height: 0.95;
+  letter-spacing: 0.06em;
+  /* .pk-foil-text sets the gradient fill; a trace of glow under it reads as
+     light on metal rather than a text-shadow. */
+  filter: drop-shadow(0 0 18px rgba(227, 187, 102, 0.22));
+}
+html[data-theme="pinaka"] .pk-gateway-edition {
+  margin-top: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--pk-gold-deep);
+}
+
+/* ── Taglines, in the prose face ─────────────────────────────────────────── */
+html[data-theme="pinaka"] .pk-gateway-tagline {
+  margin: 1.75rem 0 0;
+  max-width: 30rem;
+  font-family: var(--pk-font-prose);
+  font-size: 1.4375rem;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--pk-parchment);
+  text-wrap: balance;
+}
+html[data-theme="pinaka"] .pk-gateway-tagline.is-secondary {
+  margin-top: 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--color-text-secondary);
+}
+
+/* ── The facts: three rows, label and value ──────────────────────────────── */
+html[data-theme="pinaka"] .pk-gateway-facts {
+  margin: 2.25rem 0 0;
+  max-width: 30rem;
+  display: grid;
+  gap: 0.625rem;
+}
+html[data-theme="pinaka"] .pk-gateway-fact {
+  display: grid;
+  grid-template-columns: 7.25rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: 1rem;
+  padding-top: 0.625rem;
+  border-top: 1px solid var(--color-border-subtle);
+}
+html[data-theme="pinaka"] .pk-gateway-fact:first-child { border-top-color: var(--pk-gold-line); }
+html[data-theme="pinaka"] .pk-gateway-fact dt { color: var(--pk-gold-deep); }
+html[data-theme="pinaka"] .pk-gateway-fact dd { margin: 0; }
+
+/* ── Reduced motion: the lamps hold still ────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme="pinaka"] .pk-gateway-lamp { animation: none; opacity: 0.9; }
+}

@@ -1,0 +1,142 @@
+/* ============================================================================
+   PINAKA — LANKA
+   The arena: the scoreboard page's warm vignette (.pk-lanka-hall) and the
+   ornamental frame around the three podium cards (.pk-podium). The cards and
+   the standings are the platform's own; this file only dresses the room.
+
+   Scoped to html[data-theme="pinaka"]. The single animation is the leader's
+   sheen, 8 s, opacity only; it stops under prefers-reduced-motion and the
+   component also withholds it (.is-still) so the two never disagree.
+   ========================================================================== */
+
+/* ── The hall: a warm vignette on the page wrapper ───────────────────────── */
+/* Crimson and bronze gather at the top corners and fade before the standings
+   begin; the standings sit on the plain ground where the numbers must read. */
+html[data-theme="pinaka"] .pk-lanka-hall {
+  position: relative;
+  isolation: isolate;
+}
+html[data-theme="pinaka"] .pk-lanka-hall::before {
+  content: "";
+  position: absolute;
+  inset: -2rem 0 auto 0; /* no horizontal bleed: it would widen the page */
+  height: min(60vh, 520px);
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 70% at 0% 0%, rgba(121, 44, 53, 0.22), transparent 70%),
+    radial-gradient(60% 70% at 100% 0%, rgba(121, 44, 53, 0.18), transparent 70%),
+    radial-gradient(70% 55% at 50% 0%, rgba(227, 150, 102, 0.09), transparent 70%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 40%, transparent);
+  mask-image: linear-gradient(to bottom, #000 40%, transparent);
+}
+
+/* ── The podium wrapper: the grid item the card used to be ───────────────── */
+html[data-theme="pinaka"] .pk-podium {
+  /* The rank's ink: gold, a cooler pale gold, bronze. */
+  --pk-podium-ink: var(--pk-gold);
+  --pk-podium-line: rgba(227, 187, 102, 0.42);
+  --pk-podium-fill: rgba(17, 20, 34, 0.92);
+}
+html[data-theme="pinaka"] .pk-podium[data-rank="2"] {
+  --pk-podium-ink: #d9d2bb;
+  --pk-podium-line: rgba(217, 210, 187, 0.32);
+}
+html[data-theme="pinaka"] .pk-podium[data-rank="3"] {
+  --pk-podium-ink: #b4824f;
+  --pk-podium-line: rgba(180, 130, 79, 0.36);
+}
+/* The leader's lift moved to the wrapper so the frame rises with the card;
+   the card's own utility is handed back here. Tailwind sets `translate`;
+   this unlayered rule wins over the utility layer whatever its specificity. */
+html[data-theme="pinaka"] .pk-podium[data-rank="1"] > .surface { translate: 0 0; }
+
+/* ── The frame: an inset hairline a breath outside the card ──────────────── */
+html[data-theme="pinaka"] .pk-podium-frame {
+  position: absolute;
+  inset: -7px;
+  border: 1px solid var(--pk-podium-line);
+  border-radius: calc(var(--radius-card, 14px) + 6px);
+  pointer-events: none;
+  color: var(--pk-podium-ink);
+}
+html[data-theme="pinaka"] .pk-podium[data-rank="1"] .pk-podium-frame {
+  box-shadow: 0 0 0 1px rgba(227, 187, 102, 0.08), 0 0 36px -14px rgba(227, 187, 102, 0.45);
+}
+
+/* The sheen: a hairline of light that passes along the leader's frame. It
+   is a static gradient on the frame's rim whose opacity breathes; nothing
+   repaints but one layer's alpha. */
+html[data-theme="pinaka"] .pk-podium-sheen {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(115deg, transparent 30%, rgba(246, 223, 163, 0.75) 50%, transparent 70%) border-box;
+  -webkit-mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0;
+  animation: pk-podium-sheen 8s ease-in-out infinite;
+}
+@keyframes pk-podium-sheen {
+  0%, 100% { opacity: 0; }
+  50%      { opacity: 0.85; }
+}
+
+/* ── Corners: one drawing, mirrored into four ────────────────────────────── */
+html[data-theme="pinaka"] .pk-podium-corner {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  overflow: visible;
+}
+html[data-theme="pinaka"] .pk-podium-corner[data-pos="tl"] { left: -1px;  top: -1px; }
+html[data-theme="pinaka"] .pk-podium-corner[data-pos="tr"] { right: -1px; top: -1px;    transform: scaleX(-1); }
+html[data-theme="pinaka"] .pk-podium-corner[data-pos="bl"] { left: -1px;  bottom: -1px; transform: scaleY(-1); }
+html[data-theme="pinaka"] .pk-podium-corner[data-pos="br"] { right: -1px; bottom: -1px; transform: scale(-1, -1); }
+
+/* ── Cartouche: the rank, straddling the top edge of the frame ───────────── */
+html[data-theme="pinaka"] .pk-podium-cartouche {
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.2rem 0.75rem;
+  border: 1px solid var(--pk-podium-line);
+  border-radius: 999px;
+  background: var(--pk-podium-fill);
+  color: var(--pk-podium-ink);
+  pointer-events: none;
+  box-shadow: var(--shadow-e2);
+}
+html[data-theme="pinaka"] .pk-podium-numeral {
+  font-family: var(--pk-font-display);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  line-height: 1;
+}
+html[data-theme="pinaka"] .pk-podium-bow {
+  width: 14px;
+  height: 14px;
+  opacity: 0.9;
+}
+
+/* ── Phones: the podium stacks, and each cartouche needs headroom ────────── */
+/* The cartouche straddles the top edge of a frame that already sits 7px
+   outside its card; stacked at the grid's own gap the numeral lands on the
+   frame above. A little margin on every wrapper keeps the three apart. */
+@media (max-width: 639.98px) {
+  html[data-theme="pinaka"] .pk-podium { margin-top: 0.75rem; }
+}
+
+/* ── Reduced motion: the sheen holds still ───────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme="pinaka"] .pk-podium-sheen { animation: none; opacity: 0; }
+}
+html[data-theme="pinaka"] .pk-podium.is-still .pk-podium-sheen { animation: none; opacity: 0; }

@@ -1,4 +1,5 @@
 import React, { Suspense, useMemo, useState } from 'react';
+import { isPinaka } from '../../themes';
 import {
   Flame, ChevronRight, Layers, Loader2, Download, Check, Lock, X,
   User, Crown, Server,
@@ -10,7 +11,13 @@ import type { B2RBoxVM } from './b2rModel';
 // The chain renderer (canvas + steel/fire assets) is a separate chunk, loaded
 // only when a player actually enters a B2R chain. It is the SAME renderer the
 // Chained mode uses — a B2R chain's nodes are boxes instead of challenges.
-const ChainExperience = React.lazy(() => import('../chain/ChainExperience'));
+const ClassicChainExperience = React.lazy(() => import('../chain/ChainExperience'));
+// Event skin: the same series drawn as the Setu causeway, as ChainedBoard does.
+const SetuChainExperience = React.lazy(() => import('../../themes/pinaka/components/SetuChain'));
+function ChainExperience(props: React.ComponentProps<typeof ClassicChainExperience>) {
+  const Experience = isPinaka() ? SetuChainExperience : ClassicChainExperience;
+  return <Experience {...props} />;
+}
 
 interface Props {
   boxes: B2RBoxVM[];
@@ -156,7 +163,7 @@ function BoxCard({ box, onOpenChallenge }: { box: B2RBoxVM; onOpenChallenge: (id
         <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-sunken">
           <div
             className="h-full rounded-full transition-[width] duration-700"
-            style={{ width: `${pct}%`, background: 'linear-gradient(90deg,#8fb800,#c6ff00,#ddff6b)' }}
+            style={{ width: `${pct}%`, background: 'linear-gradient(90deg, var(--color-neon-dim), var(--color-neon), var(--color-neon-bright))' }}
           />
         </div>
       </div>
@@ -202,7 +209,7 @@ function MiniChain({ vm }: { vm: ChainSeriesVM }) {
         <React.Fragment key={n.challengeId}>
           <span
             className={`inline-block h-2.5 w-2.5 rounded-full ${
-              n.solved ? 'bg-cyber-neon shadow-[0_0_8px_rgba(198,255,0,0.6)]' : 'bg-surface-sunken ring-1 ring-border-subtle'
+              n.solved ? 'bg-cyber-neon shadow-[0_0_8px_color-mix(in_srgb,var(--color-neon)_60%,transparent)]' : 'bg-surface-sunken ring-1 ring-border-subtle'
             }`}
           />
           {i < vm.segments.length && (
@@ -333,7 +340,7 @@ export default function B2RBoard({ boxes, seriesVMs, subMode, category, onOpenCh
                     <span className="font-mono">{vm.solvedCount} / {vm.total} rooted</span>
                   </div>
                   <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-sunken">
-                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'linear-gradient(90deg,#8fb800,#c6ff00,#ddff6b)' }} />
+                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, var(--color-neon-dim), var(--color-neon), var(--color-neon-bright))' }} />
                   </div>
                 </div>
               </button>

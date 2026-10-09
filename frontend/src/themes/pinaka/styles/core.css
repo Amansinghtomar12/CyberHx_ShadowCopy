@@ -1,0 +1,304 @@
+/* ============================================================================
+   PINAKA — CORE RE-SKIN
+   The existing components, wearing the new material. Tokens do most of the
+   work (see tokens.css); this file covers the places where index.css carries
+   the brand lime as a literal colour, and gives the chrome its stone, bronze
+   and gold character. Scoped to html[data-theme="pinaka"] throughout.
+   ========================================================================== */
+
+/* ── Ground & type ─────────────────────────────────────────────────────── */
+html[data-theme="pinaka"] body {
+  background-color: var(--color-surface-base);
+  color: var(--color-text-primary);
+}
+html[data-theme="pinaka"] ::selection {
+  background-color: var(--pk-gold);
+  color: var(--pk-gold-ink);
+}
+
+/* Display type: page titles and section headings carry the epic; everything a
+   competitor reads for information stays on Inter / JetBrains Mono. */
+html[data-theme="pinaka"] .text-display,
+html[data-theme="pinaka"] .text-h1,
+html[data-theme="pinaka"] h1.text-h1,
+html[data-theme="pinaka"] h2.text-h2 {
+  font-family: var(--pk-font-display);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-wrap: balance;
+}
+html[data-theme="pinaka"] .text-h1 { letter-spacing: 0.005em; }
+html[data-theme="pinaka"] .pk-prose { font-family: var(--pk-font-prose); font-size: 1.0625rem; line-height: 1.55; }
+html[data-theme="pinaka"] .pk-display { font-family: var(--pk-font-display); }
+html[data-theme="pinaka"] .text-glow { text-shadow: 0 0 18px var(--pk-gold-glow); }
+
+/* ── Navigation bar: a bronze rail with a gold hairline ─────────────────── */
+html[data-theme="pinaka"] nav.sticky {
+  background-color: rgba(9, 11, 20, 0.78);
+  border-bottom-color: var(--pk-gold-line);
+  box-shadow: 0 1px 0 rgba(246, 223, 163, 0.06) inset, 0 8px 28px -14px rgba(227, 187, 102, 0.28);
+}
+html[data-theme="pinaka"] nav.sticky::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--pk-gold-line) 18%, rgba(246, 223, 163, 0.55) 50%, var(--pk-gold-line) 82%, transparent 100%);
+  pointer-events: none;
+}
+html[data-theme="pinaka"] nav.sticky { position: sticky; }
+
+/* ── Surfaces: dark stone with a gold hairline where the light lands ────── */
+html[data-theme="pinaka"] .surface,
+html[data-theme="pinaka"] .surface-raised,
+html[data-theme="pinaka"] .surface-overlay,
+html[data-theme="pinaka"] .card-interactive {
+  background-image:
+    linear-gradient(to bottom, rgba(246, 223, 163, 0.028), transparent 42%);
+  border-color: var(--color-border-base);
+}
+html[data-theme="pinaka"] .surface::after,
+html[data-theme="pinaka"] .surface-raised::after,
+html[data-theme="pinaka"] .surface-overlay::after,
+html[data-theme="pinaka"] .card-interactive::after {
+  background: linear-gradient(to right,
+    transparent, rgba(227, 187, 102, 0.22) 18%, rgba(246, 223, 163, 0.34) 50%,
+    rgba(227, 187, 102, 0.22) 82%, transparent);
+  opacity: 0.6;
+}
+html[data-theme="pinaka"] .surface,
+html[data-theme="pinaka"] .card-interactive {
+  background-color: rgba(14, 17, 29, 0.66);
+}
+html[data-theme="pinaka"] .surface-raised { background-color: rgba(22, 25, 41, 0.72); }
+html[data-theme="pinaka"] .surface-overlay {
+  background-color: #141829;
+  box-shadow: var(--shadow-e5), 0 0 0 1px var(--pk-gold-faint);
+}
+html[data-theme="pinaka"] .card-interactive:hover {
+  border-color: rgba(227, 187, 102, 0.42);
+  box-shadow: var(--shadow-e3), 0 0 28px -10px var(--pk-gold-glow), inset 0 1px 0 rgba(246, 223, 163, 0.06);
+}
+html[data-theme="pinaka"] .card-interactive[data-tilt]:not([data-selflit]) {
+  background-image:
+    linear-gradient(to bottom, rgba(246, 223, 163, 0.028), transparent 42%),
+    radial-gradient(320px circle at var(--mx, 50%) var(--my, 0%), rgba(227, 187, 102, 0.085), transparent 60%);
+}
+html[data-theme="pinaka"] .surface-overlay[data-tilt]:not([data-selflit]) {
+  background-image:
+    linear-gradient(to bottom, rgba(246, 223, 163, 0.028), transparent 42%),
+    radial-gradient(420px circle at var(--mx, 50%) var(--my, 0%), rgba(227, 187, 102, 0.055), transparent 62%);
+}
+html[data-theme="pinaka"] .holo::before {
+  background: radial-gradient(340px circle at var(--mx, 50%) var(--my, 0%), rgba(227, 187, 102, 0.1), transparent 62%);
+}
+html[data-theme="pinaka"] .holo[data-tilt]:hover {
+  box-shadow: var(--shadow-e4), 0 0 0 1px rgba(227, 187, 102, 0.14);
+}
+
+/* A carved frame on the panels that lead a page. Opt-in via .pk-carved. */
+html[data-theme="pinaka"] .pk-carved {
+  position: relative;
+  border-color: var(--pk-gold-line);
+  box-shadow: var(--shadow-e3), inset 0 0 0 1px rgba(246, 223, 163, 0.04), inset 0 0 60px -30px rgba(227, 187, 102, 0.18);
+}
+html[data-theme="pinaka"] .pk-carved::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1px solid var(--pk-gold-faint);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────────── */
+html[data-theme="pinaka"] .btn-primary {
+  background-image: linear-gradient(180deg, #f3d791 0%, #e3bb66 48%, #c49a45 100%);
+  color: var(--pk-gold-ink);
+  border-color: rgba(246, 223, 163, 0.45);
+  box-shadow: 0 1px 0 rgba(255, 244, 214, 0.35) inset, 0 8px 22px -10px rgba(227, 187, 102, 0.55);
+  text-shadow: 0 1px 0 rgba(255, 244, 214, 0.35);
+}
+html[data-theme="pinaka"] .btn-primary::after {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent 55%);
+}
+html[data-theme="pinaka"] .btn-primary:hover:not(:disabled) {
+  background-image: linear-gradient(180deg, #f8e3a8 0%, #ebc877 48%, #cfa44c 100%);
+  box-shadow: 0 1px 0 rgba(255, 244, 214, 0.4) inset, 0 12px 30px -10px rgba(227, 187, 102, 0.7);
+}
+html[data-theme="pinaka"] .btn-secondary {
+  border-color: var(--pk-gold-line);
+  background-color: rgba(227, 187, 102, 0.06);
+  color: var(--pk-gold-soft);
+}
+html[data-theme="pinaka"] .btn-secondary:hover:not(:disabled) {
+  background-color: rgba(227, 187, 102, 0.12);
+  border-color: rgba(227, 187, 102, 0.6);
+}
+html[data-theme="pinaka"] .btn-outline { border-color: var(--pk-gold-line); color: var(--pk-gold-soft); }
+html[data-theme="pinaka"] .btn-outline:hover:not(:disabled) { background-color: rgba(227, 187, 102, 0.1); }
+/* Danger and success keep their own voice. Danger is never gold. */
+html[data-theme="pinaka"] .btn-danger { color: var(--color-danger-fg); }
+
+/* ── Chips, tabs, rail ─────────────────────────────────────────────────── */
+html[data-theme="pinaka"] .chip.is-active {
+  background-color: rgba(227, 187, 102, 0.14);
+  border-color: rgba(227, 187, 102, 0.55);
+  color: var(--pk-gold-soft);
+}
+html[data-theme="pinaka"] .tab { letter-spacing: 0.12em; }
+html[data-theme="pinaka"] .tab::after { background: var(--pk-foil); }
+html[data-theme="pinaka"] .tab.is-active { color: var(--pk-gold-soft); }
+html[data-theme="pinaka"] .tab:hover { background-color: rgba(227, 187, 102, 0.05); }
+html[data-theme="pinaka"] .rail-item.is-active { background-color: rgba(227, 187, 102, 0.08); }
+
+/* ── Inputs ────────────────────────────────────────────────────────────── */
+html[data-theme="pinaka"] .input:focus,
+html[data-theme="pinaka"] .select:focus,
+html[data-theme="pinaka"] .textarea:focus {
+  border-color: rgba(227, 187, 102, 0.6);
+  box-shadow: 0 0 0 3px rgba(227, 187, 102, 0.14), var(--shadow-well);
+}
+
+/* ── Badges ────────────────────────────────────────────────────────────── */
+html[data-theme="pinaka"] .badge-neon   { border-color: rgba(227, 187, 102, 0.45); }
+html[data-theme="pinaka"] .badge-solved { border-color: rgba(227, 187, 102, 0.55); background-color: rgba(227, 187, 102, 0.16); }
+html[data-theme="pinaka"] .badge-easy   { border-color: rgba(140, 203, 156, 0.35); }
+html[data-theme="pinaka"] .badge-hard   { border-color: rgba(224, 122, 99, 0.4); }
+html[data-theme="pinaka"] .badge-insane { border-color: rgba(191, 152, 245, 0.45); }
+
+/* ── Scrollbar, kbd, dividers ──────────────────────────────────────────── */
+html[data-theme="pinaka"] { scrollbar-color: var(--color-border-strong) transparent; }
+html[data-theme="pinaka"] .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #3a3b4d; }
+html[data-theme="pinaka"] .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #5a5370; }
+html[data-theme="pinaka"] .shadow-neon {
+  --tw-shadow: 0 0 0 1px rgba(227, 187, 102, 0.18), 0 6px 22px -8px rgba(227, 187, 102, 0.42);
+}
+html[data-theme="pinaka"] .shadow-neon-strong {
+  --tw-shadow: 0 0 0 1px rgba(227, 187, 102, 0.3), 0 10px 34px -8px rgba(227, 187, 102, 0.55);
+}
+
+/* ── Loading identity: the rings turn gold ──────────────────────────────── */
+html[data-theme="pinaka"] .boot::before { border-right-color: rgba(227, 187, 102, 0.32); }
+html[data-theme="pinaka"] .boot::after  { border-bottom-color: rgba(227, 187, 102, 0.55); border-left-color: rgba(126, 167, 216, 0.4); }
+html[data-theme="pinaka"] .skeleton { background-color: rgba(227, 187, 102, 0.05); }
+
+/* ── The solve acknowledgement, the access sequence, the hold screen ────── */
+html[data-theme="pinaka"] .breach-root {
+  background: radial-gradient(70% 60% at 50% 50%, rgba(10, 12, 22, 0.72), rgba(5, 7, 13, 0.93));
+}
+html[data-theme="pinaka"] .access-step[data-state="active"] .access-dot { box-shadow: 0 0 10px 2px var(--pk-gold-glow); }
+html[data-theme="pinaka"] .hold-panel {
+  box-shadow: var(--shadow-e5), 0 0 0 1px rgba(227, 187, 102, 0.1), 0 0 80px -30px rgba(227, 187, 102, 0.35);
+}
+html[data-theme="pinaka"] .uplink-dot { box-shadow: 0 0 8px rgba(227, 187, 102, 0.6); }
+
+/* ── Section rules and the event clock ─────────────────────────────────── */
+html[data-theme="pinaka"] .diff-rule {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--diff-hue, var(--pk-gold)) 45%, transparent), transparent);
+}
+html[data-theme="pinaka"] .event-clock { border-color: var(--pk-gold-line); }
+
+/* ── Standings rows ────────────────────────────────────────────────────── */
+html[data-theme="pinaka"] .standings-row[data-me] {
+  background-color: rgba(227, 187, 102, 0.07);
+  box-shadow: inset 2px 0 0 var(--pk-gold);
+}
+
+/* ── Reticle cursor, in gold ───────────────────────────────────────────── */
+@media (pointer: fine) {
+  html[data-theme="pinaka"], html[data-theme="pinaka"] body {
+    cursor: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><g fill='none' stroke='%23e3bb66' stroke-linecap='round'><circle cx='16' cy='16' r='10.5' stroke-width='1.25' opacity='0.75' stroke-dasharray='4.2 3.4'/><path d='M16 2.5v4.5M16 25v4.5' stroke-width='1.6'/><path d='M1.5 16h6M24.5 16h6' stroke-width='2'/><path d='M16 11.5v2.2M16 18.3v2.2M11.5 16h2.2M18.3 16h2.2' stroke-width='1.1' opacity='0.85'/></g><circle cx='16' cy='16' r='1.15' fill='%23e3bb66'/><circle cx='16' cy='16' r='1.15' fill='%23f6dfa3' opacity='0.35'/></svg>") 16 16, crosshair;
+  }
+  html[data-theme="pinaka"] a, html[data-theme="pinaka"] button, html[data-theme="pinaka"] [role="button"],
+  html[data-theme="pinaka"] summary, html[data-theme="pinaka"] label[for],
+  html[data-theme="pinaka"] input[type="checkbox"], html[data-theme="pinaka"] input[type="radio"], html[data-theme="pinaka"] select,
+  html[data-theme="pinaka"] .btn, html[data-theme="pinaka"] .card-interactive, html[data-theme="pinaka"] .tab, html[data-theme="pinaka"] .chip {
+    cursor: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><g fill='none' stroke='%23f6dfa3' stroke-linecap='round'><circle cx='16' cy='16' r='10.5' stroke-width='1.25' opacity='0.95' stroke-dasharray='4.2 3.4'/><path d='M16 2.5v4.5M16 25v4.5' stroke-width='1.6'/><path d='M1.5 16h6M24.5 16h6' stroke-width='2.6'/><path d='M16 11.5v2.2M16 18.3v2.2M11.5 16h2.2M18.3 16h2.2' stroke-width='1.1' opacity='0.85'/></g><circle cx='16' cy='16' r='1.6' fill='%23f6dfa3'/><circle cx='16' cy='16' r='1.6' fill='%23ffffff' opacity='0.35'/></svg>") 16 16, pointer;
+  }
+}
+/* The base sheet's caret and not-allowed rules lose to the selectors above on
+   specificity, so they are restated here: a reticle over an input hides the
+   caret, and a disabled control must still say so. */
+@media (pointer: fine) {
+  html[data-theme="pinaka"] input:not([type="checkbox"]):not([type="radio"]),
+  html[data-theme="pinaka"] textarea { cursor: text; }
+  html[data-theme="pinaka"] :disabled,
+  html[data-theme="pinaka"] [aria-disabled="true"] { cursor: not-allowed; }
+}
+html[data-theme="pinaka"] .cursor-ring { border-color: rgba(227, 187, 102, 0.5); }
+
+/* ── Ambient fallbacks: if the default environment is ever mounted under the
+   theme (it is not, but a stray page could), it must not glow lime. ─────── */
+html[data-theme="pinaka"] .ambient-wash {
+  background:
+    radial-gradient(120% 90% at 50% -20%, rgba(227, 187, 102, 0.06), transparent 60%),
+    radial-gradient(90% 70% at 8% 108%, rgba(60, 80, 140, 0.08), transparent 62%);
+}
+html[data-theme="pinaka"] .ambient-grid { display: none; }
+
+/* ── Small shared ornaments used by several themed components ───────────── */
+html[data-theme="pinaka"] .pk-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--pk-gold-deep);
+}
+html[data-theme="pinaka"] .pk-eyebrow::before,
+html[data-theme="pinaka"] .pk-eyebrow::after {
+  content: "";
+  width: 1.75rem;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--pk-gold-line));
+}
+html[data-theme="pinaka"] .pk-eyebrow::after { background: linear-gradient(90deg, var(--pk-gold-line), transparent); }
+html[data-theme="pinaka"] .pk-diamond {
+  display: inline-block;
+  width: 5px; height: 5px;
+  transform: rotate(45deg);
+  background: var(--pk-gold);
+  box-shadow: 0 0 6px var(--pk-gold-glow);
+  flex-shrink: 0;
+}
+html[data-theme="pinaka"] .pk-foil-text {
+  background: var(--pk-foil);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+html[data-theme="pinaka"] .pk-rule {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--pk-gold-line) 30%, rgba(246, 223, 163, 0.5) 50%, var(--pk-gold-line) 70%, transparent);
+}
+
+/* ── Reduced motion: the theme adds no motion the base does not already stop,
+   but its own classes must honour the preference too. ───────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme="pinaka"] .pk-diamond { box-shadow: none; }
+}
+
+/* ── Forced colours (Windows High Contrast) ─────────────────────────────── */
+/* Foil text paints its glyphs with a background clipped to the text; forced
+   colours drop author backgrounds and would leave the letters transparent. */
+@media (forced-colors: active) {
+  html[data-theme="pinaka"] .pk-foil-text,
+  html[data-theme="pinaka"] .pk-numeral-deva {
+    background: none;
+    color: CanvasText;
+    -webkit-text-fill-color: CanvasText;
+  }
+}
+
+/* ── Off screen, nothing moves ──────────────────────────────────────────── */
+/* An SVG child animation repaints its whole drawing every frame. Components
+   with such loops set data-offscreen from an IntersectionObserver. */
+html[data-theme="pinaka"] [data-offscreen="true"] *,
+html[data-theme="pinaka"] [data-offscreen="true"] *::before,
+html[data-theme="pinaka"] [data-offscreen="true"] *::after {
+  animation-play-state: paused !important;
+}
