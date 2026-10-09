@@ -56,6 +56,8 @@ function useStill(): boolean {
 /* ── Plate: the photograph behind the gate ──────────────────────────────── */
 /** AuthPage shows the hero column from Tailwind's `lg` breakpoint (64rem). */
 const HERO_SHOWN = '(min-width: 64rem)';
+/** The archer and the wheel beside the title need the column at its widest. */
+const FIGURES_SHOWN = '(min-width: 80rem)';
 
 /**
  * Decorative (alt="", aria-hidden), never draggable, decoded off the main
@@ -196,10 +198,11 @@ const FACTS: readonly { label: string; value: string }[] = [
 export default function AuthGateway() {
   const reduce = useReducedMotion();
   const still = useStill();
+  const figures = useMediaQuery(FIGURES_SHOWN);
   const ease = [0.22, 1, 0.36, 1] as const;
 
   return (
-    <div className="pk-gateway relative flex flex-1 flex-col">
+    <div className="pk-gateway relative flex flex-1 flex-col" data-still={still ? 'true' : undefined}>
       {/* ── The photograph, under everything, clipped to this column ── */}
       <HeroPlate still={still} />
 
@@ -214,24 +217,28 @@ export default function AuthGateway() {
         <span className="pk-gateway-lamp" data-pos="l2" />
         <span className="pk-gateway-lamp" data-pos="r1" />
         <span className="pk-gateway-lamp" data-pos="r2" />
-        <img
-          className="pk-gateway-archer"
-          src={PINAKA_IMAGES.archer.large}
-          alt=""
-          aria-hidden="true"
-          draggable={false}
-          loading="eager"
-          decoding="async"
-        />
-        <img
-          className="pk-gateway-wheel"
-          src={PINAKA_IMAGES.wheelEmblem.small}
-          alt=""
-          aria-hidden="true"
-          draggable={false}
-          loading="eager"
-          decoding="async"
-        />
+        {/* Only where the column is wide enough to hold them beside the title,
+            so a narrower screen never fetches the two images at all. */}
+        {figures && <>
+          <img
+            className="pk-gateway-wheel"
+            src={PINAKA_IMAGES.wheelEmblem.small}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            loading="eager"
+            decoding="async"
+          />
+          <img
+            className="pk-gateway-archer"
+            src={PINAKA_IMAGES.archer.large}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            loading="eager"
+            decoding="async"
+          />
+        </>}
       </div>
 
       {/* ── Inside the gate ── */}
@@ -252,19 +259,6 @@ export default function AuthGateway() {
           <p className="pk-gateway-tagline">{PINAKA_EVENT.tagline}</p>
           <p className="pk-gateway-tagline is-secondary">{PINAKA_EVENT.taglineSecondary}</p>
         </motion.div>
-
-        <motion.img
-          className="pk-gateway-scroll-art"
-          src={PINAKA_IMAGES.scrollArt}
-          alt=""
-          aria-hidden="true"
-          draggable={false}
-          decoding="async"
-          loading="eager"
-          initial={reduce ? false : { opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, ease, delay: reduce ? 0 : 0.22 }}
-        />
 
         <motion.dl
           className="pk-gateway-facts"

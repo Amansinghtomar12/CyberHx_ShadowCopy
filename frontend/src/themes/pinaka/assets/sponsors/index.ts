@@ -36,3 +36,31 @@ export const SPONSOR_LOGOS: Record<string, string> = {
 export const FEATURED_LOGOS = {
   ine: featuredIne,
 } as const;
+
+/**
+ * How each logo sits on its tile, so it shows exactly as supplied. Square
+ * logos that carry their own background fill the tile ('cover', and the tile
+ * takes that colour); transparent ones sit inside it ('contain') on the
+ * ground their colours were drawn for: light behind navy marks, dark behind
+ * white or neon ones.
+ */
+export interface LogoTile { bg: string; fit: 'cover' | 'contain' }
+
+const LIGHT = '#ffffff';
+const DARK = '#10131c';
+
+export const SPONSOR_TILES: Record<string, LogoTile> = {
+  'INE Security': { bg: '#252525', fit: 'cover' },
+  'Altered Security': { bg: LIGHT, fit: 'contain' },
+  'Red Team Hacker Academy': { bg: LIGHT, fit: 'cover' },
+  'CWL · CyberWarFare Labs': { bg: '#0f0f0f', fit: 'cover' },
+  'BlackPerl DFIR': { bg: DARK, fit: 'contain' },
+  'Stellar Data Recovery': { bg: LIGHT, fit: 'cover' },
+  'Unstop': { bg: LIGHT, fit: 'contain' },
+  '.XYZ Domains': { bg: LIGHT, fit: 'cover' },
+  'MetaCTF · Skillbit': { bg: DARK, fit: 'contain' },
+  'KnightSquad': { bg: DARK, fit: 'contain' },
+  'ThunderCipher': { bg: DARK, fit: 'contain' },
+  'CyberInfoga': { bg: DARK, fit: 'contain' },
+  'XSS Rat': { bg: DARK, fit: 'contain' },
+};

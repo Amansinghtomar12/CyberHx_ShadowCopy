@@ -1,9 +1,11 @@
 /**
- * Pinaka theme — photographic plates.
+ * Pinaka theme — world plates.
  *
- * One colour-graded photograph per world plus the hero behind the sign-in
- * page and the intro. Every file is a same-origin asset bundled by Vite
- * (1920×1080 and 960×540 WebP, cover-cropped around `focal`). Licences and
+ * One picture per world plus the hero behind the sign-in page and the intro:
+ * the official event paintings (the temple-city key art for Ayodhya and the
+ * hero, Lanka ablaze for Lanka) and colour-graded photographs for the rest.
+ * Every file is a same-origin asset bundled by Vite (a 1920 px and a 960 px
+ * WebP, cover-cropped around `focal`). Licences and
  * sources are recorded here and in docs/pinaka/ASSETS.md; the untouched
  * originals are not in the repository.
  *
@@ -14,18 +16,34 @@
  */
 import type { World } from '../../config';
 
-import ayodhya1920 from './ayodhya-1920.webp';
-import ayodhya960 from './ayodhya-960.webp';
+import temple1920 from './temple-1920.webp';
+import temple960 from './temple-960.webp';
 import vanavasa1920 from './vanavasa-1920.webp';
 import vanavasa960 from './vanavasa-960.webp';
 import setu1920 from './setu-1920.webp';
 import setu960 from './setu-960.webp';
-import lanka1920 from './lanka-1920.webp';
-import lanka960 from './lanka-960.webp';
+import lankaArt1920 from './lanka-art-1920.webp';
+import lankaArt960 from './lanka-art-960.webp';
 import vijaya1920 from './vijaya-1920.webp';
 import vijaya960 from './vijaya-960.webp';
-import hero1920 from './hero-1920.webp';
-import hero960 from './hero-960.webp';
+
+/** The official Pinaka CTF 2026 key art: the golden temple-city on the water. */
+const TEMPLE_ART: Plate = {
+  w1920: temple1920,
+  w960: temple960,
+  width: 1920,
+  height: 926,
+  alt: "Pinaka CTF key art: a golden temple-city on a lake at sunset, its spires reflected in the water under glowing cyber-lock sigils",
+  focal: { x: 0.59, y: 0.66 },
+  credit: {
+    title: "Pinaka CTF 2026 key art",
+    author: "Pinaka CTF · NFSU Chennai",
+    license: "Official event artwork",
+    licenseUrl: "https://pinakactf.com/",
+    sourceUrl: "https://pinakactf.com/",
+    photo: false,
+  },
+};
 
 export type PlateKey = World | 'hero';
 
@@ -52,22 +70,7 @@ export interface Plate {
 }
 
 export const PLATES: Record<PlateKey, Plate> = {
-  ayodhya: {
-    w1920: ayodhya1920,
-    w960: ayodhya960,
-    width: 1920,
-    height: 1080,
-    alt: "Ram ki Paidi on the Sarayu at Deepotsav: lit ghats and temple domes reflected in the river at night",
-    focal: { x: 0.45, y: 0.5 },
-    credit: {
-      title: "Sarayu River night view, Ayodhya 001",
-      author: "रूही (Ruhi)",
-      license: "CC BY-SA 4.0",
-      licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0",
-      sourceUrl: "https://commons.wikimedia.org/wiki/File:Sarayu_River_night_view,_Ayodhya_001.jpg",
-      photo: true,
-    },
-  },
+  ayodhya: TEMPLE_ART,
   vanavasa: {
     w1920: vanavasa1920,
     w960: vanavasa960,
@@ -101,19 +104,19 @@ export const PLATES: Record<PlateKey, Plate> = {
     },
   },
   lanka: {
-    w1920: lanka1920,
-    w960: lanka960,
+    w1920: lankaArt1920,
+    w960: lankaArt960,
     width: 1920,
     height: 1080,
-    alt: "Sigiriya rock rising from the forest under a heavy evening sky, seen from Pidurangala",
-    focal: { x: 0.5, y: 0.5 },
+    alt: "Pinaka CTF artwork: the fortress of Lanka ablaze above a smoking battlefield",
+    focal: { x: 0.55, y: 0.42 },
     credit: {
-      title: "Sigiriya, taken from Pidurangala Rock",
-      author: "C.J.Hatton",
-      license: "CC BY-SA 4.0",
-      licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0",
-      sourceUrl: "https://commons.wikimedia.org/wiki/File:Sigiriya,_taken_from_Pidurangala_Rock.jpg",
-      photo: true,
+      title: "Lanka ablaze — Pinaka CTF 2026 artwork",
+      author: "Pinaka CTF · NFSU Chennai",
+      license: "Official event artwork",
+      licenseUrl: "https://pinakactf.com/",
+      sourceUrl: "https://pinakactf.com/",
+      photo: false,
     },
   },
   vijaya: {
@@ -132,22 +135,7 @@ export const PLATES: Record<PlateKey, Plate> = {
       photo: true,
     },
   },
-  hero: {
-    w1920: hero1920,
-    w960: hero960,
-    width: 1920,
-    height: 1080,
-    alt: "Dusk over Hampi: the Virupaksha temple tower lit at the left, banana groves and boulder hills below a sky of pink cloud",
-    focal: { x: 0.32, y: 0.6 },
-    credit: {
-      title: "A beautiful sunset in Hampi",
-      author: "Albert Paul",
-      license: "CC BY-SA 4.0",
-      licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0",
-      sourceUrl: "https://commons.wikimedia.org/wiki/File:A_beautiful_sunset_in_Hampi.jpg",
-      photo: true,
-    },
-  },
+  hero: TEMPLE_ART,
 };
 
 /** Every photograph once, in world order, for the footer credit line. */

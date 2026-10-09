@@ -8,12 +8,13 @@
  * PINAKA_PARTNERS; nothing is typed here that would need re-checking against
  * the public site twice.
  *
- * Text and hairlines only. No logos are bundled (usage rights were not
- * confirmed for this repo); a partner that later gets a `logo` renders it at
- * 28px with its name as the alt text, and everyone else is a name mark.
+ * Logos are the official files from pinakactf.com, shown exactly as supplied:
+ * full colour, each on a tile of the ground it was drawn for (SPONSOR_TILES),
+ * with the partner's name under it. The institutional marks (NFSU, NFSU
+ * Chennai, MHA) carry dark lettering, so they sit on a light plate.
  *
- *   'footer'   one compact row for the bottom of the page
- *   'gateway'  a small plate for the sign-in hero
+ *   'footer'   the sponsor wall at the bottom of every page
+ *   'gateway'  a compact plate for the sign-in hero
  *
  * Both end with the photographs' credit line, built from PLATE_CREDITS: the
  * CC BY-SA plates require their attribution to be visible wherever they are
@@ -23,32 +24,51 @@
 import { PINAKA_EVENT, PINAKA_PARTNERS, type Partner } from '../config';
 import { PLATE_CREDITS } from '../assets/plates';
 import { INSTITUTIONAL_LOGOS } from '../assets/institutional';
-import { FEATURED_LOGOS } from '../assets/sponsors';
+import { FEATURED_LOGOS, SPONSOR_TILES } from '../assets/sponsors';
 import { PINAKA_IMAGES } from '../assets/images';
 
 const EXTERNAL = { target: '_blank', rel: 'noopener noreferrer' } as const;
 
-/** A partner as a mark: the logo when there is one, otherwise the name. */
-function Mark({ partner }: { partner: Partner }) {
-  const inner = partner.logo
-    ? <img className="pk-partner-logo" src={partner.logo} alt={partner.name} height={28} loading="lazy" decoding="async" />
-    : <span className="pk-partner-mark">{partner.name}</span>;
+/**
+ * A partner as a card: the logo on its tile, the name beneath. The image is
+ * alt="" because the name is right there as text; reading both would say the
+ * name twice.
+ */
+function Card({ partner, logo = partner.logo, featured = false }: { partner: Partner; logo?: string; featured?: boolean }) {
+  const tile = SPONSOR_TILES[partner.name];
+  const inner = (
+    <>
+      {logo && (
+        <span className="pk-partner-tile" data-fit={tile?.fit ?? 'contain'} style={tile ? { backgroundColor: tile.bg } : undefined}>
+          <img className="pk-partner-logo" src={logo} alt="" loading="lazy" decoding="async" draggable={false} />
+        </span>
+      )}
+      <span className="pk-partner-name">{partner.name}</span>
+    </>
+  );
+  const cls = `pk-partner-card${featured ? ' is-featured' : ''}`;
   return partner.url
-    ? <a className="pk-partner-link" href={partner.url} {...EXTERNAL}>{inner}</a>
-    : inner;
+    ? <a className={`${cls} pk-partner-link`} href={partner.url} {...EXTERNAL}>{inner}</a>
+    : <span className={cls}>{inner}</span>;
 }
 
-/** The marks, in a wrapping row, a diamond between neighbours. */
-function Marks({ partners, className }: { partners: readonly Partner[]; className?: string }) {
+/** The partners as a grid of equal cards. */
+function Grid({ partners }: { partners: readonly Partner[] }) {
   return (
-    <ul className={`pk-partners-marks${className ? ` ${className}` : ''}`} aria-label="Partners">
-      {partners.map((p, i) => (
-        <li key={p.name}>
-          {i > 0 && <span className="pk-diamond" aria-hidden="true" />}
-          <Mark partner={p} />
-        </li>
-      ))}
+    <ul className="pk-partners-grid" aria-label="Partners">
+      {partners.map(p => <li key={p.name}><Card partner={p} /></li>)}
     </ul>
+  );
+}
+
+/** NFSU, NFSU Chennai and MHA on a light plate: their lettering is dark. */
+function Institutions({ compact = false }: { compact?: boolean }) {
+  return (
+    <div className={`pk-partners-institutional${compact ? ' is-compact' : ''}`}>
+      <img src={INSTITUTIONAL_LOGOS.nfsuEmblem} alt="National Forensic Sciences University" loading="lazy" decoding="async" draggable={false} className="pk-institutional-logo is-wide" />
+      <img src={INSTITUTIONAL_LOGOS.nfsuChennai} alt="NFSU Chennai Campus" loading="lazy" decoding="async" draggable={false} className="pk-institutional-logo" />
+      <img src={INSTITUTIONAL_LOGOS.mha} alt="Ministry of Home Affairs, Government of India" loading="lazy" decoding="async" draggable={false} className="pk-institutional-logo" />
+    </div>
   );
 }
 
@@ -93,10 +113,7 @@ export default function PartnerStrip({ variant = 'footer' }: { variant?: 'footer
   if (variant === 'gateway') {
     return (
       <div className="pk-partners pk-partners-gateway" aria-label="Event organiser and partners">
-        <div className="pk-partners-institutional" aria-label="Institutional partners">
-          <img src={INSTITUTIONAL_LOGOS.nfsuEmblemOnly} alt="NFSU" height={44} loading="lazy" decoding="async" className="pk-institutional-logo" />
-          <img src={INSTITUTIONAL_LOGOS.mha} alt="Ministry of Home Affairs" height={44} loading="lazy" decoding="async" className="pk-institutional-logo" />
-        </div>
+        <Institutions compact />
         <span className="pk-eyebrow">{PINAKA_EVENT.platformRole}</span>
         <p className="pk-partners-organiser">
           <span className="pk-partners-event">{PINAKA_EVENT.name}</span>
@@ -106,12 +123,12 @@ export default function PartnerStrip({ variant = 'footer' }: { variant?: 'footer
           </a>
         </p>
         {association.map(p => (
-          <p key={p.name} className="pk-partners-association">
-            {p.role}{' '}
-            <img src={FEATURED_LOGOS.ine} alt={p.name} height={36} loading="lazy" decoding="async" className="pk-featured-logo" />
-          </p>
+          <div key={p.name} className="pk-partners-association">
+            <span className="pk-partners-heading">{p.role}</span>
+            <Card partner={p} logo={FEATURED_LOGOS.ine} featured />
+          </div>
         ))}
-        <Marks partners={field} className="is-wrapped" />
+        <Grid partners={field} />
         <p className="pk-partners-platform">{PINAKA_EVENT.platformLine}</p>
         <Credits />
       </div>
@@ -120,7 +137,7 @@ export default function PartnerStrip({ variant = 'footer' }: { variant?: 'footer
 
   return (
     <div className="pk-partners pk-partners-footer" aria-label="Event organiser and partners">
-      <img className="pk-footer-shield" src={PINAKA_IMAGES.footerShield} alt="" aria-hidden="true" height={32} loading="lazy" decoding="async" />
+      <img className="pk-footer-shield" src={PINAKA_IMAGES.footerShield} alt="" aria-hidden="true" height={44} loading="lazy" decoding="async" draggable={false} />
       <p className="pk-partners-line">
         <span>{PINAKA_EVENT.name}</span>
         <span className="pk-diamond" aria-hidden="true" />
@@ -128,7 +145,15 @@ export default function PartnerStrip({ variant = 'footer' }: { variant?: 'footer
         <span className="pk-diamond" aria-hidden="true" />
         <span>{PINAKA_EVENT.platformLine}</span>
       </p>
-      <Marks partners={PINAKA_PARTNERS} />
+      <Institutions />
+      {association.map(p => (
+        <div key={p.name} className="pk-partners-association">
+          <span className="pk-partners-heading">{p.role}</span>
+          <Card partner={p} logo={FEATURED_LOGOS.ine} featured />
+        </div>
+      ))}
+      <span className="pk-partners-heading">Partners</span>
+      <Grid partners={field} />
       <Credits />
     </div>
   );

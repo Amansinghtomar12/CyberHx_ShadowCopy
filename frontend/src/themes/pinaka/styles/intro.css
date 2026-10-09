@@ -78,16 +78,18 @@ html[data-theme="pinaka"] .pk-intro-plate::after {
     linear-gradient(180deg, rgba(8, 11, 19, 0.62) 0%, rgba(8, 11, 19, 0.22) 28%, rgba(8, 11, 19, 0.24) 68%, rgba(8, 11, 19, 0.7) 100%);
 }
 
-/* The duel scene: Rama vs Ravana, a dim photographic layer behind the skyline
-   and above the plate. Feathered at all edges with a radial mask, dimmed by
-   the overlay. Only visible at rest; reduced-motion gets it from the start. */
+/* The duel: the official artwork of the archer facing the ten-headed king,
+   in full colour across the foot of the frame. Contained, not cropped, so
+   both figures stand whole at the edges and the title owns the gap between
+   them; a dark pool in the centre keeps the title readable. Only visible at
+   rest; reduced-motion gets it from the start. */
 html[data-theme="pinaka"] .pk-intro-duel {
   position: absolute;
   inset: 0;
   overflow: hidden;
   pointer-events: none;
-  -webkit-mask-image: radial-gradient(78% 72% at 50% 40%, #000 30%, rgba(0,0,0,0.4) 65%, transparent 100%);
-  mask-image: radial-gradient(78% 72% at 50% 40%, #000 30%, rgba(0,0,0,0.4) 65%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 22%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 22%);
 }
 html[data-theme="pinaka"] .pk-intro-duel img {
   position: absolute;
@@ -95,10 +97,10 @@ html[data-theme="pinaka"] .pk-intro-duel img {
   width: 100%;
   height: 100%;
   display: block;
-  object-fit: cover;
-  object-position: center 30%;
-  opacity: 0.22;
-  filter: sepia(0.3) brightness(0.6) saturate(1.3);
+  object-fit: contain;
+  object-position: center bottom;
+  opacity: 0.95;
+  filter: drop-shadow(0 0 40px rgba(240, 120, 40, 0.25));
   user-select: none;
   -webkit-user-drag: none;
 }
@@ -107,7 +109,12 @@ html[data-theme="pinaka"] .pk-intro-duel::after {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(50% 50% at 50% 42%, rgba(8,11,19,0.6) 0%, rgba(8,11,19,0.4) 50%, rgba(8,11,19,0.75) 100%);
+    radial-gradient(34% 40% at 50% 46%, rgba(8, 11, 19, 0.72) 0%, rgba(8, 11, 19, 0.35) 60%, transparent 100%),
+    linear-gradient(to top, rgba(8, 11, 19, 0.55) 0%, transparent 18%);
+}
+/* On a phone the pair is shown wider than the screen, cropped to the centre. */
+@media (max-width: 639.98px) {
+  html[data-theme="pinaka"] .pk-intro-duel img { object-fit: cover; object-position: center 70%; }
 }
 
 /* The dawn behind the city: gold haze rising from the horizon, two gradients
