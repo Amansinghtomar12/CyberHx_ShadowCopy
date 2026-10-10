@@ -611,19 +611,6 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
                   </button>
                 ))}
               </div>
-              {placement === 'free' && (
-                <div className="mt-3 min-w-0 md:max-w-md">
-                  <label className="field-label" htmlFor="chal-scene">Ramayana Battle Scene</label>
-                  <select id="chal-scene" className="select" value={sceneId} onChange={e => setSceneId(e.target.value)}>
-                    <option value="">— None / Default —</option>
-                    {SCENE_ORDER.map(id => <option key={id} value={id}>{SCENES[id].label}</option>)}
-                  </select>
-                  <p className="mt-1.5 text-small text-text-muted">
-                    Optional. Sets the background and story line on the challenge dialog during
-                    Pinaka CTF. Scoring, hints, files and the category are unaffected.
-                  </p>
-                </div>
-              )}
               {placement === 'chain' && (
                 <div className="mt-3 min-w-0 md:max-w-md">
                   <label className="field-label" htmlFor="chal-chain-series">Add to chain</label>
@@ -654,6 +641,29 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
             </>
           )}
         </FormSection>
+
+        {!isB2R && (
+          <FormSection
+            icon={<ListChecks className="w-4 h-4" />}
+            title="Pinaka battle scene"
+            description="Event dressing for a Free challenge. Optional, and reversible at any time."
+          >
+            <div className="min-w-0 md:max-w-md">
+              <label className="field-label" htmlFor="chal-scene">Ramayana Battle Scene</label>
+              <select id="chal-scene" className="select" value={sceneId} onChange={e => setSceneId(e.target.value)}>
+                <option value="">— None / Default —</option>
+                {SCENE_ORDER.map(id => <option key={id} value={id}>{SCENES[id].label}</option>)}
+              </select>
+              <p className="mt-1.5 text-small text-text-muted leading-relaxed">
+                Turns this challenge's card into that scene's arena while the Pinaka skin is open:
+                the card leads with the scene, turns over when entered, and hands its painting to
+                the whole page. Scoring, flags, hints, files and the category are unaffected, and
+                “None / Default” restores the ordinary card. Chained challenges ignore this — the
+                journey is dressed by chapter instead.
+              </p>
+            </div>
+          </FormSection>
+        )}
 
         <FormSection icon={<ListChecks className="w-4 h-4" />} title="Identity">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
