@@ -614,7 +614,14 @@ export default function App() {
   // without the chapter migration — once the board's own data has arrived.
   // Before that it reads as "nothing completed", which is not the same as
   // knowing that nothing is completed.
-  const unlock = useChapterUnlock(journey, serverJourney.journey !== null || journeyInput !== null);
+  // The transition may only take its baseline once the authority has spoken:
+  // the server when the gate is migrated, the client's own derivation when it
+  // is not. Starting from the client's guess and then hearing the server made
+  // a chapter closed long ago look like one closing just now.
+  const unlock = useChapterUnlock(
+    journey,
+    serverJourney.settled && (serverJourney.journey !== null || journeyInput !== null),
+  );
 
   // B2R view-models. Each flag is an ordinary challenge underneath, so
   // "captured" comes straight from the same trusted solve arrays; a box is

@@ -161,7 +161,7 @@ async function runScene(browser, def, run) {
 
   const t0 = Date.now();
   const now = def.now || LIVE;
-  const mock = createMock({ now, event: def.event, me: def.me, down: def.down, hintTexts: def.hintTexts, submitResult: def.submitResult, log: (m) => entry.mockGaps.push(m) });
+  const mock = createMock({ now, event: def.event, me: def.me, down: def.down, hintTexts: def.hintTexts, submitResult: def.submitResult, extraSolves: def.extraSolves, log: (m) => entry.mockGaps.push(m) });
   const ctx = await browser.newContext({ ...VIEWPORTS[run.viewport], reducedMotion: run.reducedMotion, colorScheme: 'dark', timezoneId: 'Asia/Kolkata', locale: 'en-IN' });
   ctx.setDefaultTimeout(STEP_TIMEOUT);
   const page = await ctx.newPage();

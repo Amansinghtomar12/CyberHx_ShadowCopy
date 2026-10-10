@@ -247,8 +247,21 @@ function createMock(opts = {}) {
   const started = now >= T0;
   const ended = now > T1;
   const paused = !!event.is_paused;
+  // A scene may hand my team a few more solves than the fixture gives it —
+  // the only way to photograph a state the fixture never reaches, such as a
+  // chapter actually closed. [username, challenge key, minutes after start].
+  const extra = (opts.extraSolves || []).map(([u, k, m]) => {
+    const c = byKey[k];
+    if (!c) throw new Error(`extraSolves: no challenge keyed '${k}'`);
+    return { team_id: MY_TEAM_ID, username: u, challenge_id: c.id, points: c.points, at: atMin(m), event_key: c.id, kind: 'solve' };
+  });
   // No event running means no scoring history to show; otherwise everything up to `now` counts.
-  const upto = WORLD.ledger.filter(e => event.is_active && Date.parse(e.at) <= now && (hasTeam || e.team_id !== MY_TEAM_ID || e.username !== me.username));
+  // Sorted only when a scene added something, so every other scene keeps the
+  // ledger order it has always photographed.
+  const base = extra.length
+    ? [...WORLD.ledger, ...extra].sort((a, b) => String(a.at).localeCompare(String(b.at)))
+    : WORLD.ledger;
+  const upto = base.filter(e => event.is_active && Date.parse(e.at) <= now && (hasTeam || e.team_id !== MY_TEAM_ID || e.username !== me.username));
   const solves = upto.filter(e => e.kind === 'solve');
   const teamRows = teams.map(t => {
     const ev = upto.filter(e => e.team_id === t.id); const sv = ev.filter(e => e.kind === 'solve');

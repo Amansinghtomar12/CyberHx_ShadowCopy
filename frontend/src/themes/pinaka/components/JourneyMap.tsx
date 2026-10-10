@@ -98,11 +98,12 @@ export default function JourneyMap({ phase, progress, total = 0, personal, colla
   const you = clamp01(personal ?? 0);
   const youPct = Math.round(you * 100);
 
-  // Where the team stands, by chapters finished. `reachedP` is how many are
-  // done, so it indexes the current one; the gate decides what "done" means
-  // and this only reports it.
+  // Where the team stands, by chapters finished. The gate decides what
+  // "done" means — an empty chapter is not done, whatever the server's
+  // is_complete says — and this only reports it. `journey.completed` is
+  // that count already, so the road cannot drift from the rail by
+  // recounting it here.
   const chapters = journey.chapters;
-  const reachedP = chapters.filter(c => c.state === 'completed').length;
   const hereIdx = Math.min(CHAPTER_LIST.length - 1, Math.max(0, journey.currentIndex - 1));
   const here = CHAPTER_LIST[hereIdx];
   const nextChapter = hereIdx + 1 < CHAPTER_LIST.length ? CHAPTER_LIST[hereIdx + 1] : null;
@@ -122,7 +123,8 @@ export default function JourneyMap({ phase, progress, total = 0, personal, colla
             ? `${here.title}: ${leftHere} more solve${leftHere === 1 ? '' : 's'}${nextChapter ? ` and ${nextChapter.title} opens.` : ' to close the journey.'}`
             : `${here.title}. ${here.line}`;
 
-  // Unique ids for the SVG defs: several boards may mount this at once.
+  // A unique id for the plate, so the toggle's aria-controls points at
+  // this panel's own map and not another board's.
   const uid = useId().replace(/[^A-Za-z0-9_-]/g, '');
   const mapId = `pk-journey-${uid}`;
 
@@ -200,7 +202,7 @@ export default function JourneyMap({ phase, progress, total = 0, personal, colla
   const sentence =
     `Map of the Ramayana, from Ayodhya to Lanka, in six chapters. ` +
     `The team has ${solved !== null ? `solved ${solved} of ${total} challenges` : `solved ${pct} percent of the board`}, ` +
-    `closed ${reachedP} of ${chapters.length} chapters, and stands at ${here.title}.` +
+    `closed ${journey.completed} of ${chapters.length} chapters, and stands at ${here.title}.` +
     (nextChapter && leftHere > 0 && phase === 'during'
       ? ` ${leftHere} more solve${leftHere === 1 ? '' : 's'} opens ${nextChapter.title}.` : '') +
     (hasYou ? ` You have solved ${total > 0 ? `${Math.round(you * total)} of ${total}` : `${youPct} percent`}.` : '');
@@ -217,13 +219,14 @@ export default function JourneyMap({ phase, progress, total = 0, personal, colla
         </div>
         {toggleButton}
       </div>
-      {/* the legend: the two figures, each with the mark that rides the road */}
+      {/* The legend. Both figures count the whole board — a different
+          question from the chapters below, and labelled as one. */}
       <div className="pk-journey-figures">{figures}</div>
 
-      {/* the milestones: each station, what reaching it means, the solves it
-          takes on this board, and whether the team is there yet. 'next' only
-          while the event is live; afterwards the last one reached is final. */}
-      <ol className="pk-journey-stations" aria-label="Milestones of the road">
+      {/* The six chapters: what each one is, how far through it the team
+          is, and whether it is closed. 'next' only while the event is live;
+          afterwards the chapter they stopped in is the final one. */}
+      <ol className="pk-journey-stations" aria-label="The six chapters">
         {CHAPTER_LIST.map((c, i) => {
           const cp = chapters[i];
           // 'reached' only where the chapter is actually closed. This is the

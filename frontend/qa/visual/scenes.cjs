@@ -3,7 +3,8 @@
  * scenes.cjs — every screen of the platform, as a scene the harness can run.
  *
  * A scene is scene(name, { now, event, me, loggedOut, invite, down, only,
- * before(page, h), shots: [{ name?, before?, waitText?, waitSelector?, at, full?, clip? }] }).
+ * extraSolves, before(page, h),
+ * shots: [{ name?, before?, waitText?, waitSelector?, at, full?, clip? }] }).
  * Waits are on real text or selectors; `at` is only the settle time after
  * them (animations, count-ups, the breach showcase).
  */
@@ -358,6 +359,76 @@ module.exports = [
     event: { theme: 'pinaka', pinaka_story_mode: true },
     before: async (_p, h) => { await h.boardTab('Chained'); },
     shots: [{ waitText: 'Ayodhya', at: 1200 }, { name: 'full', at: 300, full: true }],
+  }),
+
+  // ── One chapter closed, and both places saying so ───────────────────────
+  // Not a picture: a measurement that fails the run.
+  //
+  // Two things on one screen count the team's progress — the rail above the
+  // board and the list beside the map — and they used to count different
+  // things. The rail counts chapters finished; the road counted a share of
+  // the whole board, a sixth per station, so at two thirds solved it printed
+  // five stations "reached" while the rail still showed the team in Ayodhya.
+  // Both were honest; together they were nonsense.
+  //
+  // The fixture never reaches a closed chapter on its own (it stops two
+  // solves short of Ayodhya), so this scene hands the team those two solves
+  // and then checks the two lists against each other, row by row. A tick in
+  // one and a lock in the other fails here rather than on the board.
+  scene('chapters-agree', {
+    event: { theme: 'pinaka', pinaka_story_mode: true },
+    // Burning Tail and Ring of Rama: the rest of the Ayodhya chain.
+    extraSolves: [['player_one', 'tail', 340], ['player_two', 'ring', 350]],
+    before: async (page, h) => {
+      await h.boardTab('Chained');
+      // The journey card is lazy, and the rail prints every chapter's name
+      // whatever its state — so waiting on the word "Mithila" would race the
+      // card's first paint. Wait for the card's own rows instead.
+      await page.locator('.pk-journey-stations > li').nth(5).waitFor({ state: 'attached' });
+      await h.park();
+      const r = await page.evaluate(() => {
+        const word = (el) => (el.textContent || '').replace(/\s+/g, ' ').trim();
+        const rail = [...document.querySelectorAll('.pk-journeybar > .pk-journeybar-step')]
+          .map(el => ({
+            name: word(el.querySelector('.pk-journeybar-name')).toUpperCase(),
+            state: el.getAttribute('data-state'),
+          }));
+        const list = [...document.querySelectorAll('.pk-journey-stations > li')]
+          .map(el => ({
+            name: word(el.querySelector('.pk-journey-stations-name')).toUpperCase(),
+            state: el.getAttribute('data-state'),
+            status: word(el.querySelector('.pk-journey-stations-status')),
+          }));
+        const marks = [...document.querySelectorAll('.pk-journey-mark')]
+          .map(el => ({ here: el.getAttribute('data-here') === '1' }));
+        return { rail, list, marks };
+      });
+
+      if (r.rail.length !== 6) throw new Error('rail has ' + r.rail.length + ' chapters, expected 6');
+      if (r.list.length !== 6) throw new Error('journey list has ' + r.list.length + ' rows, expected 6');
+
+      // The rail's words and the list's words, side by side.
+      const SAME = { completed: 'reached', current: 'next', locked: 'ahead' };
+      for (let i = 0; i < 6; i++) {
+        const a = r.rail[i], b = r.list[i];
+        console.log('            ' + String(i + 1) + ' ' + b.name.padEnd(13)
+          + ' rail=' + String(a.state).padEnd(10) + ' list=' + String(b.state).padEnd(8) + ' ' + b.status);
+        if (SAME[a.state] !== b.state) {
+          throw new Error(`chapter ${i + 1} (${b.name}): the rail says ${a.state}, the journey list says ${b.state}`);
+        }
+      }
+
+      // The state this scene exists for: exactly one closed, the next one current.
+      if (r.rail[0].state !== 'completed') throw new Error('Ayodhya is solved out and still not completed: ' + r.rail[0].state);
+      if (r.rail[1].state !== 'current') throw new Error('Mithila did not become current: ' + r.rail[1].state);
+      const ticked = r.list.filter(x => x.state === 'reached').length;
+      if (ticked !== 1) throw new Error('expected exactly one tick, found ' + ticked);
+
+      // And the map agrees: a mark for each chapter reached, one of them lit.
+      if (r.marks.length !== 2) throw new Error('expected 2 marks on the map (closed + current), found ' + r.marks.length);
+      if (r.marks.filter(m => m.here).length !== 1) throw new Error('expected exactly one lit mark');
+    },
+    shots: [{ at: 400 }, { name: 'full', at: 200, full: true }],
   }),
   // The same board with the gate asleep: one flat grid, exactly as every
   // event that is not running a story sees it.
