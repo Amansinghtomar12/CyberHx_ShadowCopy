@@ -11,7 +11,7 @@
  * prologue and not part of the brief.
  */
 import React from 'react';
-import type { Scene } from '../scenes/config';
+import type { CatalogueScene as Scene } from '../scenes/catalogue';
 
 export const SceneIntro: React.FC<{ scene: Scene }> = ({ scene }) => (
   <aside className="pk-scene-intro">

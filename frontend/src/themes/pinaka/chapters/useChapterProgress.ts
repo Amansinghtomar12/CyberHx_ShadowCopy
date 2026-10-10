@@ -41,6 +41,18 @@ interface Row {
 export interface ServerJourney {
   /** Null until the first read lands, or whenever the read fails. */
   readonly journey: Journey | null;
+  /**
+   * Whether the first read has come back — either with rows or with the
+   * "no such function" of an un-migrated database.
+   *
+   * `journey` alone cannot say: null means both "still asking" and "there
+   * is nothing to ask". The difference matters to the unlock transition,
+   * which takes its baseline from the journey it is first handed. Without
+   * this it took that baseline from the client's own guess, and then the
+   * server's answer — a chapter the team closed last night — arrived as a
+   * rise, and the ceremony played over a board the player had not yet seen.
+   */
+  readonly settled: boolean;
   /** Re-read after a solve, so a chapter opens without waiting for the poll. */
   readonly refresh: () => void;
 }
@@ -71,12 +83,27 @@ function toJourney(rows: readonly Row[]): Journey {
   //   team they have won a war that was never written.
   //
   // So `complete` here is the server's answer narrowed to chapters that
-  // hold something, which is the same line progress.ts has always drawn:
-  // the team waits at the next chapter the organisers have not filled yet.
-  const done = ordered.map(o => !!o.row?.is_complete && (o.row?.total ?? 0) > 0);
-  const firstOpen = done.findIndex(d => !d);
+  // hold something.
+  const has  = ordered.map(o => (o.row?.total ?? 0) > 0);
+  const done = ordered.map((o, i) => !!o.row?.is_complete && has[i]);
+
+  // Where the team stands is the first chapter that has something in it and
+  // is not finished — an empty one is passed over, not waited at.
+  //
+  // It used to be the first chapter not ticked, which is the same thing
+  // until an organiser uses four of the six: then a team that had solved
+  // the entire board was parked on "Setu Bandhan — nothing here yet" for
+  // the rest of the event, and the journey never once said it was over,
+  // because two chapters nobody wrote were still not ticked. Finishing
+  // everything that exists is finishing.
+  const firstOpen = done.findIndex((d, i) => !d && has[i]);
   const finished = firstOpen === -1;
-  const currentIndex = finished ? CHAPTER_ORDER.length : firstOpen + 1;
+  const lastWritten = has.lastIndexOf(true);
+  const currentIndex = !finished
+    ? firstOpen + 1
+    // Finished: rest at the last chapter the organisers actually wrote, so
+    // the backdrop and the head name a place the team has been.
+    : lastWritten >= 0 ? lastWritten + 1 : CHAPTER_ORDER.length;
 
   const chapters: ChapterProgress[] = ordered.map(({ chapter, row }, i) => {
     const state: ChapterState =
@@ -98,7 +125,7 @@ function toJourney(rows: readonly Row[]): Journey {
   });
 
   return {
-    current: finished ? CHAPTER_ORDER[CHAPTER_ORDER.length - 1] : CHAPTER_ORDER[firstOpen],
+    current: CHAPTER_ORDER[currentIndex - 1],
     currentIndex,
     chapters,
     completed: chapters.filter(c => c.state === 'completed').length,
@@ -108,6 +135,7 @@ function toJourney(rows: readonly Row[]): Journey {
 
 export function useChapterProgress(enabled: boolean): ServerJourney {
   const [journey, setJourney] = useState<Journey | null>(null);
+  const [settled, setSettled] = useState(false);
   const [tick, setTick] = useState(0);
   // An unchanged read keeps the same object, so the environment does not
   // re-run its plate crossfade every thirty seconds.
@@ -116,7 +144,9 @@ export function useChapterProgress(enabled: boolean): ServerJourney {
   const refresh = useCallback(() => setTick(t => t + 1), []);
 
   useEffect(() => {
-    if (!enabled) { setJourney(null); signature.current = ''; return; }
+    // Nothing to wait for when the gate is off: the caller's own fallback
+    // is the only answer there will be.
+    if (!enabled) { setJourney(null); setSettled(true); signature.current = ''; return; }
     let alive = true;
 
     const read = async () => {
@@ -124,9 +154,10 @@ export function useChapterProgress(enabled: boolean): ServerJourney {
       if (!alive) return;
       // A missing function is the un-migrated case, not a fault: the caller
       // falls back to deriving the journey the way it always did.
-      if (error || !Array.isArray(data)) { setJourney(null); signature.current = ''; return; }
+      if (error || !Array.isArray(data)) { setJourney(null); setSettled(true); signature.current = ''; return; }
 
       const rows = data as Row[];
+      setSettled(true);
       const sig = rows
         .map(r => `${r.chapter}:${r.solved}/${r.total}:${r.is_complete ? 1 : 0}${r.is_unlocked ? 1 : 0}`)
         .sort()
@@ -136,6 +167,10 @@ export function useChapterProgress(enabled: boolean): ServerJourney {
       setJourney(toJourney(rows));
     };
 
+    // Asking afresh: not settled again until this read answers. A poll that
+    // changes nothing re-settles on the same values, so the only window this
+    // opens is between the question and its answer.
+    setSettled(false);
     void read();
     const t = setInterval(() => { void read(); }, POLL_MS);
     const onVisible = () => { if (document.visibilityState === 'visible') void read(); };
@@ -148,5 +183,5 @@ export function useChapterProgress(enabled: boolean): ServerJourney {
     };
   }, [enabled, tick]);
 
-  return { journey, refresh };
+  return { journey, settled, refresh };
 }

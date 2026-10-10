@@ -137,12 +137,18 @@ export function deriveJourney(input: JourneyInput): Journey {
     };
   });
 
-  // The first chapter that is not complete is where the team stands. If every
-  // chapter is complete the journey is over, and the team rests at the last.
-  const firstOpen = rows.findIndex(r => !r.complete);
+  // Where the team stands: the first chapter that has something in it and is
+  // not finished. A chapter nobody wrote is passed over, not waited at — an
+  // organiser who uses four of the six must not leave their players parked
+  // on an empty fifth with the journey never reading as over. Same rule as
+  // useChapterProgress, so this fallback and the server agree.
+  const firstOpen = rows.findIndex(r => !r.complete && r.total > 0);
   const finished = firstOpen === -1;
-  const currentIndex = finished ? CHAPTER_ORDER.length : firstOpen + 1;
-  const current = finished ? CHAPTER_ORDER[CHAPTER_ORDER.length - 1] : CHAPTER_ORDER[firstOpen];
+  const lastWritten = rows.map(r => r.total > 0).lastIndexOf(true);
+  const currentIndex = !finished
+    ? firstOpen + 1
+    : lastWritten >= 0 ? lastWritten + 1 : CHAPTER_ORDER.length;
+  const current = CHAPTER_ORDER[currentIndex - 1];
 
   const chapters: ChapterProgress[] = rows.map((r, i) => ({
     id: r.id,

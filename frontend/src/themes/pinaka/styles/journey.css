@@ -1,24 +1,21 @@
 /* ============================================================================
    PINAKA — JOURNEY MAP
-   The campaign above the board as an engraved map: all of India and Sri
-   Lanka in dark stone with a gold coast, the road of the epic as a bronze
-   track with the team's progress lit in gold, seven stations pinned to real
-   places, and two travellers on the road — the team's arrow and the
-   viewer's own mark. Beside it, the milestones: what each station means and
-   how far the team is from the next. One carved panel; a single plate when
-   collapsed.
+   The campaign above the board: the organisers' painted map of the Ramayana
+   in a carved plate, with one mark on each chapter the team has closed and
+   a lit one on the chapter they are in. Beside it, the six chapters: what
+   each one is, and what the current one still wants. One carved panel; a
+   single plate when collapsed.
 
-   Scoped to html[data-theme="pinaka"]. Motion: the current station's ring
-   pulses by opacity, the arrow's halo breathes by opacity, the lit stretch
-   settles by stroke-dashoffset; the travellers ride the road by a
-   requestAnimationFrame tween in the component. All of it stops under
-   prefers-reduced-motion (the component adds .is-still so the two never
-   disagree) and pauses off screen (core.css, [data-offscreen]).
+   This sheet used to draw the map itself — two stacked SVGs of real
+   geography, a bronze road lit in gold, seven stations and two travellers
+   riding it. The painting replaced all of that, and the rules for it came
+   out with the drawing; what is left here is the panel, the chapter list,
+   the plate and the marks.
 
-   Scale: the geometry lives in a 720 × 780 viewBox, but every hairline,
-   ring, marker and label is meant in CSS pixels. The component measures
-   k = 720 / rendered width and sets --pk-k on the <svg>; station and
-   traveller groups are scaled by k, and the hairlines multiply by it here.
+   Scoped to html[data-theme="pinaka"]. Motion: the lit mark's ring breathes
+   by opacity, and nothing else moves. It stops under prefers-reduced-motion
+   and on the low and still tiers, and pauses off screen (core.css,
+   [data-offscreen]).
    ========================================================================== */
 
 /* ── Panel ─────────────────────────────────────────────────────────────── */
@@ -124,8 +121,8 @@ html[data-theme="pinaka"] .pk-journey-progress {
   gap: 0.5rem;
   white-space: nowrap;
 }
-/* The legend glyphs: the team's arrowhead, the viewer's diamond — the same
-   two marks that ride the road. */
+/* The legend glyphs: a square for the board's share, a diamond for the
+   viewer's own. These two figures count the whole board, not chapters. */
 html[data-theme="pinaka"] .pk-journey-progress[data-marker]::before {
   content: "";
   align-self: center;
@@ -254,10 +251,9 @@ html[data-theme="pinaka"] .pk-journey-toggle:hover:not(:disabled) { color: var(-
 /* ── The plate ─────────────────────────────────────────────────────────── */
 /* The plate: stone with a faint parchment grain (one tiled noise image,
    rendered once by the browser and cached — no live filter), a warm centre
-   and an inset gold rim. It keeps the viewBox's 12:13 shape and fills the
-   panel's width up to the map height; the polygons run past the edges on
-   purpose, so the plate clips. Two SVGs sit in its one grid cell: the land
-   and the road beneath, the lit stretch, stations and travellers above. */
+   and an inset gold rim. It holds the map's own 3:2 and fills the panel's
+   width up to the map height, never past it, so the painting inside is
+   never cropped and the marks keep their dots. */
 html[data-theme="pinaka"] .pk-journey-plate {
   /* The frame the map and its marks share. `relative` because the marks
      are placed in per cent of it; 3:2 because that is the map's own shape,
@@ -283,159 +279,6 @@ html[data-theme="pinaka"] .pk-journey-plate {
     inset 0 0 0 3px rgba(227, 187, 102, 0.07),
     inset 0 0 56px -20px rgba(227, 187, 102, 0.22),
     0 14px 30px -24px rgba(0, 0, 0, 0.9);
-}
-html[data-theme="pinaka"] .pk-journey-svg {
-  grid-area: 1 / 1;
-  display: block;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
-/* The moving drawing on its own compositing layer: a child's opacity
-   animation then re-rasterises these circles and labels, not the coastline
-   and the clipped shore in the drawing beneath. Not needed when nothing
-   loops (reduced motion, the still tier) or off screen. */
-html[data-theme="pinaka"] .pk-journey:not(.is-still) .pk-journey-svg-road { will-change: transform; }
-html[data-theme="pinaka"] [data-offscreen="true"] .pk-journey-svg-road { will-change: auto; }
-
-/* ── Land ──────────────────────────────────────────────────────────────── */
-/* India and Sri Lanka: a stone fill, an inner glow (a wide translucent gold
-   stroke clipped to the land, so half of it shows, inside the coast) and a
-   gold hairline coast. The neighbours only as a fainter wash and outline.
-   Every stroked path carries vector-effect: non-scaling-stroke, so these
-   widths are already CSS pixels at any map size; k is not applied again. */
-html[data-theme="pinaka"] .pk-journey-land {
-  fill: rgba(243, 232, 209, 0.06);
-  stroke: none;
-}
-html[data-theme="pinaka"] .pk-journey-land.is-faint {
-  fill: rgba(243, 232, 209, 0.02);
-  stroke: rgba(227, 187, 102, 0.12);
-  stroke-width: 1px;
-  stroke-linejoin: round;
-}
-html[data-theme="pinaka"] .pk-journey-shore {
-  fill: none;
-  stroke: rgba(227, 187, 102, 0.085);
-  stroke-width: 5px;
-  stroke-linejoin: round;
-}
-html[data-theme="pinaka"] .pk-journey-coast {
-  fill: none;
-  stroke: rgba(227, 187, 102, 0.72);
-  stroke-width: 1px;
-  stroke-linejoin: round;
-}
-html[data-theme="pinaka"] .pk-journey-water {
-  fill: none;
-  stroke: rgba(243, 232, 209, 0.15);
-  stroke-width: 1px;
-  stroke-linecap: round;
-}
-
-/* ── The road ──────────────────────────────────────────────────────────── */
-html[data-theme="pinaka"] .pk-journey-track {
-  fill: none;
-  stroke: rgba(181, 139, 98, 0.45);
-  stroke-width: 1.25px;
-  stroke-linecap: round;
-}
-/* The lit stretch: pathLength="100" on the element, so the dash is in
-   percent and the offset is 100 − the team's share. */
-html[data-theme="pinaka"] .pk-journey-fill {
-  fill: none;
-  stroke: var(--pk-gold);
-  /* stroke-width is set inline in user units (1.75 CSS px × k): this path
-     scales with the drawing so its dash stays in the road's own length */
-  stroke-linecap: round;
-  stroke-dasharray: 100;
-  transition: stroke-dashoffset 600ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-/* ── Stations (drawn in CSS pixels: the group is scaled by k) ──────────── */
-html[data-theme="pinaka"] .pk-journey-ring {
-  fill: #0d1020;
-  stroke: rgba(181, 139, 98, 0.58);
-  stroke-width: 1.25px;
-}
-html[data-theme="pinaka"] .pk-journey-dot { fill: rgba(181, 139, 98, 0.7); }
-/* The return shares Ayodhya's point: an outer ring, dashed until reached. */
-html[data-theme="pinaka"] .pk-journey-node[data-key="return"] .pk-journey-ring {
-  fill: none;
-  stroke-dasharray: 2.4 2.6;
-}
-html[data-theme="pinaka"] .pk-journey-node[data-state="reached"] .pk-journey-ring {
-  stroke: var(--pk-gold-deep);
-  stroke-dasharray: none;
-}
-html[data-theme="pinaka"] .pk-journey-node[data-state="reached"] .pk-journey-dot { fill: var(--pk-gold); }
-html[data-theme="pinaka"] .pk-journey-node[data-current="true"] .pk-journey-ring {
-  stroke: var(--pk-gold);
-  stroke-width: 1.5px;
-}
-html[data-theme="pinaka"] .pk-journey-node[data-current="true"] .pk-journey-dot { fill: var(--pk-gold-bright); }
-html[data-theme="pinaka"] .pk-journey-pulse {
-  fill: none;
-  stroke: var(--pk-gold);
-  stroke-width: 1px;
-  opacity: 0.35;
-  animation: pk-journey-pulse 2.6s ease-in-out infinite;
-}
-@keyframes pk-journey-pulse {
-  0%, 100% { opacity: 0.12; }
-  50%      { opacity: 0.55; }
-}
-
-/* Labels: the chapter numeral (prose face, gold) and the place (mono, 11px).
-   A dark stroke painted under the letters keeps them readable where they
-   cross the road or the coast — the UI wins over the drawing. */
-html[data-theme="pinaka"] .pk-journey-label {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  fill: var(--color-text-muted);
-  paint-order: stroke;
-  stroke: #0a0e17;
-  stroke-width: 3px;
-  stroke-linejoin: round;
-}
-html[data-theme="pinaka"] .pk-journey-numeral {
-  font-family: var(--pk-font-prose);
-  font-size: 13px;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
-  fill: var(--pk-gold-deep);
-}
-html[data-theme="pinaka"] .pk-journey-node[data-state="reached"] .pk-journey-place { fill: var(--color-text-secondary); }
-/* a small map keeps only the numerals; the list beside it names them */
-html[data-theme="pinaka"] .pk-journey-plate[data-compact="true"] .pk-journey-place { display: none; }
-html[data-theme="pinaka"] .pk-journey-node[data-current="true"] .pk-journey-place { fill: var(--pk-parchment); }
-html[data-theme="pinaka"] .pk-journey-node[data-current="true"] .pk-journey-numeral { fill: var(--pk-gold-soft); }
-
-/* ── Travellers (CSS pixels, scaled by k inside the group) ─────────────── */
-html[data-theme="pinaka"] .pk-journey-you path {
-  fill: var(--pk-parchment);
-  stroke: #0a0e17;
-  stroke-width: 1.2px;
-  stroke-linejoin: round;
-}
-html[data-theme="pinaka"] .pk-journey-arrow {
-  fill: var(--pk-gold-bright);
-  stroke: #0a0e17;
-  stroke-width: 1.1px;
-  stroke-linejoin: round;
-}
-html[data-theme="pinaka"] .pk-journey-halo {
-  fill: var(--pk-gold);
-  opacity: 0.22;
-  animation: pk-journey-breathe 3.2s ease-in-out infinite;
-}
-@keyframes pk-journey-breathe {
-  0%, 100% { opacity: 0.12; }
-  50%      { opacity: 0.38; }
 }
 
 /* ── Collapsed: a single plate ─────────────────────────────────────────── */
@@ -464,10 +307,10 @@ html[data-theme="pinaka"] .pk-journey.is-collapsed .pk-journey-figures {
 }
 
 /* ── Narrow panels ─────────────────────────────────────────────────────── */
-/* The map always fits its box (no sideways scroll: on a 320–360 px phone
-   that hid the Northeast); below LABELS_MIN_PX of map it shows numerals
-   only. The milestone rows drop their titles where the place and the status
-   need the room, and the collapsed plate gives up the viewer's figure. */
+/* The map always fits its box, at every width — a sideways-scrolling plate
+   hid half the painting on a 320–360 px phone. The chapter rows drop their
+   subtitles where the name and the status need the room, and the collapsed
+   plate gives up the viewer's own figure before the board's. */
 @container (max-width: 559.98px) {
   html[data-theme="pinaka"] .pk-journey.is-collapsed .pk-journey-progress .label-micro { display: none; }
   html[data-theme="pinaka"] .pk-journey.is-collapsed { flex-wrap: wrap; }
@@ -478,14 +321,6 @@ html[data-theme="pinaka"] .pk-journey.is-collapsed .pk-journey-figures {
   html[data-theme="pinaka"] .pk-journey-stations li { grid-template-columns: 1.4rem minmax(0, 1fr) auto; grid-template-areas: "num name status" "num place place"; }
   html[data-theme="pinaka"] .pk-journey-stations-title { display: none; }
   html[data-theme="pinaka"] .pk-journey.is-collapsed .pk-journey-progress[data-marker="you"] { display: none; }
-}
-
-/* ── Reduced motion ────────────────────────────────────────────────────── */
-html[data-theme="pinaka"] .pk-journey.is-still .pk-journey-fill { transition: none; }
-@media (prefers-reduced-motion: reduce) {
-  html[data-theme="pinaka"] .pk-journey-fill { transition: none; }
-  html[data-theme="pinaka"] .pk-journey-pulse { animation: none; opacity: 0.3; }
-  html[data-theme="pinaka"] .pk-journey-halo { animation: none; opacity: 0.18; }
 }
 
 /* ── The organisers' map, and the team's mark on it ───────────────────────

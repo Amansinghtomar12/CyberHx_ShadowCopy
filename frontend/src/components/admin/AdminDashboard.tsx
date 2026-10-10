@@ -5,7 +5,8 @@ import { useAuth } from '../../hooks/useAuth';
 import OwnerFlagVault from './OwnerFlagVault';
 import { exportScoreboardCsv } from '../../lib/scoreboardExport';
 import { safeHttpUrl } from '../../lib/url';
-import { SCENES, SCENE_ORDER } from '../../themes/pinaka/scenes/config';
+import { useSceneCatalogue } from '../../themes/pinaka/scenes/useSceneCatalogue';
+import SceneManager from './SceneManager';
 import {
   Plus, Eye, EyeOff, Trash2, Edit3, Shield, Users, Flag, Activity, RotateCcw, KeyRound,
   X, AlertTriangle, Megaphone, Zap, Lightbulb, Link2, Save, Inbox, Lock,
@@ -182,6 +183,9 @@ interface ChallengeFormProps {
 }
 
 function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
+  // The twelve that ship plus whatever the organisers have added since,
+  // so a scene added minutes ago is pickable without a reload.
+  const { catalogue: sceneCatalogue } = useSceneCatalogue(true);
   const isEdit = !!initial?.id;
   const [form, setForm] = useState({
     title: initial?.title ?? '',
@@ -652,7 +656,9 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
               <label className="field-label" htmlFor="chal-scene">Ramayana Battle Scene</label>
               <select id="chal-scene" className="select" value={sceneId} onChange={e => setSceneId(e.target.value)}>
                 <option value="">— None / Default —</option>
-                {SCENE_ORDER.map(id => <option key={id} value={id}>{SCENES[id].label}</option>)}
+                {sceneCatalogue.order.map(id => (
+                  <option key={id} value={id}>{sceneCatalogue.byId.get(id)?.label ?? id}</option>
+                ))}
               </select>
               <p className="mt-1.5 text-small text-text-muted leading-relaxed">
                 Turns this challenge's card into that scene's arena while the Pinaka skin is open:
@@ -1040,6 +1046,9 @@ function AdminDashboardInner() {
   const [showForm, setShowForm] = useState(false);
   const [editChallenge, setEditChallenge] = useState<DBChallenge | null>(null);
   const [activeTab, setActiveTab] = useState<'challenges' | 'chains' | 'b2r' | 'users' | 'teams' | 'submissions' | 'notifications' | 'event'>('challenges');
+  // Shared by the scene manager below and refreshed after it writes, so a
+  // scene added here is in the challenge dropdown without a reload.
+  const { catalogue: sceneCatalogue, refresh: refreshScenes } = useSceneCatalogue(true);
   const [resetting, setResetting] = useState(false);
 
   const loadChallenges = async () => {
@@ -1333,6 +1342,22 @@ function AdminDashboardInner() {
               </div>
             )}
           </div>
+
+          {/* The battle scenes a challenge can be dressed in. Here rather
+              than behind its own tab: it is the same job as the dropdown
+              on the challenge above, and an organiser writing a challenge
+              mid-event should not have to go looking for it. */}
+          <details className="surface mt-5">
+            <summary className="cursor-pointer select-none">
+              <span className="label-micro">Pinaka battle scenes</span>
+              <p className="mt-1 text-small text-text-muted">
+                Add your own artwork to the scene dropdown. No deploy, and it is pickable at once.
+              </p>
+            </summary>
+            <div className="mt-4">
+              <SceneManager catalogue={sceneCatalogue} onChanged={refreshScenes} />
+            </div>
+          </details>
         </div>
       )}
 

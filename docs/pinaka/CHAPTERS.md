@@ -16,10 +16,20 @@ records the platform already holds, and the layer only ever draws pixels.
 
 ## How a team's chapter is decided
 
-`themes/pinaka/chapters/progress.ts` is a pure function. It is given the
-challenges the player can see, the published chain series, and the
-platform's own `isSolved` predicate — the same one the board and the chain
-experience use — and returns which chapter each team stands in.
+**Once `20261011000000_pinaka_chapter_gate.sql` is applied, the database
+decides.** `get_team_chapter_progress()` is computed by the same functions
+that decide whether a flag may be submitted, so what the board draws cannot
+disagree with what the gate enforces. A chain belongs to a chapter because
+an admin filed it there — the **Chapter** dropdown on the chain, which
+writes `pinaka_series_chapter`. Nothing is matched by title.
+
+The rest of this section describes the fallback, which is what runs when
+that migration has *not* been applied: `themes/pinaka/chapters/progress.ts`,
+a pure function given the challenges the player can see, the published chain
+series, and the platform's own `isSolved` predicate — the same one the board
+and the chain experience use. It matches by title, and it is presentation
+only: it cannot stop a submission. Treat it as a graceful degradation, not
+as a way to set an event up.
 
 1. **A challenge belongs to a chapter** when it is a member of a chain series
    whose title names that chapter, or, failing that, when the challenge's own
@@ -50,8 +60,10 @@ Nothing else needs to know.
 
 ### Setting the event up
 
-Create one chain series per chapter, named for the chapter, and put that
-chapter's challenges in it in order, with the gate last. The suggested set:
+Create one chain series per chapter, put that chapter's challenges in it in
+order, and **pick the chapter from the dropdown on the chain**. The name no
+longer matters to the gate; the dropdown is what files it. The suggested
+set:
 
 - **Ayodhya** — `royal_signal`, `palace_cipher`, `first_oath`, `ayodhya_gate`
 - **Mithila** — `bow_fragment`, `sacred_curve`, `pinaka_trial`, `mithila_gate`
@@ -60,8 +72,24 @@ chapter's challenges in it in order, with the gate last. The suggested set:
 - **Setu Bandhan** — `floating_stone`, `bridge_token`, `ocean_pivot`, `setu_gate`
 - **Lanka** — `fortress_entry`, `ten_heads`, `firewall_of_lanka`, `final_dharma`
 
-Chains are optional: naming the challenges alone is enough, because the
-title match catches them.
+Three things have to be true before a chapter shows anything, and the
+diagnostic in `EVENT_MODE.md` reports all of them:
+
+- the chain is **published**,
+- each challenge in it is **visible**,
+- the chain is **filed under a chapter**.
+
+A chain that is unpublished, empty, or filed nowhere does not hold the
+journey shut — it is simply not part of it. A chapter with nothing in it
+counts as finished, so using three of the six leaves a working journey
+rather than a wall.
+
+**A challenge that is not visible is not part of its chain**, for the gate
+and for chapter completion alike: the step after it opens on the last
+*visible* step before it. So an organiser can hide a step mid-event without
+stranding anybody. (Before `20261012000000_pinaka_chain_skips_hidden.sql`
+that case deadlocked the whole event — if you are running an older
+deployment, apply it.)
 
 ---
 

@@ -164,7 +164,7 @@ unchanged; the still path shows it at rest from the first frame. Measured:
 the platform line (muted) is the lowest at 6.1:1, the tagline 9.4:1.
 
 **Partner strip.** Under the organiser and partner names, in both the footer
-and the gateway variant, one credit line in the small muted mono of the
+and the gateway variant, the platform line in the small muted mono of the
 platform line: "Photographs · *title* by *author* (*licence*) · …", every
 title linked to its source page and every licence to its deed
 (`target="_blank" rel="noopener noreferrer"`). It wraps (two lines on a

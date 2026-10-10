@@ -3,7 +3,8 @@
  * scenes.cjs — every screen of the platform, as a scene the harness can run.
  *
  * A scene is scene(name, { now, event, me, loggedOut, invite, down, only,
- * before(page, h), shots: [{ name?, before?, waitText?, waitSelector?, at, full?, clip? }] }).
+ * extraSolves, before(page, h),
+ * shots: [{ name?, before?, waitText?, waitSelector?, at, full?, clip? }] }).
  * Waits are on real text or selectors; `at` is only the settle time after
  * them (animations, count-ups, the breach showcase).
  */
@@ -359,6 +360,132 @@ module.exports = [
     before: async (_p, h) => { await h.boardTab('Chained'); },
     shots: [{ waitText: 'Ayodhya', at: 1200 }, { name: 'full', at: 300, full: true }],
   }),
+
+  // ── One chapter closed, and both places saying so ───────────────────────
+  // Not a picture: a measurement that fails the run.
+  //
+  // Two things on one screen count the team's progress — the rail above the
+  // board and the list beside the map — and they used to count different
+  // things. The rail counts chapters finished; the road counted a share of
+  // the whole board, a sixth per station, so at two thirds solved it printed
+  // five stations "reached" while the rail still showed the team in Ayodhya.
+  // Both were honest; together they were nonsense.
+  //
+  // The fixture never reaches a closed chapter on its own (it stops two
+  // solves short of Ayodhya), so this scene hands the team those two solves
+  // and then checks the two lists against each other, row by row. A tick in
+  // one and a lock in the other fails here rather than on the board.
+  scene('chapters-agree', {
+    event: { theme: 'pinaka', pinaka_story_mode: true },
+    // Burning Tail and Ring of Rama: the rest of the Ayodhya chain.
+    extraSolves: [['player_one', 'tail', 340], ['player_two', 'ring', 350]],
+    before: async (page, h) => {
+      await h.boardTab('Chained');
+      // The journey card is lazy, and the rail prints every chapter's name
+      // whatever its state — so waiting on the word "Mithila" would race the
+      // card's first paint. Wait for the card's own rows instead.
+      await page.locator('.pk-journey-stations > li').nth(5).waitFor({ state: 'attached' });
+      await h.park();
+      const r = await page.evaluate(() => {
+        const word = (el) => (el.textContent || '').replace(/\s+/g, ' ').trim();
+        const rail = [...document.querySelectorAll('.pk-journeybar > .pk-journeybar-step')]
+          .map(el => ({
+            name: word(el.querySelector('.pk-journeybar-name')).toUpperCase(),
+            state: el.getAttribute('data-state'),
+          }));
+        const list = [...document.querySelectorAll('.pk-journey-stations > li')]
+          .map(el => ({
+            name: word(el.querySelector('.pk-journey-stations-name')).toUpperCase(),
+            state: el.getAttribute('data-state'),
+            status: word(el.querySelector('.pk-journey-stations-status')),
+          }));
+        const marks = [...document.querySelectorAll('.pk-journey-mark')]
+          .map(el => ({ here: el.getAttribute('data-here') === '1' }));
+        return { rail, list, marks };
+      });
+
+      if (r.rail.length !== 6) throw new Error('rail has ' + r.rail.length + ' chapters, expected 6');
+      if (r.list.length !== 6) throw new Error('journey list has ' + r.list.length + ' rows, expected 6');
+
+      // The rail's words and the list's words, side by side.
+      const SAME = { completed: 'reached', current: 'next', locked: 'ahead' };
+      for (let i = 0; i < 6; i++) {
+        const a = r.rail[i], b = r.list[i];
+        console.log('            ' + String(i + 1) + ' ' + b.name.padEnd(13)
+          + ' rail=' + String(a.state).padEnd(10) + ' list=' + String(b.state).padEnd(8) + ' ' + b.status);
+        if (SAME[a.state] !== b.state) {
+          throw new Error(`chapter ${i + 1} (${b.name}): the rail says ${a.state}, the journey list says ${b.state}`);
+        }
+      }
+
+      // The state this scene exists for: exactly one closed, the next one current.
+      if (r.rail[0].state !== 'completed') throw new Error('Ayodhya is solved out and still not completed: ' + r.rail[0].state);
+      if (r.rail[1].state !== 'current') throw new Error('Mithila did not become current: ' + r.rail[1].state);
+      const ticked = r.list.filter(x => x.state === 'reached').length;
+      if (ticked !== 1) throw new Error('expected exactly one tick, found ' + ticked);
+
+      // And the map agrees: a mark for each chapter reached, one of them lit.
+      if (r.marks.length !== 2) throw new Error('expected 2 marks on the map (closed + current), found ' + r.marks.length);
+      if (r.marks.filter(m => m.here).length !== 1) throw new Error('expected exactly one lit mark');
+    },
+    shots: [{ at: 400 }, { name: 'full', at: 200, full: true }],
+  }),
+
+  // ── Four chapters of six, and the board solved out ──────────────────────
+  // Not a picture: a measurement that fails the run.
+  //
+  // The shape a real organiser ships: they wrote four chapters and left two
+  // empty. A team then solves every challenge that exists.
+  //
+  // "Where the team stands" used to be the first chapter not ticked, and an
+  // empty chapter is never ticked — so the team was parked on chapter five,
+  // "nothing here yet", for the rest of the event, and the journey never
+  // once said it was over, because two chapters nobody wrote were still
+  // outstanding. Finishing everything that exists is finishing.
+  scene('chapters-finished', {
+    event: { theme: 'pinaka', pinaka_story_mode: true },
+    // The rest of both chains: Ayodhya's last two and Mithila's last two.
+    extraSolves: [
+      ['player_one', 'tail', 330], ['player_two', 'ring', 335],
+      ['player_one', 'tide', 340], ['player_three', 'strait', 345],
+    ],
+    before: async (page, h) => {
+      await h.boardTab('Chained');
+      await page.locator('.pk-journey-stations > li').nth(5).waitFor({ state: 'attached' });
+      await h.park();
+      const r = await page.evaluate(() => {
+        const word = (el) => (el.textContent || '').replace(/\s+/g, ' ').trim();
+        return {
+          rail: [...document.querySelectorAll('.pk-journeybar > .pk-journeybar-step')]
+            .map(el => ({
+              name: word(el.querySelector('.pk-journeybar-name')).toUpperCase(),
+              state: el.getAttribute('data-state'),
+            })),
+          title: word(document.querySelector('.pk-journey-title')).toUpperCase(),
+          line: word(document.querySelector('.pk-journey-line')),
+        };
+      });
+
+      for (const c of r.rail) console.log('            ' + c.name.padEnd(13) + ' ' + c.state);
+      console.log('            head: ' + r.title + ' — ' + r.line);
+
+      const ticked = r.rail.filter(c => c.state === 'completed').map(c => c.name);
+      if (ticked.join(',') !== 'AYODHYA,MITHILA') {
+        throw new Error('expected Ayodhya and Mithila closed, got: ' + (ticked.join(',') || '(none)'));
+      }
+      // Nothing may be lit: there is no chapter left to stand in.
+      const current = r.rail.filter(c => c.state === 'current').map(c => c.name);
+      if (current.length) throw new Error('the journey is over but ' + current.join(',') + ' reads as current');
+      // And the head must say so, rather than naming an empty chapter.
+      if (!/every chapter closed/i.test(r.line)) {
+        throw new Error('the head does not read as finished: ' + r.line);
+      }
+      if (r.title !== 'MITHILA') {
+        throw new Error('expected to rest at the last chapter written (Mithila), got ' + r.title);
+      }
+    },
+    shots: [{ at: 400 }, { name: 'full', at: 200, full: true }],
+  }),
   // The same board with the gate asleep: one flat grid, exactly as every
   // event that is not running a story sees it.
   scene('chapters-off', {
@@ -377,6 +504,95 @@ module.exports = [
       await h.park();
     },
     shots: [{ waitText: 'Pinaka story', at: 1200 }, { name: 'full', at: 300, full: true }],
+  }),
+
+  // ── Adding a battle scene, through the real panel ───────────────────────
+  // Not a picture: a measurement that fails the run.
+  //
+  // The whole point of the catalogue is that an organiser can add artwork
+  // during their own event without an engineer, so the thing worth proving
+  // is the part that happens in their browser: a picture they picked is
+  // resized to what the board paints, re-encoded small, and measured — the
+  // focal point, the light, and the accent the card's border takes.
+  //
+  // Guessed numbers do not fail a build. They show up as a subject cropped
+  // out on a phone and a border in a colour the painting does not contain,
+  // which is why this drives the real file input rather than calling the
+  // module directly.
+  scene('admin-scene-upload', {
+    me: { isAdmin: true },
+    event: { theme: 'pinaka', pinaka_story_mode: true },
+    before: async (page, h) => {
+      await h.nav('Admin');
+      await h.waitText('Challenge catalogue');
+      await page.getByText('Pinaka battle scenes').click();
+      await h.waitText('Artwork');
+
+      // A picture with its subject and its light deliberately off centre:
+      // a measurement that is really a default would land at 0.5 and pass
+      // a weaker test than this one.
+      const png = await page.evaluate(async () => {
+        const c = document.createElement('canvas');
+        c.width = 1600; c.height = 900;
+        const x = c.getContext('2d');
+        x.fillStyle = '#101820'; x.fillRect(0, 0, 1600, 900);
+        // A bright warm mass low and right.
+        const g = x.createRadialGradient(1180, 640, 10, 1180, 640, 330);
+        g.addColorStop(0, '#ffd27f'); g.addColorStop(1, 'rgba(255,210,127,0)');
+        x.fillStyle = g; x.fillRect(0, 0, 1600, 900);
+        x.fillStyle = '#e8a33c'; x.beginPath(); x.arc(1180, 640, 150, 0, 7); x.fill();
+        const b = await new Promise(r => c.toBlob(r, 'image/png'));
+        const buf = new Uint8Array(await b.arrayBuffer());
+        return Array.from(buf);
+      });
+
+      await page.setInputFiles('#scene-art', {
+        name: 'rama-returns.png', mimeType: 'image/png', buffer: Buffer.from(png),
+      });
+      // Not the word "accent": the help text above the input already says
+      // it, so waiting on that passes before anything has been prepared.
+      // The Clear button exists only once a picture is in hand.
+      await page.getByRole('button', { name: 'Clear' }).waitFor({ state: 'visible' });
+
+      // Read the fields, not the page: adjacent spans concatenate in
+      // textContent, so "1600×900" and "7 KB" scrape as "9007".
+      const read = await page.evaluate(() => {
+        const row = document.querySelector('.pk-admin-scene-meta');
+        const t = (sel) => (row?.querySelector(sel)?.textContent || '').trim();
+        const size = t('[data-size]').match(/(\d+)×(\d+)/);
+        const kb = t('[data-weight]').match(/(\d+)/);
+        const hex = (row?.querySelector('code')?.textContent || '').trim();
+        const foc = t('[data-focal]').match(/(\d+)% \/ (\d+)%/);
+        return {
+          w: size && +size[1], h: size && +size[2], kb: kb && +kb[1],
+          accent: hex || null, fx: foc && +foc[1], fy: foc && +foc[2],
+        };
+      });
+      console.log('            prepared: ' + read.w + '×' + read.h + '  ' + read.kb + ' KB  accent '
+        + read.accent + '  focal ' + read.fx + '%/' + read.fy + '%');
+
+      // Resized to what the board paints, not left at whatever was picked.
+      if (read.w !== 1600 || read.h !== 900) throw new Error('unexpected prepared size: ' + read.w + '×' + read.h);
+      // Re-encoded: a 1600-wide PNG of this is far larger than this.
+      if (!(read.kb > 0 && read.kb < 400)) throw new Error('re-encode did not shrink it: ' + read.kb + ' KB');
+      // Measured, not defaulted: the art is warm, so a grey border means
+      // the hue pass never ran.
+      if (!read.accent) throw new Error('no accent was measured');
+      const [r, g, b] = [1, 3, 5].map(i => parseInt(read.accent.slice(i, i + 2), 16));
+      if (!(r > g && g > b)) throw new Error('accent is not the warm hue in the art: ' + read.accent);
+      // The lit mass sits low and right, at roughly 74% / 71%, which the
+      // clamp pulls to the far corner of what it allows. A focal point at
+      // the middle means the centroid never ran and a default was printed.
+      if (!(read.fx >= 65 && read.fy >= 62)) {
+        throw new Error('focal did not follow the light: ' + read.fx + '%/' + read.fy + '%');
+      }
+
+      // And the name becomes the id the storage path and plate key use.
+      await page.fill('#scene-label', 'Rama Returns');
+      await h.waitText('rama-returns');
+      await h.park();
+    },
+    shots: [{ at: 300 }],
   }),
 
   scene('blur-audit', blurAudit()),

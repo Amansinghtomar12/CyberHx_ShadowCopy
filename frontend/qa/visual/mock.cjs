@@ -247,8 +247,21 @@ function createMock(opts = {}) {
   const started = now >= T0;
   const ended = now > T1;
   const paused = !!event.is_paused;
+  // A scene may hand my team a few more solves than the fixture gives it —
+  // the only way to photograph a state the fixture never reaches, such as a
+  // chapter actually closed. [username, challenge key, minutes after start].
+  const extra = (opts.extraSolves || []).map(([u, k, m]) => {
+    const c = byKey[k];
+    if (!c) throw new Error(`extraSolves: no challenge keyed '${k}'`);
+    return { team_id: MY_TEAM_ID, username: u, challenge_id: c.id, points: c.points, at: atMin(m), event_key: c.id, kind: 'solve' };
+  });
   // No event running means no scoring history to show; otherwise everything up to `now` counts.
-  const upto = WORLD.ledger.filter(e => event.is_active && Date.parse(e.at) <= now && (hasTeam || e.team_id !== MY_TEAM_ID || e.username !== me.username));
+  // Sorted only when a scene added something, so every other scene keeps the
+  // ledger order it has always photographed.
+  const base = extra.length
+    ? [...WORLD.ledger, ...extra].sort((a, b) => String(a.at).localeCompare(String(b.at)))
+    : WORLD.ledger;
+  const upto = base.filter(e => event.is_active && Date.parse(e.at) <= now && (hasTeam || e.team_id !== MY_TEAM_ID || e.username !== me.username));
   const solves = upto.filter(e => e.kind === 'solve');
   const teamRows = teams.map(t => {
     const ev = upto.filter(e => e.team_id === t.id); const sv = ev.filter(e => e.kind === 'solve');
@@ -286,6 +299,20 @@ function createMock(opts = {}) {
       challenge_id: c.id,
       scene: ['golden-deer', 'ashoka-vatika'][i],
     })),
+    // The scene catalogue. The twelve ship in the bundle, so their rows
+    // carry no url — exactly as the migration seeds them.
+    pinaka_scene: [
+      'golden-deer', 'jatayus-last-stand', 'shabaris-offering', 'hanumans-leap',
+      'ashoka-vatika', 'lanka-dahan', 'sanjeevani-hunt', 'setu-stones',
+      'meghnads-trap', 'kumbhakarna-awakens', 'angadas-embassy', 'ravanas-ten-heads',
+    ].map((id, i) => ({
+      id,
+      label: id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+      intro: '', button_label: '', enter_label: '', accent: '#e3bb66',
+      art_url: null, art_width: null, art_height: null,
+      focal_x: 0.5, focal_y: 0.5, sun_x: 0.5, sun_y: 0.35,
+      position: i + 1, is_builtin: true,
+    })),
     pinaka_series_chapter: PINAKA_CHAPTER_OF_SERIES,
     challenge_files: ALL.flatMap(c => c.files.map(f => ({ ...f, challenge_id: c.id, created_at: c.created_at }))),
     hints: ALL.flatMap(c => c.hints.map(h => ({ id: h.id, challenge_id: c.id, cost: h.cost, content: h.content }))),
@@ -318,8 +345,16 @@ function createMock(opts = {}) {
   const mineSolved = new Set(teamSolves(MY_TEAM_ID).map(e => e.challenge_id));
   const positionOf = new Map(PINAKA_CHAPTERS.map(c => [c.id, c.position]));
 
+  // Only what a player can see counts, exactly as the database counts it:
+  // pinaka_chapter_complete and pinaka_team_unlocked both join through
+  // challenges ON is_visible, so a challenge the organisers have not shown
+  // yet is not part of the chain anybody is playing. Every challenge in
+  // this fixture is visible, so this changes nothing here — it is written
+  // the same way so that the day one is not, the mock does not quietly
+  // disagree with production.
+  const shown = (challengeId) => ALL.find(c => c.id === challengeId)?.is_visible !== false;
   const chapterContent = (chapterId) =>
-    chainRows.filter(r => chapterOfSeries.get(r.series_id) === chapterId);
+    chainRows.filter(r => chapterOfSeries.get(r.series_id) === chapterId && shown(r.challenge_id));
   const chapterComplete = (chapterId) =>
     chapterContent(chapterId).every(r => mineSolved.has(r.challenge_id));
   const chapterUnlocked = (chapterId) => {
@@ -331,9 +366,13 @@ function createMock(opts = {}) {
   const challengeUnlocked = (row) => {
     if (!storyMode) return true;
     if (!chapterUnlocked(chapterOfSeries.get(row.series_id))) return false;
-    if (row.position <= 1) return true;
-    const prev = chainRows.find(r => r.series_id === row.series_id && r.position === row.position - 1);
-    return !!prev && mineSolved.has(prev.challenge_id);
+    // The previous step a player can actually see — not position - 1, which
+    // deadlocks a chain whose middle is hidden.
+    const before = chainRows
+      .filter(r => r.series_id === row.series_id && r.position < row.position && shown(r.challenge_id))
+      .sort((a, b) => b.position - a.position);
+    if (!before.length) return true;          // a first door
+    return mineSolved.has(before[0].challenge_id);
   };
 
   const rpc = {

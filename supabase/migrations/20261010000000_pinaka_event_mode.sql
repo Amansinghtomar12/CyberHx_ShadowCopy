@@ -426,6 +426,12 @@ CREATE POLICY "files_select" ON public.challenge_files FOR SELECT
 --    is entitled to see about their own team.
 -- ════════════════════════════════════════════════════════════════════════
 
+-- Dropped rather than replaced: a later migration widens this signature,
+-- and CREATE OR REPLACE cannot narrow it back, so re-running this file on a
+-- database that already has the newer one fails with "cannot change return
+-- type". The grants below are re-applied either way.
+DROP FUNCTION IF EXISTS public.get_team_chain_progress();
+
 CREATE OR REPLACE FUNCTION public.get_team_chain_progress()
 RETURNS TABLE (
   challenge_id   uuid,

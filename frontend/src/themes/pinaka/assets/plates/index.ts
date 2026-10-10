@@ -70,6 +70,12 @@ export type ChapterPlateKey = `chapter-${ChapterId}`;
  */
 export type ScenePlateKey = `scene-${SceneId}`;
 
+/**
+ * A scene added by the organisers during their own event: the same shape,
+ * but an id this file cannot know at build time.
+ */
+export type AddedScenePlateKey = `scene-${string}`;
+
 export type PlateKey = World | 'hero' | ChapterPlateKey | ScenePlateKey;
 
 export interface Plate {
@@ -160,9 +166,38 @@ export const PLATES: Record<PlateKey, Plate> = {
   ) as Record<ScenePlateKey, Plate>),
 };
 
+/**
+ * Plates for scenes the organisers added after this module was built.
+ *
+ * The registry above is a constant, which was the whole truth while the
+ * twelve battle scenes were the only ones. A scene added during an event
+ * has no entry there, and the environment resolves a plate synchronously
+ * while rendering — so the alternative to this overlay is threading an
+ * async catalogue through every component that paints a background.
+ *
+ * Written once when the catalogue lands and read through `plateFor`.
+ * Replaces rather than accumulates, so a scene the organisers deleted
+ * stops being paintable.
+ */
+let addedPlates: ReadonlyMap<string, Plate> = new Map();
+
+export function registerScenePlates(entries: readonly (readonly [string, Plate])[]): void {
+  addedPlates = new Map(entries.map(([id, plate]) => [`scene-${id}`, plate]));
+}
+
+/**
+ * The plate for a key: the bundle first, then anything the organisers
+ * added. `null` for a key neither knows, which is what a caller gets for a
+ * scene that was deleted while someone had its challenge open.
+ */
+export function plateFor(key: PlateKey | AddedScenePlateKey | null | undefined): Plate | null {
+  if (!key) return null;
+  return (PLATES as Record<string, Plate | undefined>)[key] ?? addedPlates.get(key) ?? null;
+}
+
 /** The plate a battle scene is painted with. */
-export function scenePlateKey(id: SceneId): ScenePlateKey {
-  return `scene-${id}`;
+export function scenePlateKey(id: string): ScenePlateKey {
+  return `scene-${id}` as ScenePlateKey;
 }
 
 /** The plate a chapter is painted with. */
@@ -170,7 +205,7 @@ export function chapterPlateKey(id: ChapterId): ChapterPlateKey {
   return `chapter-${id}`;
 }
 
-/** Every photograph once, in world order, for the footer credit line. */
-export const PLATE_CREDITS: Plate['credit'][] = (Object.keys(PLATES) as PlateKey[])
-  .map(k => PLATES[k].credit)
-  .filter((c, i, all) => c.photo && all.findIndex(o => o.sourceUrl === c.sourceUrl) === i);
+/* The on-screen credit line is gone — the one photograph in the set is
+   CC0, a public-domain dedication, which asks for no attribution. Every
+   plate still carries its own `credit`, and docs/pinaka/ASSETS.md remains
+   the record of where each picture came from. */

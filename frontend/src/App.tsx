@@ -91,7 +91,8 @@ import { useChapterProgress } from './themes/pinaka/chapters/useChapterProgress'
 import { SceneIntro } from './themes/pinaka/components/SceneIntro';
 import { SceneCard } from './themes/pinaka/components/SceneCard';
 import { scenePlateKey } from './themes/pinaka/assets/plates';
-import { sceneOf, type Scene } from './themes/pinaka/scenes/config';
+import type { CatalogueScene as Scene } from './themes/pinaka/scenes/catalogue';
+import { useSceneCatalogue } from './themes/pinaka/scenes/useSceneCatalogue';
 import { shouldShowIntro } from './themes/pinaka/intro-gate';
 import {
   PinakaEnvironment, PinakaIntro, JourneyMap, ArrowSolveLight,
@@ -528,6 +529,10 @@ export default function App() {
       isSolved: (id: string) => solvedSet.has(id),
     };
   }, [pinaka, challenges, chainSeries, chainMembers, solvedIds, teamSolvedIds]);
+  // The battle scenes an organiser may pick from: the twelve that ship,
+  // plus any they have added during the event.
+  const { catalogue: scenes, refresh: refreshScenes } = useSceneCatalogue(pinaka);
+  const sceneOf = scenes.lookup;
   const serverJourney = useChapterProgress(pinaka);
   const journey = useJourney(journeyInput, serverJourney.journey);
   // Which battle scene dresses which Free challenge. Empty unless the
@@ -614,7 +619,14 @@ export default function App() {
   // without the chapter migration — once the board's own data has arrived.
   // Before that it reads as "nothing completed", which is not the same as
   // knowing that nothing is completed.
-  const unlock = useChapterUnlock(journey, serverJourney.journey !== null || journeyInput !== null);
+  // The transition may only take its baseline once the authority has spoken:
+  // the server when the gate is migrated, the client's own derivation when it
+  // is not. Starting from the client's guess and then hearing the server made
+  // a chapter closed long ago look like one closing just now.
+  const unlock = useChapterUnlock(
+    journey,
+    serverJourney.settled && (serverJourney.journey !== null || journeyInput !== null),
+  );
 
   // B2R view-models. Each flag is an ordinary challenge underneath, so
   // "captured" comes straight from the same trusted solve arrays; a box is
@@ -1034,7 +1046,7 @@ export default function App() {
           series={vm}
           chapter={id}
           locked={chainProgress.locked}
-          sceneOf={(challengeId) => challengeScenes.get(challengeId)}
+          sceneOf={(challengeId) => sceneOf(challengeScenes.get(challengeId))}
           onOpen={openChainChallenge}
           onEnter={enter}
         />
@@ -1454,6 +1466,7 @@ export default function App() {
                 {pinaka && canSeeChallenges && !needsTeam && (
                   <React.Suspense fallback={null}>
                     <JourneyMap
+                      journey={journey}
                       phase={worldPhase}
                       progress={challenges.length ? totalSolvedCount / challenges.length : 0}
                       total={challenges.length}
