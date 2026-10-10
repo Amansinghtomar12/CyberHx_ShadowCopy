@@ -11,6 +11,7 @@
  * dialog, like every other organiser switch on this platform.
  */
 import { useEffect, useState } from 'react';
+import { Palette } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import {
   applyTheme, effectiveTheme, getServerTheme, getThemeOverride, noteServerTheme,
@@ -95,15 +96,24 @@ export default function AdminThemeControl({ variant = 'panel' }: Props) {
   };
 
   if (variant === 'nav') {
+    const label = open ? 'Close Pinaka' : 'Open Pinaka';
     return (
       <button
         type="button"
         onClick={() => void set(open ? 'cyberhx' : 'pinaka')}
         disabled={busy}
+        aria-label={label}
         title={open ? 'Everyone is seeing the Pinaka experience. Click to return to the classic look.' : 'Open the Pinaka experience for every visitor.'}
-        className={`btn btn-sm ${open ? 'btn-secondary' : 'btn-primary'} ${busy ? 'is-loading' : ''}`}
+        /* Square between lg and 2xl. The desktop row is the only place this
+           button has to compete for width: it sits in the tab strip, beside
+           the Admin tab, and with its label there it pushed the strip over
+           the event clock. The icon carries it in that band; the label comes
+           back at 2xl, and in the phone menu — which is lg:hidden, so the lg
+           rules never reach it — it is never away. */
+        className={`btn btn-sm ${open ? 'btn-secondary' : 'btn-primary'} ${busy ? 'is-loading' : ''} lg:w-[1.875rem] lg:px-0 2xl:w-auto 2xl:px-3`}
       >
-        {open ? 'Close Pinaka' : 'Open Pinaka'}
+        <Palette className="w-3.5 h-3.5" aria-hidden="true" />
+        <span className="lg:hidden 2xl:inline">{label}</span>
       </button>
     );
   }

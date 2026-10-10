@@ -1034,7 +1034,7 @@ export default function App() {
         {/* Header */}
         <nav className="bg-cyber-bg/85 backdrop-blur-xl border-b border-border-base sticky top-0 z-50">
           <div className="max-w-screen-2xl mx-auto px-3 sm:px-5 lg:px-6 h-16 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 lg:gap-6 min-w-0">
+            <div className="flex items-center gap-2 lg:gap-4 2xl:gap-6 min-w-0">
               <button
                 className="btn btn-ghost btn-sm btn-icon lg:hidden -ml-1 shrink-0"
                 aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
@@ -1044,7 +1044,12 @@ export default function App() {
                 {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
 
-              <h1 className={pinaka ? 'shrink-0' : 'min-w-0'}>
+              {/* Never min-w-0: a zero-width heading does not stop the
+                  wordmark painting, it only lets it paint over the first
+                  tab. It keeps its width and gives way by hiding instead —
+                  and only for admins, whose row carries two more controls
+                  than a player's between lg and 2xl. */}
+              <h1 className="shrink-0">
                 <button
                   type="button"
                   className="group flex items-center gap-2.5 focus-ring rounded-inset"
@@ -1053,16 +1058,16 @@ export default function App() {
                   <span className="w-7 h-7 shrink-0 bg-neon-wash border border-border-neon rounded-inset flex items-center justify-center shadow-neon transition-transform duration-[var(--duration-base)] ease-out-quint group-hover:scale-105">
                     <Flag className="w-3.5 h-3.5 text-cyber-neon" />
                   </span>
-                  <span className="hidden sm:inline text-h3 tracking-tight text-cyber-text">CYBERHX</span>
+                  <span className={`text-h3 tracking-tight text-cyber-text ${profile?.is_admin ? 'hidden sm:inline lg:hidden 2xl:inline' : 'hidden sm:inline'}`}>CYBERHX</span>
                 </button>
               </h1>
-              {/* Event skin: the event's name beside the platform's. Only where
-                  the header has room for it — the admins' row carries two
-                  more controls, so it needs a wider screen before the badge
-                  joins in. */}
-              {pinaka && (
+              {/* Event skin: the event's name beside the platform's, and only
+                  where the header has room for it. Not for admins at all:
+                  their row carries the Admin tab and the event switch, and
+                  the switch already says whether the event is open. */}
+              {pinaka && !profile?.is_admin && (
                 <span
-                  className={`badge badge-neon pk-nav-badge shrink-0 ${profile?.is_admin ? 'hidden 2xl:inline-flex' : 'hidden xl:inline-flex'}`}
+                  className="badge badge-neon pk-nav-badge shrink-0 hidden 2xl:inline-flex"
                   title="Pinaka CTF 2026 · Scoring platform by CyberHX"
                 >
                   <span className="pk-nav-compass" aria-hidden="true" />
@@ -1070,7 +1075,7 @@ export default function App() {
                 </span>
               )}
 
-              <div className="hidden lg:flex items-center gap-1">
+              <div className="nav-strip hidden lg:flex items-center gap-0.5 2xl:gap-1">
                 {navItems.map(item => (
                   <button
                     key={item.id}
