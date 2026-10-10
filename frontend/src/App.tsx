@@ -93,7 +93,7 @@ import { scenePlateKey } from './themes/pinaka/assets/plates';
 import { sceneOf, type Scene } from './themes/pinaka/scenes/config';
 import { shouldShowIntro } from './themes/pinaka/intro-gate';
 import {
-  PinakaEnvironment, PinakaIntro, JourneyMap, PartnerStrip, ArrowSolveLight,
+  PinakaEnvironment, PinakaIntro, JourneyMap, ArrowSolveLight,
   JourneyBar, ChapterUnlock,
 } from './themes/pinaka/lazy';
 import { buildB2RBoxVM, buildB2RSeriesVM } from './components/b2r/b2rModel';
@@ -1937,12 +1937,10 @@ export default function App() {
           )}
         </AnimatePresence>
 
+        {/* The partner wall belongs on the gate, not here. A player on the
+            board is working; the sponsors are recognised at the door, where
+            AuthGateway renders the same strip in its gateway variant. */}
         <footer className="mt-auto border-t border-border-base py-8 px-4 sm:px-6">
-          {pinaka && (
-            <div className="max-w-screen-2xl mx-auto mb-6">
-              <React.Suspense fallback={null}><PartnerStrip variant="footer" /></React.Suspense>
-            </div>
-          )}
           <div className="max-w-screen-2xl mx-auto flex flex-col md:flex-row justify-between items-center gap-5">
             <div className="flex items-center gap-2.5">
               <span aria-hidden="true" className="w-5 h-5 bg-neon-wash border border-border-neon rounded-inset flex items-center justify-center">
