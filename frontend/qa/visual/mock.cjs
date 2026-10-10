@@ -298,7 +298,19 @@ function createMock(opts = {}) {
     pinaka_challenge_scene: ALL.slice(0, 2).map((c, i) => ({
       challenge_id: c.id,
       scene: ['golden-deer', 'ashoka-vatika'][i],
-    })),
+    })).concat([{
+      // One of the twelve on a chained challenge, beside an added one, so a
+      // single row of cards carries both kinds of art at once.
+      challenge_id: CHAIN_A[0].id,
+      scene: 'hanumans-leap',
+    }, {
+      // An added scene on a chained challenge. The board used to drop this
+      // row on the way in, because it validated every assignment against
+      // the twelve that ship — so the card an organiser had just dressed
+      // stayed bare and nothing said why.
+      challenge_id: CHAIN_A[1].id,
+      scene: 'rama-returns',
+    }]),
     // The scene catalogue. The twelve ship in the bundle, so their rows
     // carry no url — exactly as the migration seeds them.
     pinaka_scene: [
@@ -312,7 +324,20 @@ function createMock(opts = {}) {
       art_url: null, art_width: null, art_height: null,
       focal_x: 0.5, focal_y: 0.5, sun_x: 0.5, sun_y: 0.35,
       position: i + 1, is_builtin: true,
-    })),
+    })).concat([{
+      // One the organisers added during the event. Carries a url, because
+      // its art is not in the bundle — which is the whole difference the
+      // board has to cope with.
+      id: 'rama-returns',
+      label: 'Rama Returns',
+      intro: 'The city lights every lamp it owns.',
+      button_label: 'Light the Lamps', enter_label: 'Come Home',
+      accent: '#e7b268',
+      art_url: 'https://mock.supabase.co/storage/v1/object/public/scene-art/rama-returns/abc123.webp',
+      art_width: 1920, art_height: 1080,
+      focal_x: 0.6, focal_y: 0.55, sun_x: 0.7, sun_y: 0.3,
+      position: 1000, is_builtin: false,
+    }]),
     pinaka_series_chapter: PINAKA_CHAPTER_OF_SERIES,
     challenge_files: ALL.flatMap(c => c.files.map(f => ({ ...f, challenge_id: c.id, created_at: c.created_at }))),
     hints: ALL.flatMap(c => c.hints.map(h => ({ id: h.id, challenge_id: c.id, cost: h.cost, content: h.content }))),

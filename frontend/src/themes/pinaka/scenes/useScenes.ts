@@ -22,9 +22,12 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
-import { isSceneId, type SceneId } from './config';
-
-export type SceneMap = ReadonlyMap<string, SceneId>;
+/**
+ * The id is whatever the organisers named their scene, so this says string
+ * and not SceneId: that union is the twelve that ship, and a map typed to
+ * it quietly becomes a map that cannot hold a thirteenth.
+ */
+export type SceneMap = ReadonlyMap<string, string>;
 
 const EMPTY: SceneMap = new Map();
 
@@ -45,16 +48,25 @@ export function useChallengeScenes(enabled: boolean): SceneMap {
     if (!live()) return;
     if (error || !data) { setMap(EMPTY); signature.current = ''; return; }
 
+    // Every assignment, whatever it names.
+    //
+    // This used to drop any row whose scene was not one of the twelve that
+    // ship — right while the set was closed, and exactly wrong once
+    // organisers could add their own. A scene uploaded during an event was
+    // assigned in the admin panel, written to this table, and then thrown
+    // away here on the way to the board, so the card stayed bare and
+    // nothing anywhere said why.
+    //
+    // Nothing is lost by carrying an unknown id: the catalogue's own lookup
+    // returns null for one, which is the same "draw no art" the filter was
+    // for, decided against the live set rather than a frozen copy of it.
     const rows = (data as { challenge_id: string; scene: string }[])
-      // An unknown slug means the table outlived a scene that was renamed
-      // or dropped; skip it rather than render a broken background.
-      .filter(r => isSceneId(r.scene))
       .sort((a, b) => a.challenge_id.localeCompare(b.challenge_id));
 
     const sig = rows.map(r => r.challenge_id + ':' + r.scene).join('|');
     if (sig === signature.current) return;
     signature.current = sig;
-    setMap(new Map(rows.map(r => [r.challenge_id, r.scene as SceneId])));
+    setMap(new Map(rows.map(r => [r.challenge_id, r.scene])));
   }, []);
 
   useEffect(() => {
