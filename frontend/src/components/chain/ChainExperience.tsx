@@ -10,11 +10,19 @@ import {
 } from './Chain2D';
 import type { ChainSeriesVM } from './chainModel';
 import { play } from '../../audio/AudioManager';
+import { LOCKED_COPY } from '../../themes/pinaka/chapters/useChainProgress';
 
 interface Props {
   series: ChainSeriesVM;
   onOpenChallenge: (challengeId: string) => void;
   onBack: () => void;
+  /**
+   * Challenge ids the team has not earned yet, during a story-mode event.
+   * The server refuses these regardless; this only lets the board show a
+   * lock rather than walking someone into a refusal. Empty when the event
+   * is off, which is every ordinary day.
+   */
+  chainLocked?: ReadonlySet<string>;
 }
 
 const README_PROSE = [
@@ -37,7 +45,7 @@ const DIFF_COLOR: Record<string, string> = {
   Insane: 'var(--color-diff-insane, #c084fc)',
 };
 
-export default function ChainExperience({ series, onOpenChallenge, onBack }: Props) {
+export default function ChainExperience({ series, onOpenChallenge, onBack, chainLocked }: Props) {
   const reduced = !!useReducedMotion();
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -128,14 +136,21 @@ export default function ChainExperience({ series, onOpenChallenge, onBack }: Pro
           <canvas ref={canvasRef} aria-hidden="true" className="absolute inset-0" style={{ width: contentWidth, height: STAGE_HEIGHT }} />
 
           {series.nodes.map((node, i) => {
-            const locked = !node.challenge;
+            // Two different reasons a link cannot be opened: it is not in
+            // the visible catalogue at all, or the team has not reached it
+            // yet. Only the second one has something to explain.
+            const storyLocked = chainLocked?.has(node.challengeId) ?? false;
+            const locked = !node.challenge || storyLocked;
             return (
               <button
                 key={node.challengeId}
                 ref={(el) => { chipEls.current[i] = el; }}
                 onClick={() => { if (!locked) { play('open'); onOpenChallenge(node.challengeId); } }}
                 disabled={locked}
-                aria-label={`Chain ${node.position}: ${node.title}. ${node.solved ? 'Solved' : 'Unsolved'}${locked ? ', unavailable' : ''}.`}
+                aria-label={`Chain ${node.position}: ${node.title}. ${node.solved ? 'Solved' : 'Unsolved'}${
+                  storyLocked ? '. Locked. Complete the previous challenge to unlock.'
+                  : locked ? ', unavailable' : ''}.`}
+                title={storyLocked ? LOCKED_COPY : undefined}
                 className={[
                   'absolute left-0 top-0 flex w-[150px] flex-col items-start gap-1 rounded-md border px-3 py-2 text-left backdrop-blur-sm transition-colors',
                   node.solved
@@ -150,6 +165,9 @@ export default function ChainExperience({ series, onOpenChallenge, onBack }: Pro
                   {node.solved ? <Check className="h-4 w-4 text-cyber-neon" /> : locked ? <Lock className="h-3.5 w-3.5 text-text-muted" /> : null}
                 </span>
                 <span className="line-clamp-2 text-small font-semibold text-cyber-text">{node.title}</span>
+                {storyLocked && (
+                  <span className="text-micro leading-snug text-text-muted">{LOCKED_COPY}</span>
+                )}
                 <span className="flex items-center gap-2 text-micro text-text-muted">
                   {node.difficulty && <span style={{ color: DIFF_COLOR[node.difficulty] }}>{node.difficulty}</span>}
                   {node.points != null && <span className="font-mono">{node.points}p</span>}

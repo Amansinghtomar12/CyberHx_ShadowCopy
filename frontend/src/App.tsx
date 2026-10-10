@@ -86,6 +86,7 @@ import { deriveWorld, derivePhase } from './themes/pinaka/hooks';
 import { useJourney, useChapterAttributes, useChapterUnlock } from './themes/pinaka/chapters/useChapter';
 import { CHAPTERS } from './themes/pinaka/chapters/config';
 import { useChallengeScenes } from './themes/pinaka/scenes/useScenes';
+import { useChainProgress } from './themes/pinaka/chapters/useChainProgress';
 import { SceneBackdrop, SceneIntro } from './themes/pinaka/components/SceneBackdrop';
 import { sceneOf, type Scene } from './themes/pinaka/scenes/config';
 import { shouldShowIntro } from './themes/pinaka/intro-gate';
@@ -521,6 +522,9 @@ export default function App() {
   // Which battle scene dresses which Free challenge. Empty unless the
   // skin is on and the event migration has been applied.
   const challengeScenes = useChallengeScenes(pinaka);
+  // Story-mode locks. The server is the authority; this is so the board
+  // can show a lock instead of walking someone into a refusal.
+  const chainProgress = useChainProgress(pinaka);
   const chapter = CHAPTERS[journey.current];
   useChapterAttributes(pinaka ? journey.current : null);
   const unlock = useChapterUnlock(journey);
@@ -1579,7 +1583,7 @@ export default function App() {
                       </div>
                     }
                   >
-                    <ChainedBoard vms={chainVMs} category={selectedCat} onOpenChallenge={openChainChallenge} />
+                    <ChainedBoard vms={chainVMs} category={selectedCat} onOpenChallenge={openChainChallenge} chainLocked={chainProgress.locked} />
                   </React.Suspense>
                 ) : boardMode === 'b2r' ? (
                   <React.Suspense
@@ -1788,6 +1792,9 @@ export default function App() {
                 // Shockwave from this challenge's own node — the field
                 // registers the breach, not just the modal.
                 pulseChallenge(challengeId);
+                // A solve may have opened the next link of a chain; ask the
+                // server rather than guessing at the chain's shape here.
+                chainProgress.refresh();
                 setSolvedIds(prev => prev.includes(challengeId) ? prev : [...prev, challengeId]);
                 setTeamSolvedIds(prev => prev.includes(challengeId) ? prev : [...prev, challengeId]);
                 setSolvedByMap(prev => ({ ...prev, [challengeId]: profile?.username ?? 'you' }));

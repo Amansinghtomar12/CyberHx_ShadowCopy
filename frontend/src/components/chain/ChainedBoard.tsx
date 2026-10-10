@@ -13,6 +13,8 @@ interface Props {
   vms: ChainSeriesVM[];
   category: string | 'all';
   onOpenChallenge: (challengeId: string) => void;
+  /** Story-mode locks, passed straight through to the chain renderer. */
+  chainLocked?: ReadonlySet<string>;
 }
 
 const DIFF_COLOR: Record<string, string> = {
@@ -47,7 +49,7 @@ function MiniChain({ vm }: { vm: ChainSeriesVM }) {
   );
 }
 
-export default function ChainedBoard({ vms, category, onOpenChallenge }: Props) {
+export default function ChainedBoard({ vms, category, onOpenChallenge, chainLocked }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const shown = useMemo(
@@ -67,6 +69,7 @@ export default function ChainedBoard({ vms, category, onOpenChallenge }: Props) 
         }
       >
         <ChainExperience
+          chainLocked={chainLocked}
           key={selected.id}
           series={selected}
           onOpenChallenge={onOpenChallenge}
