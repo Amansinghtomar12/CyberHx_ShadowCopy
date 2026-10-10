@@ -230,8 +230,10 @@ html[data-theme="pinaka"] .pk-partners-featured {
   background:
     radial-gradient(90% 120% at 0% 50%, rgba(232, 112, 40, 0.16), transparent 62%),
     radial-gradient(110% 90% at 50% 0%, rgba(227, 187, 102, 0.12), transparent 62%),
-    rgba(8, 10, 19, 0.6);
-  box-shadow: inset 0 1px 0 rgba(246, 223, 163, 0.12), 0 26px 50px -26px rgba(0, 0, 0, 0.9);
+    rgba(8, 10, 19, 0.34);
+  backdrop-filter: blur(10px) saturate(1.08);
+  -webkit-backdrop-filter: blur(10px) saturate(1.08);
+  box-shadow: inset 0 1px 0 rgba(246, 223, 163, 0.12), 0 26px 50px -26px rgba(0, 0, 0, 0.75);
 }
 html[data-theme="pinaka"] .pk-sponsor.is-featured {
   flex-direction: row;
@@ -374,13 +376,17 @@ html[data-theme="pinaka"] .pk-partners-footer {
     radial-gradient(45% 60% at 0% 100%, rgba(70, 100, 220, 0.22), transparent 72%),
     radial-gradient(45% 60% at 100% 100%, rgba(200, 60, 70, 0.2), transparent 72%),
     radial-gradient(40% 40% at 100% 0%, rgba(232, 112, 40, 0.1), transparent 70%),
-    linear-gradient(180deg, rgba(13, 15, 27, 0.9), rgba(7, 8, 15, 0.95));
+    linear-gradient(180deg, rgba(13, 15, 27, 0.48), rgba(7, 8, 15, 0.66));
+  /* Glass. This panel used to be nearly opaque, which bricked over the
+     environment exactly where the art is best. The density it loses to
+     alpha it takes back as a blur, so the logo tiles — which are mostly
+     white — keep their edges against whatever is behind them. */
+  backdrop-filter: blur(18px) saturate(1.1);
+  -webkit-backdrop-filter: blur(18px) saturate(1.1);
   box-shadow:
-    0 50px 100px -50px rgba(0, 0, 0, 0.95),
+    0 50px 100px -50px rgba(0, 0, 0, 0.8),
     inset 0 1px 0 rgba(246, 223, 163, 0.16),
-    inset 0 0 0 1px rgba(0, 0, 0, 0.35);
-  /* Nearly opaque already: no backdrop blur to recompute while the
-     environment moves behind it. */
+    inset 0 0 0 1px rgba(0, 0, 0, 0.28);
 }
 /* four small gold corners, inside the panel's edge */
 html[data-theme="pinaka"] .pk-partners-footer::before {
@@ -631,4 +637,25 @@ html[data-theme="pinaka"] .pk-partners-credit-link:hover {
   html[data-theme="pinaka"] .pk-sponsor-plate,
   html[data-theme="pinaka"] .pk-inst { forced-color-adjust: none; }
   html[data-theme="pinaka"] .pk-inst { border-color: CanvasText; }
+}
+
+
+/* ── a still or low device pays for a blur in frames it does not have, so
+   it gets the old density back rather than unreadable glass ─────────── */
+[data-tier='still'] html[data-theme="pinaka"] .pk-partners-footer,
+[data-tier='low'] html[data-theme="pinaka"] .pk-partners-footer,
+html[data-theme="pinaka"] [data-tier='still'] .pk-partners-footer,
+html[data-theme="pinaka"] [data-tier='low'] .pk-partners-footer {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: linear-gradient(180deg, rgba(13, 15, 27, 0.9), rgba(7, 8, 15, 0.95));
+}
+html[data-theme="pinaka"] [data-tier='still'] .pk-partners-featured,
+html[data-theme="pinaka"] [data-tier='low'] .pk-partners-featured {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background:
+    radial-gradient(90% 120% at 0% 50%, rgba(232, 112, 40, 0.16), transparent 62%),
+    radial-gradient(110% 90% at 50% 0%, rgba(227, 187, 102, 0.12), transparent 62%),
+    rgba(8, 10, 19, 0.6);
 }

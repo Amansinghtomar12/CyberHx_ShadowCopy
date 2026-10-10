@@ -43,16 +43,23 @@ html[data-theme='pinaka'] .pk-scenecard__face {
   border-radius: var(--radius-card, 0.75rem);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  border: 1px solid color-mix(in srgb, var(--pk-scene-accent, #dfa049) 42%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pk-scene-accent, #dfa049) 48%, transparent);
+  /* Glass, not a panel: the painting behind the board should carry through
+     the card. The alpha alone could not do this — over a bright patch of
+     artwork the title would lose its contrast — so the weight that used to
+     come from opacity now comes from a blur. The gradient stays denser at
+     the foot, where the numbers and the button sit. */
   background:
     linear-gradient(
       160deg,
-      color-mix(in srgb, var(--pk-scene-accent, #dfa049) 10%, rgb(10 8 6 / 0.9)) 0%,
-      rgb(10 8 6 / 0.92) 55%
+      color-mix(in srgb, var(--pk-scene-accent, #dfa049) 14%, rgb(10 8 6 / 0.34)) 0%,
+      rgb(10 8 6 / 0.56) 100%
     );
+  backdrop-filter: blur(14px) saturate(1.12);
+  -webkit-backdrop-filter: blur(14px) saturate(1.12);
   box-shadow:
-    0 0 0 1px rgb(0 0 0 / 0.5),
-    0 18px 44px -24px rgb(0 0 0 / 0.9);
+    0 0 0 1px rgb(0 0 0 / 0.35),
+    0 18px 44px -24px rgb(0 0 0 / 0.8);
 }
 
 html[data-theme='pinaka'] .pk-scenecard__back {
@@ -312,8 +319,24 @@ html[data-theme='pinaka'] .pk-scene-intro__line {
   html[data-theme='pinaka'] .pk-scenecard__inner { transition: none; }
 }
 
-/* A still device gets the faces without the turn. */
-html[data-theme='pinaka'][data-still='1'] .pk-scenecard__inner { transition: none; }
+/* A still device gets the faces without the turn, and without a blur to
+   recompute every frame the environment moves. (The dial is data-tier on
+   the app root; an earlier version of this file keyed off a data-still
+   that is never set on <html>, so it never matched.) */
+[data-tier='still'] .pk-scenecard__inner,
+[data-tier='low'] .pk-scenecard__inner { transition: none; }
+
+[data-tier='still'] .pk-scenecard__face,
+[data-tier='low'] .pk-scenecard__face {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--pk-scene-accent, #dfa049) 12%, rgb(10 8 6 / 0.82)) 0%,
+      rgb(10 8 6 / 0.9) 100%
+    );
+}
 
 @media (forced-colors: active) {
   html[data-theme='pinaka'] .pk-scenecard__face,
@@ -328,4 +351,58 @@ html[data-theme='pinaka'][data-still='1'] .pk-scenecard__inner { transition: non
     background: ButtonFace;
     color: ButtonText;
   }
+}
+
+
+/* ── text that has to survive whatever is behind it ──────────────────────
+   The glass lets the painting through, which means a title can land on a
+   bright patch of it. A shadow is the cheap half of the fix — it costs no
+   opacity, so the card stays as see-through as it looks here — and the
+   inner shade below is the other half: a short wash under the top and
+   bottom of each face, where the type actually sits, so the words keep a
+   ground without the card regaining a body. */
+html[data-theme='pinaka'] .pk-scenecard__scene,
+html[data-theme='pinaka'] .pk-scenecard__reveal {
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.72), 0 2px 10px rgb(0 0 0 / 0.5);
+}
+
+html[data-theme='pinaka'] .pk-scenecard__cat,
+html[data-theme='pinaka'] .pk-scenecard__backeyebrow,
+html[data-theme='pinaka'] .pk-scenecard__cue,
+html[data-theme='pinaka'] .pk-scenecard__foot,
+html[data-theme='pinaka'] .pk-scenecard__ptsnum {
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.66);
+}
+
+html[data-theme='pinaka'] .pk-scenecard__face::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgb(6 5 4 / 0.42) 0%, transparent 34%),
+    linear-gradient(to top, rgb(6 5 4 / 0.46) 0%, transparent 38%);
+}
+
+/* The face is the stacking context the wash sits behind. */
+html[data-theme='pinaka'] .pk-scenecard__face {
+  isolation: isolate;
+}
+
+/* The buttons sit on the glass too, so give them a little body of their
+   own rather than relying on the card to provide it. */
+html[data-theme='pinaka'] .pk-scenecard__enter,
+html[data-theme='pinaka'] .pk-scenecard__leave {
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+[data-tier='still'] .pk-scenecard__enter,
+[data-tier='low'] .pk-scenecard__enter,
+[data-tier='still'] .pk-scenecard__leave,
+[data-tier='low'] .pk-scenecard__leave {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }

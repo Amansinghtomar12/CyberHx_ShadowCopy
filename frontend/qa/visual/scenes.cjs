@@ -109,6 +109,26 @@ module.exports = [
     shots: [{ at: 400 }],
   }),
 
+  // Measure the glass as the browser resolves it, rather than trusting a
+  // grep against minified CSS.
+  scene('glass-measure', {
+    before: async (page, h) => {
+      await h.boardReady();
+      const out = await page.evaluate(() => {
+        const pick = (sel) => {
+          const e = document.querySelector(sel);
+          if (!e) return `${sel}  -> not on this page`;
+          const c = getComputedStyle(e);
+          const bg = (c.backgroundImage || '').replace(/\s+/g, ' ');
+          return `${sel}\n              backdrop : ${c.backdropFilter}\n              bg       : ${bg.slice(0, 110)}`;
+        };
+        return [pick('.pk-scenecard__face'), pick('.pk-partners-footer'), pick('.pk-partners-featured')].join('\n            ');
+      });
+      console.log('            ' + out);
+    },
+    shots: [{ at: 300 }],
+  }),
+
   scene('arena-standing', {
     before: async (page, h) => {
       await h.boardReady();
