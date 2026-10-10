@@ -1,78 +1,186 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   Ramayana Battle Scenes — the Free-challenge dialog.
+   Ramayana Battle Scenes — the Free-challenge arena card.
 
-   Everything here is scoped to html[data-theme="pinaka"] AND to a dialog
-   that actually carries .pk-scene, so a challenge with no scene mapped,
-   or the whole platform with the skin off, renders exactly as before.
+   The scene's painting is NOT in here. It belongs to the page: opening a
+   scene challenge swaps the site's plate to it and closing puts the
+   chapter's plate back, so the card can stay a light object that turns.
 
-   The accent arrives as --pk-scene-accent, set inline per dialog from the
-   scene's measured colour. It is used for a thin rim and a low glow only:
-   never for text, because twelve different accents cannot all be made to
-   pass contrast against the same card.
+   Scoped to html[data-theme="pinaka"] and to .pk-scenecard, so a Free
+   challenge with no scene mapped, and the whole platform with the skin
+   off, render exactly as they always did.
+
+   The accent arrives as --pk-scene-accent, set per card from the scene's
+   measured colour. Rim and glow only — never text, because twelve accents
+   cannot all be made to pass contrast on one surface.
    ═══════════════════════════════════════════════════════════════════════ */
 
-html[data-theme='pinaka'] .pk-scene {
-  /* The rim is the scene's colour; the card beneath it stays near-black so
-     body copy keeps its contrast whatever the picture behind it is doing. */
-  border: 1px solid color-mix(in srgb, var(--pk-scene-accent, #dfa049) 55%, transparent);
-  box-shadow:
-    0 0 0 1px rgb(0 0 0 / 0.55),
-    0 0 28px -6px color-mix(in srgb, var(--pk-scene-accent, #dfa049) 40%, transparent),
-    0 24px 64px -24px rgb(0 0 0 / 0.85);
+html[data-theme='pinaka'] .pk-scenecard {
+  position: relative;
+  height: 100%;
+  min-height: 13.5rem;
+  perspective: 1100px;
 }
 
-/* ── the picture ──────────────────────────────────────────────────────── */
-
-html[data-theme='pinaka'] .pk-scene-bg {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  border-radius: inherit;
-  pointer-events: none;
-}
-
-html[data-theme='pinaka'] .pk-scene-bg__img {
+html[data-theme='pinaka'] .pk-scenecard__inner {
+  position: relative;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  /* The art is a bright painting and the dialog is a reading surface, so
-     the picture is dimmed at the source as well as under the scrim. */
-  /* Tuned against the real dialog: below ~0.7 the painting reads as a
-     smudge rather than a scene. The body copy is safe because it sits on
-     .surface-inset, which brings its own ground; only the title block and
-     the meta pills sit directly on the picture, and the scrim below is
-     weighted for them. */
-  opacity: 0.72;
-  filter: saturate(1.05);
+  transform-style: preserve-3d;
+  transition: transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* The readability layer. Darkest at the bottom, where the flag field and
-   the hint prices sit; lightest at the top, where the art is worth seeing. */
-html[data-theme='pinaka'] .pk-scene-bg__scrim {
+/* The door stands open while this card's challenge is the one on screen. */
+html[data-theme='pinaka'] .pk-scenecard[data-open='1'] .pk-scenecard__inner {
+  transform: rotateY(180deg);
+}
+
+html[data-theme='pinaka'] .pk-scenecard__face {
   position: absolute;
   inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0.875rem;
+  border-radius: var(--radius-card, 0.75rem);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border: 1px solid color-mix(in srgb, var(--pk-scene-accent, #dfa049) 42%, transparent);
   background:
     linear-gradient(
-      to bottom,
-      rgb(8 6 4 / 0.34) 0%,
-      rgb(8 6 4 / 0.58) 38%,
-      rgb(8 6 4 / 0.86) 100%
-    ),
-    radial-gradient(
-      120% 80% at 50% 0%,
-      color-mix(in srgb, var(--pk-scene-accent, #dfa049) 12%, transparent) 0%,
-      transparent 60%
+      160deg,
+      color-mix(in srgb, var(--pk-scene-accent, #dfa049) 10%, rgb(10 8 6 / 0.9)) 0%,
+      rgb(10 8 6 / 0.92) 55%
     );
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.5),
+    0 18px 44px -24px rgb(0 0 0 / 0.9);
 }
 
-/* Everything the player reads sits above both layers. */
-html[data-theme='pinaka'] .pk-scene > *:not(.pk-scene-bg) {
-  position: relative;
-  z-index: 1;
+html[data-theme='pinaka'] .pk-scenecard__back {
+  transform: rotateY(180deg);
+  justify-content: center;
+  gap: 0.5rem;
 }
 
-/* ── the story panel ──────────────────────────────────────────────────── */
+/* ── the closed face ──────────────────────────────────────────────────── */
+
+html[data-theme='pinaka'] .pk-scenecard__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+html[data-theme='pinaka'] .pk-scenecard__cat {
+  font-size: 0.625rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.62);
+}
+
+/* The scene is the headline; the accent is lifted toward white so every
+   one of the twelve stays readable on the same dark ground. */
+html[data-theme='pinaka'] .pk-scenecard__scene {
+  margin: 0.5rem 0 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-wrap: balance;
+  color: color-mix(in srgb, var(--pk-scene-accent, #dfa049) 58%, #fff);
+}
+
+html[data-theme='pinaka'] .pk-scenecard__title {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: rgb(255 255 255 / 0.58);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+html[data-theme='pinaka'] .pk-scenecard__foot {
+  margin-top: auto;
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding-top: 0.6rem;
+  font-size: 0.6875rem;
+  color: rgb(255 255 255 / 0.55);
+}
+
+html[data-theme='pinaka'] .pk-scenecard__ptsnum {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 1rem;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--pk-scene-accent, #dfa049) 50%, #fff);
+}
+
+html[data-theme='pinaka'] .pk-scenecard__diff {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+html[data-theme='pinaka'] .pk-scenecard__solves {
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+html[data-theme='pinaka'] .pk-scenecard__enter {
+  margin-top: 0.6rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-control, 0.5rem);
+  border: 1px solid color-mix(in srgb, var(--pk-scene-accent, #dfa049) 60%, transparent);
+  background: color-mix(in srgb, var(--pk-scene-accent, #dfa049) 16%, transparent);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--pk-scene-accent, #dfa049) 40%, #fff);
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+html[data-theme='pinaka'] .pk-scenecard__enter:hover {
+  background: color-mix(in srgb, var(--pk-scene-accent, #dfa049) 28%, transparent);
+  border-color: color-mix(in srgb, var(--pk-scene-accent, #dfa049) 85%, transparent);
+}
+
+html[data-theme='pinaka'] .pk-scenecard__enter:active { transform: translateY(1px); }
+
+html[data-theme='pinaka'] .pk-scenecard__enter:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--pk-scene-accent, #dfa049) 80%, #fff);
+  outline-offset: 2px;
+}
+
+/* ── the opened face ──────────────────────────────────────────────────── */
+
+html[data-theme='pinaka'] .pk-scenecard__backeyebrow {
+  margin: 0;
+  font-size: 0.625rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--pk-scene-accent, #dfa049) 66%, #fff);
+}
+
+html[data-theme='pinaka'] .pk-scenecard__backline {
+  margin: 0;
+  font-style: italic;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: rgb(255 255 255 / 0.76);
+  text-wrap: pretty;
+}
+
+/* ── the dialog, over a page that is already wearing the scene ────────── */
+
+html[data-theme='pinaka'] .pk-scene {
+  border: 1px solid color-mix(in srgb, var(--pk-scene-accent, #dfa049) 50%, transparent);
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.55),
+    0 0 28px -6px color-mix(in srgb, var(--pk-scene-accent, #dfa049) 36%, transparent),
+    0 24px 64px -24px rgb(0 0 0 / 0.85);
+}
 
 html[data-theme='pinaka'] .pk-scene-intro {
   margin-bottom: 0.875rem;
@@ -80,7 +188,6 @@ html[data-theme='pinaka'] .pk-scene-intro {
   border-radius: var(--radius-card, 0.75rem);
   border-left: 2px solid color-mix(in srgb, var(--pk-scene-accent, #dfa049) 70%, transparent);
   background: rgb(0 0 0 / 0.38);
-  backdrop-filter: blur(2px);
 }
 
 html[data-theme='pinaka'] .pk-scene-intro__eyebrow {
@@ -88,8 +195,6 @@ html[data-theme='pinaka'] .pk-scene-intro__eyebrow {
   font-size: 0.6875rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  /* Lifted well clear of the accent's own lightness so this stays readable
-     even for the darker scenes (Meghnad's red, the two blues). */
   color: color-mix(in srgb, var(--pk-scene-accent, #dfa049) 72%, #fff);
 }
 
@@ -101,42 +206,26 @@ html[data-theme='pinaka'] .pk-scene-intro__line {
   text-wrap: pretty;
 }
 
-/* ── the small label on a challenge card ──────────────────────────────── */
-
-html[data-theme='pinaka'] .pk-scene-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.1rem 0.4rem;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--pk-scene-accent, #dfa049) 42%, transparent);
-  background: color-mix(in srgb, var(--pk-scene-accent, #dfa049) 12%, transparent);
-  font-size: 0.625rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--pk-scene-accent, #dfa049) 70%, #fff);
-  white-space: nowrap;
-}
-
 /* ── restraint ────────────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
-  html[data-theme='pinaka'] .pk-scene-bg__img { transition: none; }
+  html[data-theme='pinaka'] .pk-scenecard__inner { transition: none; }
 }
 
-/* A still device gets the picture without the glow doing any work. */
-html[data-theme='pinaka'][data-still='1'] .pk-scene {
-  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.55), 0 16px 40px -20px rgb(0 0 0 / 0.8);
-}
+/* A still device gets the faces without the turn. */
+html[data-theme='pinaka'][data-still='1'] .pk-scenecard__inner { transition: none; }
 
-/* In forced colours the picture is noise: drop it and keep the text. */
 @media (forced-colors: active) {
-  html[data-theme='pinaka'] .pk-scene-bg { display: none; }
+  html[data-theme='pinaka'] .pk-scenecard__face,
   html[data-theme='pinaka'] .pk-scene,
-  html[data-theme='pinaka'] .pk-scene-intro,
-  html[data-theme='pinaka'] .pk-scene-tag {
+  html[data-theme='pinaka'] .pk-scene-intro {
     border-color: CanvasText;
     box-shadow: none;
     background: Canvas;
+  }
+  html[data-theme='pinaka'] .pk-scenecard__enter {
+    border-color: CanvasText;
+    background: ButtonFace;
+    color: ButtonText;
   }
 }

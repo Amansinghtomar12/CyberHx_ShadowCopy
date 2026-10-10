@@ -87,7 +87,9 @@ import { useJourney, useChapterAttributes, useChapterUnlock } from './themes/pin
 import { CHAPTERS } from './themes/pinaka/chapters/config';
 import { useChallengeScenes } from './themes/pinaka/scenes/useScenes';
 import { useChainProgress } from './themes/pinaka/chapters/useChainProgress';
-import { SceneBackdrop, SceneIntro } from './themes/pinaka/components/SceneBackdrop';
+import { SceneIntro } from './themes/pinaka/components/SceneBackdrop';
+import { SceneCard } from './themes/pinaka/components/SceneCard';
+import { scenePlateKey } from './themes/pinaka/assets/plates';
 import { sceneOf, type Scene } from './themes/pinaka/scenes/config';
 import { shouldShowIntro } from './themes/pinaka/intro-gate';
 import {
@@ -525,6 +527,16 @@ export default function App() {
   // Story-mode locks. The server is the authority; this is so the board
   // can show a lock instead of walking someone into a refusal.
   const chainProgress = useChainProgress(pinaka);
+  // The scene the open challenge is dressed in, if any. This is what turns
+  // the whole page into the arena: while it is set the environment wears
+  // the scene's plate instead of the chapter's, and closing puts the
+  // chapter back.
+  const openScene = useMemo(
+    () => (pinaka && selectedChallenge
+      ? sceneOf(challengeScenes.get(selectedChallenge.id))
+      : null),
+    [pinaka, selectedChallenge, challengeScenes],
+  );
   const chapter = CHAPTERS[journey.current];
   useChapterAttributes(pinaka ? journey.current : null);
   const unlock = useChapterUnlock(journey);
@@ -976,7 +988,11 @@ export default function App() {
   return (
     <div className="min-h-screen bg-cyber-bg text-cyber-text font-sans" data-tier={getCapability().tier}>
       {pinaka
-        ? <React.Suspense fallback={null}><PinakaEnvironment world={world} phase={worldPhase} plate={`chapter-${journey.current}`} /></React.Suspense>
+        ? <React.Suspense fallback={null}><PinakaEnvironment
+              world={world}
+              phase={worldPhase}
+              plate={openScene ? scenePlateKey(openScene.id) : `chapter-${journey.current}`}
+            /></React.Suspense>
         : <AmbientBackground />}
       <SurfaceLight />
       <CursorRing />
@@ -1647,9 +1663,28 @@ export default function App() {
                             ['--stagger-dur' as string]: '350ms',
                           }}
                         >
-                          {items.map((challenge, i) => (
+                          {items.map((challenge, i) => {
+                            // A Free challenge with a battle scene is shown as
+                            // its arena door instead of an ordinary card. Every
+                            // other challenge keeps the card it always had.
+                            const cardScene = pinaka ? sceneOf(challengeScenes.get(challenge.id)) : null;
+                            if (cardScene) return (
+                              <SceneCard
+                                key={challenge.id}
+                                scene={cardScene}
+                                title={challenge.title}
+                                category={challenge.category}
+                                points={getPoints(challenge)}
+                                solvedCount={solveCounts[challenge.id] ?? challenge.solvedCount ?? 0}
+                                difficulty={challenge.difficulty}
+                                isSolved={isChallengeSolved(challenge.id)}
+                                open={selectedChallenge?.id === challenge.id}
+                                onEnter={(origin) => { setSelectedOrigin(origin); setSelectedChallenge(challenge); }}
+                              />
+                            );
+                            return (
                             <ChallengeCard
-                              scene={pinaka ? sceneOf(challengeScenes.get(challenge.id)) : null}
+                              scene={null}
                               key={challenge.id}
                               index={i}
                               challenge={challenge}
@@ -1659,7 +1694,8 @@ export default function App() {
                               firstBlood={firstBloodMap[challenge.id]}
                               onClick={(origin) => { setSelectedOrigin(origin); setSelectedChallenge(challenge); }}
                             />
-                          ))}
+                            );
+                          })}
                         </div>
                       </section>
                     );
@@ -2444,7 +2480,6 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
           ? ({ transformPerspective: 1200, ['--pk-scene-accent' as string]: scene.accent })
           : { transformPerspective: 1200 }}
       >
-        {scene && <SceneBackdrop scene={scene} />}
         {/* Insane operations announce themselves. 900ms, pointer-transparent,
             over an already-readable panel — atmosphere, never a gate. */}
         {isInsane && <OperationIntro operationId={challenge.id} />}
@@ -2720,6 +2755,20 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
                       {error && (
                         <p role="alert" className="text-label uppercase text-diff-hard break-words">{error}</p>
+                      )}
+                      {/* The way back out of the arena: folds the card and
+                          returns the page to the chapter's own sky. Nothing
+                          is lost — the challenge is Free, so leaving it costs
+                          no attempt and no progress. */}
+                      {scene && (
+                        <button
+                          type="button"
+                          onClick={onClose}
+                          className="btn btn-ghost btn-sm"
+                          title="Leave this scene. The board returns to your chapter; nothing is lost."
+                        >
+                          Take rest
+                        </button>
                       )}
                       <div className="ml-auto flex items-center gap-2.5">
                         <span aria-hidden="true" className="hidden h-1 w-20 overflow-hidden rounded-pill bg-surface-inset sm:block">
