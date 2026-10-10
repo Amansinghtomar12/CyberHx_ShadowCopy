@@ -430,6 +430,62 @@ module.exports = [
     },
     shots: [{ at: 400 }, { name: 'full', at: 200, full: true }],
   }),
+
+  // ── Four chapters of six, and the board solved out ──────────────────────
+  // Not a picture: a measurement that fails the run.
+  //
+  // The shape a real organiser ships: they wrote four chapters and left two
+  // empty. A team then solves every challenge that exists.
+  //
+  // "Where the team stands" used to be the first chapter not ticked, and an
+  // empty chapter is never ticked — so the team was parked on chapter five,
+  // "nothing here yet", for the rest of the event, and the journey never
+  // once said it was over, because two chapters nobody wrote were still
+  // outstanding. Finishing everything that exists is finishing.
+  scene('chapters-finished', {
+    event: { theme: 'pinaka', pinaka_story_mode: true },
+    // The rest of both chains: Ayodhya's last two and Mithila's last two.
+    extraSolves: [
+      ['player_one', 'tail', 330], ['player_two', 'ring', 335],
+      ['player_one', 'tide', 340], ['player_three', 'strait', 345],
+    ],
+    before: async (page, h) => {
+      await h.boardTab('Chained');
+      await page.locator('.pk-journey-stations > li').nth(5).waitFor({ state: 'attached' });
+      await h.park();
+      const r = await page.evaluate(() => {
+        const word = (el) => (el.textContent || '').replace(/\s+/g, ' ').trim();
+        return {
+          rail: [...document.querySelectorAll('.pk-journeybar > .pk-journeybar-step')]
+            .map(el => ({
+              name: word(el.querySelector('.pk-journeybar-name')).toUpperCase(),
+              state: el.getAttribute('data-state'),
+            })),
+          title: word(document.querySelector('.pk-journey-title')).toUpperCase(),
+          line: word(document.querySelector('.pk-journey-line')),
+        };
+      });
+
+      for (const c of r.rail) console.log('            ' + c.name.padEnd(13) + ' ' + c.state);
+      console.log('            head: ' + r.title + ' — ' + r.line);
+
+      const ticked = r.rail.filter(c => c.state === 'completed').map(c => c.name);
+      if (ticked.join(',') !== 'AYODHYA,MITHILA') {
+        throw new Error('expected Ayodhya and Mithila closed, got: ' + (ticked.join(',') || '(none)'));
+      }
+      // Nothing may be lit: there is no chapter left to stand in.
+      const current = r.rail.filter(c => c.state === 'current').map(c => c.name);
+      if (current.length) throw new Error('the journey is over but ' + current.join(',') + ' reads as current');
+      // And the head must say so, rather than naming an empty chapter.
+      if (!/every chapter closed/i.test(r.line)) {
+        throw new Error('the head does not read as finished: ' + r.line);
+      }
+      if (r.title !== 'MITHILA') {
+        throw new Error('expected to rest at the last chapter written (Mithila), got ' + r.title);
+      }
+    },
+    shots: [{ at: 400 }, { name: 'full', at: 200, full: true }],
+  }),
   // The same board with the gate asleep: one flat grid, exactly as every
   // event that is not running a story sees it.
   scene('chapters-off', {

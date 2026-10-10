@@ -83,12 +83,27 @@ function toJourney(rows: readonly Row[]): Journey {
   //   team they have won a war that was never written.
   //
   // So `complete` here is the server's answer narrowed to chapters that
-  // hold something, which is the same line progress.ts has always drawn:
-  // the team waits at the next chapter the organisers have not filled yet.
-  const done = ordered.map(o => !!o.row?.is_complete && (o.row?.total ?? 0) > 0);
-  const firstOpen = done.findIndex(d => !d);
+  // hold something.
+  const has  = ordered.map(o => (o.row?.total ?? 0) > 0);
+  const done = ordered.map((o, i) => !!o.row?.is_complete && has[i]);
+
+  // Where the team stands is the first chapter that has something in it and
+  // is not finished — an empty one is passed over, not waited at.
+  //
+  // It used to be the first chapter not ticked, which is the same thing
+  // until an organiser uses four of the six: then a team that had solved
+  // the entire board was parked on "Setu Bandhan — nothing here yet" for
+  // the rest of the event, and the journey never once said it was over,
+  // because two chapters nobody wrote were still not ticked. Finishing
+  // everything that exists is finishing.
+  const firstOpen = done.findIndex((d, i) => !d && has[i]);
   const finished = firstOpen === -1;
-  const currentIndex = finished ? CHAPTER_ORDER.length : firstOpen + 1;
+  const lastWritten = has.lastIndexOf(true);
+  const currentIndex = !finished
+    ? firstOpen + 1
+    // Finished: rest at the last chapter the organisers actually wrote, so
+    // the backdrop and the head name a place the team has been.
+    : lastWritten >= 0 ? lastWritten + 1 : CHAPTER_ORDER.length;
 
   const chapters: ChapterProgress[] = ordered.map(({ chapter, row }, i) => {
     const state: ChapterState =
@@ -110,7 +125,7 @@ function toJourney(rows: readonly Row[]): Journey {
   });
 
   return {
-    current: finished ? CHAPTER_ORDER[CHAPTER_ORDER.length - 1] : CHAPTER_ORDER[firstOpen],
+    current: CHAPTER_ORDER[currentIndex - 1],
     currentIndex,
     chapters,
     completed: chapters.filter(c => c.state === 'completed').length,
