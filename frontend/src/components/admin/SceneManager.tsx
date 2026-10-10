@@ -152,9 +152,11 @@ export const SceneManager: React.FC<SceneManagerProps> = ({ catalogue, onChanged
           disabled={!!busy}
         />
         <p className="mt-1.5 text-small text-text-muted leading-relaxed">
-          A landscape picture. It is resized to 1920 wide and re-encoded here in your browser —
-          nothing large is sent — and the focal point, the light and the card's accent colour are
-          measured from the picture itself.
+          A landscape JPEG, PNG or WebP. It is resized to 1920 wide and re-encoded here in your
+          browser — nothing large is sent — and the focal point, the light and the card's accent
+          colour are measured from the picture itself. A HEIC from an iPhone, or an AVIF from an
+          image generator, will not open even when it is named <code>.jpeg</code>; re-export it
+          first.
         </p>
       </div>
 
