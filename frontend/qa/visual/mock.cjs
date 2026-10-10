@@ -331,8 +331,16 @@ function createMock(opts = {}) {
   const mineSolved = new Set(teamSolves(MY_TEAM_ID).map(e => e.challenge_id));
   const positionOf = new Map(PINAKA_CHAPTERS.map(c => [c.id, c.position]));
 
+  // Only what a player can see counts, exactly as the database counts it:
+  // pinaka_chapter_complete and pinaka_team_unlocked both join through
+  // challenges ON is_visible, so a challenge the organisers have not shown
+  // yet is not part of the chain anybody is playing. Every challenge in
+  // this fixture is visible, so this changes nothing here — it is written
+  // the same way so that the day one is not, the mock does not quietly
+  // disagree with production.
+  const shown = (challengeId) => ALL.find(c => c.id === challengeId)?.is_visible !== false;
   const chapterContent = (chapterId) =>
-    chainRows.filter(r => chapterOfSeries.get(r.series_id) === chapterId);
+    chainRows.filter(r => chapterOfSeries.get(r.series_id) === chapterId && shown(r.challenge_id));
   const chapterComplete = (chapterId) =>
     chapterContent(chapterId).every(r => mineSolved.has(r.challenge_id));
   const chapterUnlocked = (chapterId) => {
@@ -344,9 +352,13 @@ function createMock(opts = {}) {
   const challengeUnlocked = (row) => {
     if (!storyMode) return true;
     if (!chapterUnlocked(chapterOfSeries.get(row.series_id))) return false;
-    if (row.position <= 1) return true;
-    const prev = chainRows.find(r => r.series_id === row.series_id && r.position === row.position - 1);
-    return !!prev && mineSolved.has(prev.challenge_id);
+    // The previous step a player can actually see — not position - 1, which
+    // deadlocks a chain whose middle is hidden.
+    const before = chainRows
+      .filter(r => r.series_id === row.series_id && r.position < row.position && shown(r.challenge_id))
+      .sort((a, b) => b.position - a.position);
+    if (!before.length) return true;          // a first door
+    return mineSolved.has(before[0].challenge_id);
   };
 
   const rpc = {
