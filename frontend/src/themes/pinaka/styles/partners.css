@@ -14,7 +14,6 @@
                            names stay readable over whatever painting is
                            behind the page
      .pk-partners-gateway  a compact plate at the foot of the sign-in hero
-   and, under both, the photographs' credit line (.pk-partners-credits).
 
    Motion: a tile lifts (transform) and its glow fades in (opacity) on hover
    or focus, and only with prefers-reduced-motion: no-preference and off the
@@ -449,12 +448,6 @@ html[data-theme="pinaka"] .pk-partners-event {
   text-transform: uppercase;
   color: var(--pk-gold-bright);
 }
-html[data-theme="pinaka"] .pk-partners-footer .pk-partners-credits {
-  margin-top: -0.5rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--pk-gold-faint);
-  width: min(100%, 64rem);
-}
 html[data-theme="pinaka"] .pk-partners-footer .pk-partners-platform { margin-top: -0.25rem; }
 
 /* ── Gateway: a compact plate on the sign-in hero ──────────────────────── */
@@ -532,48 +525,11 @@ html[data-theme="pinaka"] .pk-partners-gateway .pk-sponsor-name {
   letter-spacing: 0.01em;
   line-height: 1.25;
 }
-html[data-theme="pinaka"] .pk-partners-gateway .pk-partners-credits {
-  margin-top: 0;
-  max-width: none;
-  font-size: 0.625rem;
-  line-height: 1.55;
-}
 
-/* ── The photographs' credit line ──────────────────────────────────────── */
-/* One inline run in the small muted mono of the platform line. It wraps at
-   spaces (two lines on a desktop, a short paragraph on a phone); nothing is
-   truncated, because the CC BY-SA deeds ask for the whole attribution. The
-   links keep the text colour and show as underlines, gold on hover. */
-html[data-theme="pinaka"] .pk-partners-credits {
-  margin: 0;
-  max-width: 78rem;
-  font-size: 0.6875rem;
-  letter-spacing: 0.02em;
-  line-height: 1.7;
-  color: var(--color-text-muted);
-  text-align: center;
-  text-wrap: pretty;
-}
-html[data-theme="pinaka"] .pk-partners-credits-label {
-  color: var(--color-text-secondary);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
 html[data-theme="pinaka"] .pk-partners-credits-sep {
   display: inline-block;
   margin: 0 0.5em;
   color: var(--pk-gold-deep);
-}
-html[data-theme="pinaka"] .pk-partners-credit-link {
-  color: inherit;
-  text-decoration: underline;
-  text-decoration-color: var(--pk-gold-line);
-  text-underline-offset: 3px;
-  border-radius: 2px;
-}
-html[data-theme="pinaka"] .pk-partners-credit-link:hover {
-  color: var(--pk-gold-soft);
-  text-decoration-color: var(--pk-gold);
 }
 
 /* ── Narrower screens ──────────────────────────────────────────────────── */
@@ -619,7 +575,6 @@ html[data-theme="pinaka"] .pk-partners-credit-link:hover {
   html[data-theme="pinaka"] .pk-sponsor.is-featured { gap: 0.875rem; }
   html[data-theme="pinaka"] .pk-partners-role { font-size: 1rem; white-space: normal; }
   html[data-theme="pinaka"] .pk-sponsor.is-featured .pk-sponsor-name { font-size: 0.9375rem; }
-  html[data-theme="pinaka"] .pk-partners-credits { line-height: 1.75; }
 }
 
 /* ── Forced colours ─────────────────────────────────────────────────────

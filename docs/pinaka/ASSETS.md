@@ -85,16 +85,19 @@ under the theme. Two kinds:
   resized and re-encoded only. Credited in `PLATES` to "Pinaka CTF · NFSU
   Chennai", "Official event artwork", https://pinakactf.com/, with
   `credit.photo: false`, so they are not part of the CC credit line.
-* **Licensed photographs** (`vanavasa-*`, `setu-*`, `vijaya-*`): CC0, public
-  domain and CC BY-SA sources; the licence was read from the Wikimedia Commons
-  `extmetadata` API (or the NASA Image Library metadata) at selection time and
-  the raw API response is kept next to the untouched original outside the
-  repository. Cover-cropped to 16:9 around the focal point (Pillow, Lanczos),
+* **Licensed photographs**: CC0 and public-domain sources; the licence was
+  read from the Wikimedia Commons `extmetadata` API (or the NASA Image
+  Library metadata) at selection time and the raw API response is kept next
+  to the untouched original outside the repository. Only one photograph is
+  left in the shipped set — the organisers' own paintings replaced the rest
+  — and it is CC0, so no CC BY-SA attribution is owed by anything here. Cover-cropped to 16:9 around the focal point (Pillow, Lanczos),
   then graded: they were first graded dark (14–22 % mean luminance) for the
   earlier veiled environment and have since been re-graded brighter for the
-  full-colour one. Credited on screen from `PLATE_CREDITS`
-  ("Photographs, colour-graded · author (licence) · …") wherever a plate is
-  shown. Lord Rama is not depicted in any photograph; no people are the
+  full-colour one. There is no longer an on-screen credit line: CC0 is a
+  public-domain dedication and asks for no attribution, so the organisers
+  had it taken off the sign-in page. Each plate still carries its own
+  `credit` — author, licence and source URL — and this file remains the
+  record. Lord Rama is not depicted in any photograph; no people are the
   subject of any.
 
 `focal` is the point kept by `object-position` on any aspect; `sun` is where

@@ -170,7 +170,7 @@ export function chapterPlateKey(id: ChapterId): ChapterPlateKey {
   return `chapter-${id}`;
 }
 
-/** Every photograph once, in world order, for the footer credit line. */
-export const PLATE_CREDITS: Plate['credit'][] = (Object.keys(PLATES) as PlateKey[])
-  .map(k => PLATES[k].credit)
-  .filter((c, i, all) => c.photo && all.findIndex(o => o.sourceUrl === c.sourceUrl) === i);
+/* The on-screen credit line is gone — the one photograph in the set is
+   CC0, a public-domain dedication, which asks for no attribution. Every
+   plate still carries its own `credit`, and docs/pinaka/ASSETS.md remains
+   the record of where each picture came from. */

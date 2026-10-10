@@ -19,7 +19,7 @@ import MagneticElement from './environment/MagneticElement';
 import AccessSequence from './AccessSequence';
 import { pendingInvite, clearInvite, type InvitePreview } from '../lib/invite';
 import { useTheme } from '../themes';
-import { PinakaEnvironment, AuthGateway, PlateCredits } from '../themes/pinaka/lazy';
+import { PinakaEnvironment, AuthGateway } from '../themes/pinaka/lazy';
 
 // ── Turnstile Site Key — from environment variable ──
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || '';
@@ -992,7 +992,6 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                   so the credit sits here. */}
               {pinaka && (
                 <React.Suspense fallback={null}>
-                  <PlateCredits className="mt-4 lg:hidden" />
                 </React.Suspense>
               )}
             </motion.div>

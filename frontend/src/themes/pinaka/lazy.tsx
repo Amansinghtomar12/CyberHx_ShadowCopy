@@ -32,4 +32,3 @@ export const ArrowSolveLight = React.lazy(() =>
   import('./components/BowMotifs').then(m => ({ default: m.ArrowSolveLight })),
 );
 /** The photographs' attribution on its own, for screens without the footer (the phone sign-in). */
-export const PlateCredits = React.lazy(() => import('./components/PartnerStrip').then(m => ({ default: m.PlateCredits })));

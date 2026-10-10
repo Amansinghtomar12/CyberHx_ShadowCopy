@@ -23,7 +23,6 @@
  *   'footer'   the full wall at the foot of every signed-in page
  *   'gateway'  a compact plate at the foot of the sign-in hero
  *
- * Both end with the photographs' credit line, built from PLATE_CREDITS: the
  * CC BY-SA plates require their attribution to be visible wherever they are
  * shown, and the footer (or, on the sign-in page, the hero) is where it
  * lives. Every title links to its source and every licence to its deed.
@@ -49,7 +48,6 @@ import { useReducedMotion } from 'motion/react';
 import { getCapability } from '../../../components/environment/performance';
 import { subscribeFx } from '../../../components/environment/fx';
 import { PINAKA_EVENT, PINAKA_PARTNERS, type Partner } from '../config';
-import { PLATE_CREDITS } from '../assets/plates';
 import { INSTITUTIONAL_MARKS, type InstitutionalMark } from '../assets/institutional';
 import { DEFAULT_TILE, FEATURED_SPONSORS, SPONSOR_TILES, type SponsorTile } from '../assets/sponsors';
 import { PINAKA_IMAGES } from '../assets/images';
@@ -252,32 +250,6 @@ function Honours({ association }: { association: readonly Partner[] }) {
   );
 }
 
-/* ── The photographs' credit line ──────────────────────────────────────── */
-
-/**
- * The photographs' attribution, as CC BY-SA asks: the author (linked to the
- * source), the licence (linked), and the fact that the picture was changed
- * (colour-graded). Titles live in docs/pinaka/ASSETS.md; here the line has
- * to stay short enough to read as a credit, not a paragraph. One inline run
- * that wraps where it must; nothing is truncated.
- */
-export function PlateCredits({ className = '' }: { className?: string }) {
-  return (
-    <p className={`pk-partners-credits ${className}`.trim()}>
-      <span className="pk-partners-credits-label">Photographs, colour-graded</span>
-      {PLATE_CREDITS.map(c => (
-        <span key={c.sourceUrl} className="pk-partners-credit">
-          <span className="pk-partners-credits-sep" aria-hidden="true">·</span>
-          <a className="pk-partners-credit-link" href={c.sourceUrl} title={c.title} {...EXTERNAL}>{c.author}</a>
-          {' ('}
-          <a className="pk-partners-credit-link" href={c.licenseUrl} {...EXTERNAL}>{c.license}</a>
-          {')'}
-        </span>
-      ))}
-    </p>
-  );
-}
-
 /* ── The wall ──────────────────────────────────────────────────────────── */
 
 /**
@@ -317,7 +289,6 @@ export default function PartnerStrip({ variant = 'footer' }: { variant?: Variant
           <SponsorMarquee partners={[...association, ...field]} />
         </div>
         {platform}
-        <PlateCredits />
       </section>
     );
   }
@@ -349,7 +320,6 @@ export default function PartnerStrip({ variant = 'footer' }: { variant?: Variant
         <SponsorGrid partners={field} />
       </div>
       {platform}
-      <PlateCredits />
     </section>
   );
 }
