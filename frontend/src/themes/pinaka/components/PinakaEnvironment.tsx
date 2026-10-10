@@ -84,7 +84,7 @@ import { getCapability } from '../../../components/environment/performance';
 import { subscribeFx } from '../../../components/environment/fx';
 import { WORLDS, type World } from '../config';
 import { useMediaQuery, useWorldAttributes, type EventPhase } from '../hooks';
-import { PLATES, type Plate, type PlateKey } from '../assets/plates';
+import { PLATES, type Plate, type PlateKey, plateFor } from '../assets/plates';
 import { plateFocal, plateSource } from '../assets/plates/sources';
 import { PINAKA_IMAGES } from '../assets/images';
 
@@ -1423,7 +1423,7 @@ export default function PinakaEnvironment({ world, phase, intensity = 'subtle', 
       <div className="pk-env-sky" />
       {(['a', 'b'] as const).map(slot => {
         const scene = slots[slot];
-        const plate = scene?.plateKey && scene.plate !== 'failed' ? PLATES[scene.plateKey] : null;
+        const plate = scene?.plateKey && scene.plate !== 'failed' ? plateFor(scene.plateKey) : null;
         const sun = scene ? sunPoint(scene.world, plate, vp.w, vp.h) : null;
         return (
           <div

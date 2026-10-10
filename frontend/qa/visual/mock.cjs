@@ -299,6 +299,20 @@ function createMock(opts = {}) {
       challenge_id: c.id,
       scene: ['golden-deer', 'ashoka-vatika'][i],
     })),
+    // The scene catalogue. The twelve ship in the bundle, so their rows
+    // carry no url — exactly as the migration seeds them.
+    pinaka_scene: [
+      'golden-deer', 'jatayus-last-stand', 'shabaris-offering', 'hanumans-leap',
+      'ashoka-vatika', 'lanka-dahan', 'sanjeevani-hunt', 'setu-stones',
+      'meghnads-trap', 'kumbhakarna-awakens', 'angadas-embassy', 'ravanas-ten-heads',
+    ].map((id, i) => ({
+      id,
+      label: id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+      intro: '', button_label: '', enter_label: '', accent: '#e3bb66',
+      art_url: null, art_width: null, art_height: null,
+      focal_x: 0.5, focal_y: 0.5, sun_x: 0.5, sun_y: 0.35,
+      position: i + 1, is_builtin: true,
+    })),
     pinaka_series_chapter: PINAKA_CHAPTER_OF_SERIES,
     challenge_files: ALL.flatMap(c => c.files.map(f => ({ ...f, challenge_id: c.id, created_at: c.created_at }))),
     hints: ALL.flatMap(c => c.hints.map(h => ({ id: h.id, challenge_id: c.id, cost: h.cost, content: h.content }))),

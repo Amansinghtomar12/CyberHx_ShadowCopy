@@ -91,7 +91,8 @@ import { useChapterProgress } from './themes/pinaka/chapters/useChapterProgress'
 import { SceneIntro } from './themes/pinaka/components/SceneIntro';
 import { SceneCard } from './themes/pinaka/components/SceneCard';
 import { scenePlateKey } from './themes/pinaka/assets/plates';
-import { sceneOf, type Scene } from './themes/pinaka/scenes/config';
+import type { CatalogueScene as Scene } from './themes/pinaka/scenes/catalogue';
+import { useSceneCatalogue } from './themes/pinaka/scenes/useSceneCatalogue';
 import { shouldShowIntro } from './themes/pinaka/intro-gate';
 import {
   PinakaEnvironment, PinakaIntro, JourneyMap, ArrowSolveLight,
@@ -528,6 +529,10 @@ export default function App() {
       isSolved: (id: string) => solvedSet.has(id),
     };
   }, [pinaka, challenges, chainSeries, chainMembers, solvedIds, teamSolvedIds]);
+  // The battle scenes an organiser may pick from: the twelve that ship,
+  // plus any they have added during the event.
+  const { catalogue: scenes, refresh: refreshScenes } = useSceneCatalogue(pinaka);
+  const sceneOf = scenes.lookup;
   const serverJourney = useChapterProgress(pinaka);
   const journey = useJourney(journeyInput, serverJourney.journey);
   // Which battle scene dresses which Free challenge. Empty unless the
@@ -1041,7 +1046,7 @@ export default function App() {
           series={vm}
           chapter={id}
           locked={chainProgress.locked}
-          sceneOf={(challengeId) => challengeScenes.get(challengeId)}
+          sceneOf={(challengeId) => sceneOf(challengeScenes.get(challengeId))}
           onOpen={openChainChallenge}
           onEnter={enter}
         />

@@ -18,9 +18,8 @@ import React from 'react';
 import { Check, Lock, Dot, ChevronRight } from 'lucide-react';
 import type { ChainSeriesVM, ChainNodeVM } from '../../../components/chain/chainModel';
 import { CHAPTERS, type ChapterId } from '../chapters/config';
-import { SCENE_PLATES } from '../assets/scenes';
 import ChainLink from './ChainLink';
-import type { SceneId } from '../scenes/config';
+import type { CatalogueScene } from '../scenes/catalogue';
 
 export interface ChapterChainProps {
   series: ChainSeriesVM;
@@ -28,7 +27,7 @@ export interface ChapterChainProps {
   /** Challenge ids this team has not earned yet, as the server counts them. */
   locked: ReadonlySet<string>;
   /** Which battle scene dresses a challenge, when the organisers gave it one. */
-  sceneOf?: (challengeId: string) => SceneId | undefined;
+  sceneOf?: (challengeId: string) => CatalogueScene | null;
   onOpen: (challengeId: string) => void;
   /** Open the steel-chain experience for this chain. */
   onEnter: () => void;
@@ -45,8 +44,10 @@ type CardState = 'solved' | 'current' | 'locked' | 'open';
  * same thing six times and made the row look like a wall of one picture.
  * A card with no scene is a card: name, brief, category, points.
  */
-function artFor(scene: SceneId | undefined): string | null {
-  return scene ? SCENE_PLATES[scene].w960 : null;
+function artFor(scene: CatalogueScene | null | undefined): string | null {
+  // The catalogue hands over a plate whether the art ships in the bundle
+  // or was uploaded during the event, so this stopped caring which.
+  return scene ? scene.plate.w960 : null;
 }
 
 /**

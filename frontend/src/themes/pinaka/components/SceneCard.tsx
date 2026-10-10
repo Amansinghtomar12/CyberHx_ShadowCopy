@@ -30,7 +30,7 @@
  */
 import React from 'react';
 import { Check } from 'lucide-react';
-import type { Scene } from '../scenes/config';
+import type { CatalogueScene as Scene } from '../scenes/catalogue';
 
 export interface SceneCardProps {
   scene: Scene;
