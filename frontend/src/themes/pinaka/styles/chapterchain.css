@@ -102,7 +102,7 @@ html[data-theme='pinaka'] .pk-chapchain__card {
    always used for an ignited segment. */
 html[data-theme='pinaka'] .pk-chapchain__link {
   flex: 0 0 auto;
-  width: 2.25rem;
+  width: 2.5rem;
   align-self: center;
   position: relative;
   height: 2rem;
@@ -123,25 +123,22 @@ html[data-theme='pinaka'] .pk-chapchain__link::before {
   border-radius: 2px;
 }
 
+/* The link itself: the chapter's own glyph, drawn in stroke so the
+   painting reads straight through it. Dark until both ends are solved. */
 html[data-theme='pinaka'] .pk-chapchain__node {
   position: relative;
-  width: 0.85rem;
-  height: 0.85rem;
-  border-radius: 999px;
-  border: 2px solid color-mix(in srgb, var(--pk-chap-deep) 70%, transparent);
-  background: rgb(10 8 6 / 0.55);
+  display: block;
+  stroke: color-mix(in srgb, var(--pk-chap-deep) 80%, transparent);
+  transition: stroke var(--duration-base, 200ms) ease, filter var(--duration-base, 200ms) ease;
 }
 
 html[data-theme='pinaka'] .pk-chapchain__link[data-lit='1']::before {
   background: linear-gradient(90deg, var(--pk-chap-deep), var(--pk-chap-glow), var(--pk-chap-deep));
   box-shadow: 0 0 10px -1px color-mix(in srgb, var(--pk-chap-glow) 70%, transparent);
 }
-html[data-theme='pinaka'] .pk-chapchain__link[data-lit='1'] .pk-chapchain__node {
-  border-color: var(--pk-chap-glow);
-  background: color-mix(in srgb, var(--pk-chap-glow) 35%, rgb(10 8 6 / 0.6));
-  box-shadow:
-    0 0 12px -2px var(--pk-chap-glow),
-    inset 0 0 6px -2px var(--pk-chap-soft);
+html[data-theme='pinaka'] .pk-chapchain__node[data-lit='1'] {
+  stroke: var(--pk-chap-glow);
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--pk-chap-glow) 80%, transparent));
 }
 
 /* ── the card ─────────────────────────────────────────────────────────── */
@@ -214,14 +211,6 @@ html[data-theme='pinaka'] .pk-chapcard__art img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  /* Each card looks at a different part of the painting.
-     object-position alone could not do it: the source is 16:9 and so is
-     the card, so `cover` leaves no slack to pan into. Scaling past the
-     frame creates the slack, and the shift walks along it — which also
-     reads better as card art than a whole panorama squeezed into 200px.
-     At 1.55 the slack is about 35% of the frame, so ±14% stays inside. */
-  transform: scale(1.55) translateX(var(--pk-card-pan, 0%));
-  transform-origin: center;
   display: block;
   transition: filter var(--duration-base, 200ms) ease;
 }
@@ -237,10 +226,14 @@ html[data-theme='pinaka'] .pk-chapcard__art::after {
   pointer-events: none;
 }
 
+html[data-theme='pinaka'] .pk-chapcard__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
 html[data-theme='pinaka'] .pk-chapcard__badge {
-  position: absolute;
-  top: 0.4rem;
-  right: 0.4rem;
   display: grid;
   place-items: center;
   width: 1.4rem;
@@ -267,24 +260,30 @@ html[data-theme='pinaka'] .pk-chapcard__badge[data-state='open'] {
 
 /* The link's number, so a player can see the order at a glance. */
 html[data-theme='pinaka'] .pk-chapcard__num {
-  position: absolute;
-  left: 0.45rem;
-  bottom: 0.35rem;
-  z-index: 1;
   font-family: var(--pk-font-mono, ui-monospace, monospace);
   font-size: var(--text-micro);
   letter-spacing: 0.08em;
   color: var(--pk-chap-soft);
-  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
 }
 
 /* ── the body ─────────────────────────────────────────────────────────── */
 html[data-theme='pinaka'] .pk-chapcard__body {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.35rem;
   flex: 1 1 auto;
   padding: 0.6rem 0.7rem 0.7rem;
+}
+/* Without a picture the card is all body, so it gets the height the
+   picture used to give the row and the cards stay a line of equals. */
+html[data-theme='pinaka'] .pk-chapcard:not([data-art]) .pk-chapcard__body {
+  padding-top: 0.7rem;
+}
+html[data-theme='pinaka'] .pk-chapcard:not([data-art]) .pk-chapcard__title {
+  -webkit-line-clamp: 3;
+}
+html[data-theme='pinaka'] .pk-chapcard:not([data-art]) .pk-chapcard__desc {
+  -webkit-line-clamp: 3;
 }
 
 html[data-theme='pinaka'] .pk-chapcard__title {
