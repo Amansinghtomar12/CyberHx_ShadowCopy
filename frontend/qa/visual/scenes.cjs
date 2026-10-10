@@ -598,6 +598,46 @@ module.exports = [
     shots: [{ at: 300 }],
   }),
 
+  // ── A scene the organisers added actually reaches the board ────────────
+  // Not a picture: a measurement that fails the run.
+  //
+  // Uploading art and assigning it is only half the job; the half that
+  // matters is the card wearing it. The board used to validate every
+  // assignment against the twelve scenes that ship, so a scene added during
+  // an event was written to the table by the admin panel and thrown away on
+  // the way in — the organiser saw a bare card and nothing anywhere said
+  // why. The fixture dresses a chained challenge with an added scene, and
+  // this checks the card is actually wearing its picture.
+  scene('added-scene-on-card', {
+    event: { theme: 'pinaka', pinaka_story_mode: true },
+    before: async (page, h) => {
+      await h.boardTab('Chained');
+      await page.locator('.pk-chapcard').first().waitFor({ state: 'visible' });
+      await h.park();
+
+      const cards = await page.evaluate(() => [...document.querySelectorAll('.pk-chapcard')].map(el => ({
+        title: (el.querySelector('.pk-chapcard__title')?.textContent || '').trim(),
+        art: el.querySelector('.pk-chapcard__art img')?.getAttribute('src') || null,
+      })));
+      for (const c of cards) {
+        console.log('            ' + (c.title || '(untitled)').padEnd(22)
+          + (c.art ? c.art.replace(/^.*\//, '') : '— no art —'));
+      }
+
+      // The fixture dresses the second operation of the Ayodhya chain with
+      // an uploaded scene, so exactly one card must wear art served from
+      // the scene-art bucket rather than the app's own bundle.
+      const uploaded = cards.filter(c => c.art && c.art.includes('/scene-art/'));
+      if (uploaded.length !== 1) {
+        throw new Error('expected exactly one card wearing uploaded art, found ' + uploaded.length);
+      }
+      // And the twelve must still work, or the fix traded one for the other.
+      const bundled = cards.filter(c => c.art && !c.art.includes('/scene-art/'));
+      if (bundled.length < 1) throw new Error('no card is wearing bundled art any more');
+    },
+    shots: [{ at: 400 }],
+  }),
+
   scene('blur-audit', blurAudit()),
   // And with a challenge open: the dialog and its scrim are the other two
   // places a blur has historically lived.
