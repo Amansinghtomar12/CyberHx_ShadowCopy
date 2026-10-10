@@ -62,7 +62,8 @@ you deliberately switch it on.
 
 | what | where |
 |---|---|
-| battle scenes (12) | `frontend/src/themes/pinaka/assets/scenes/<slug>-{960,1920,portrait}.webp` |
+| battle scenes (the 12 that ship) | `frontend/src/themes/pinaka/assets/scenes/<slug>-{960,1920,portrait}.webp` |
+| battle scenes you add | the `scene-art` storage bucket, one WebP each; rows in `pinaka_scene` |
 | chapter backgrounds (6) | `frontend/src/themes/pinaka/assets/chapters/<id>-{960,1920,3840,portrait}.webp` |
 | scene text and accents | `frontend/src/themes/pinaka/scenes/config.ts` |
 | chapter text and accents | `frontend/src/themes/pinaka/chapters/config.ts` |
@@ -82,6 +83,38 @@ Scene accent colours are measured from the artwork — the most saturated
 populated hue of each picture, lifted into a band that reads on dark
 glass — rather than chosen by eye. If you replace a picture, re-measure
 rather than keeping the old hex.
+
+---
+
+## 3a. Adding your own battle scene, during the event
+
+Admin → Challenges → **Pinaka battle scenes** (below the challenge list) →
+pick a picture → give it a name → **Add scene**. It is in the dropdown on
+every challenge straight away. No deploy, nothing rebuilt, and no waiting
+on an engineer.
+
+The picture is prepared in your own browser before anything is uploaded:
+
+- **Resized** to 1920 wide (never upscaled) and re-encoded as WebP, so a
+  camera export leaves as a few hundred KB rather than making every page on
+  the board wait for it. Accepts PNG, JPEG or WebP, up to 24 MB in.
+- **Measured** — three numbers, taken from the picture rather than guessed:
+  where the subject sits (so a wide desktop crop and a tall phone crop both
+  keep it), where the light is (so bloom and rays leave the painted source),
+  and the accent its card border takes. The focal point is shown in the
+  panel; a subject hard against an edge gets clamped so neither crop loses
+  it.
+
+Use a **landscape** picture. It is painted full-bleed behind the whole site
+while a player is in that arena, so a portrait crop will be cut badly.
+
+**Removing one** also clears it from every challenge wearing it — those go
+back to the ordinary card, and the panel says how many did. The twelve that
+ship cannot be removed; their artwork is in the app's bundle rather than the
+database. Their *words* can be edited like any other scene's.
+
+If the catalogue migration has not been applied, the twelve still work
+exactly as before and this panel simply has nothing to add to.
 
 ---
 
@@ -291,6 +324,7 @@ PGPORT=54399 supabase/tests/run.sh
 | `pinaka_story_mode_test.sql` | the chain gate: link by link, teammates cannot race it, a locked challenge says nothing about itself, turning it off restores ordinary play |
 | `pinaka_chapter_gate_test.sql` | the chapter gate: a first door that is still shut because its chapter is, finishing a chapter opens the next and only the next, empty chapters skip, unfiled chains are not gated |
 | `pinaka_chapter_edges_test.sql` | the events people actually build the night before: no chains filed at all, content only in a late chapter, two chains in one chapter, a chain filed but empty, a chain not published, a challenge not visible |
+| `pinaka_scene_catalogue_test.sql` | the scene catalogue: the twelve are seeded and cannot be deleted, a new scene needs its artwork, writing it is admin-only, a built-in's words can be edited but its bundled art cannot be swapped, and an unknown scene is a sentence rather than a crash |
 
 It writes fixture rows into a database it creates and drops —
 **never point it at production.**
