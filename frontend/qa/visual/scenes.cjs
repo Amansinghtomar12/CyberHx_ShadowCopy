@@ -139,6 +139,30 @@ module.exports = [
     shots: [{ at: 500 }],
   }),
 
+  scene('glass-measure2', {
+    before: async (page, h) => {
+      await h.boardReady();
+      const out = await page.evaluate(() => {
+        const pick = (sel, label) => {
+          const e = document.querySelector(sel);
+          if (!e) return label.padEnd(26) + ' not on this page';
+          const c = getComputedStyle(e);
+          return label.padEnd(26) + ' bg=' + String(c.backgroundColor).padEnd(24)
+               + ' img=' + String(c.backgroundImage).slice(0, 34).padEnd(36)
+               + ' filt=' + c.backdropFilter;
+        };
+        return [
+          pick('.pk-journey', 'journey card'),
+          pick('.pk-journey-stations', 'station list'),
+          pick('.pk-journey-plate', 'map plate'),
+          pick('.pk-scenecard__face', 'battle card (reference)'),
+        ].join('\n            ');
+      });
+      console.log('            ' + out);
+    },
+    shots: [{ at: 300 }],
+  }),
+
   scene('glass-measure', {
     before: async (page, h) => {
       await h.boardReady();
