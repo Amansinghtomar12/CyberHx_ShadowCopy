@@ -85,6 +85,10 @@ const AdminThemeControl = React.lazy(() => import('./themes/AdminThemeControl'))
 import { deriveWorld, derivePhase } from './themes/pinaka/hooks';
 import { useJourney, useChapterAttributes, useChapterUnlock } from './themes/pinaka/chapters/useChapter';
 import { CHAPTERS } from './themes/pinaka/chapters/config';
+import { useChallengeScenes } from './themes/pinaka/scenes/useScenes';
+import { useChainProgress } from './themes/pinaka/chapters/useChainProgress';
+import { SceneBackdrop, SceneIntro } from './themes/pinaka/components/SceneBackdrop';
+import { sceneOf, type Scene } from './themes/pinaka/scenes/config';
 import { shouldShowIntro } from './themes/pinaka/intro-gate';
 import {
   PinakaEnvironment, PinakaIntro, JourneyMap, PartnerStrip, ArrowSolveLight,
@@ -515,6 +519,12 @@ export default function App() {
     };
   }, [pinaka, challenges, chainSeries, chainMembers, solvedIds, teamSolvedIds]);
   const journey = useJourney(journeyInput);
+  // Which battle scene dresses which Free challenge. Empty unless the
+  // skin is on and the event migration has been applied.
+  const challengeScenes = useChallengeScenes(pinaka);
+  // Story-mode locks. The server is the authority; this is so the board
+  // can show a lock instead of walking someone into a refusal.
+  const chainProgress = useChainProgress(pinaka);
   const chapter = CHAPTERS[journey.current];
   useChapterAttributes(pinaka ? journey.current : null);
   const unlock = useChapterUnlock(journey);
@@ -1573,7 +1583,7 @@ export default function App() {
                       </div>
                     }
                   >
-                    <ChainedBoard vms={chainVMs} category={selectedCat} onOpenChallenge={openChainChallenge} />
+                    <ChainedBoard vms={chainVMs} category={selectedCat} onOpenChallenge={openChainChallenge} chainLocked={chainProgress.locked} />
                   </React.Suspense>
                 ) : boardMode === 'b2r' ? (
                   <React.Suspense
@@ -1639,6 +1649,7 @@ export default function App() {
                         >
                           {items.map((challenge, i) => (
                             <ChallengeCard
+                              scene={pinaka ? sceneOf(challengeScenes.get(challenge.id)) : null}
                               key={challenge.id}
                               index={i}
                               challenge={challenge}
@@ -1759,6 +1770,7 @@ export default function App() {
           {selectedChallenge && (
             <ChallengeModal
               challenge={selectedChallenge}
+              scene={pinaka ? sceneOf(challengeScenes.get(selectedChallenge.id)) : null}
               origin={selectedOrigin}
               points={getPoints(selectedChallenge)}
               usedHints={usedHintIds[selectedChallenge.id] || []}
@@ -1780,6 +1792,9 @@ export default function App() {
                 // Shockwave from this challenge's own node — the field
                 // registers the breach, not just the modal.
                 pulseChallenge(challengeId);
+                // A solve may have opened the next link of a chain; ask the
+                // server rather than guessing at the chain's shape here.
+                chainProgress.refresh();
                 setSolvedIds(prev => prev.includes(challengeId) ? prev : [...prev, challengeId]);
                 setTeamSolvedIds(prev => prev.includes(challengeId) ? prev : [...prev, challengeId]);
                 setSolvedByMap(prev => ({ ...prev, [challengeId]: profile?.username ?? 'you' }));
@@ -1874,9 +1889,12 @@ interface ChallengeCardProps {
   firstBlood?: string;
   /** Receives where the card was when it was picked up, for the modal to grow from. */
   onClick: (origin: { x: number; y: number } | null) => void;
+  /** The battle scene this challenge wears, if any. Label only; the card
+      otherwise stays exactly as it is, category and points included. */
+  scene?: Scene | null;
 }
 
-const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, points, isSolved, solvedBy, firstBlood, onClick }) => {
+const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, points, isSolved, solvedBy, firstBlood, onClick, scene = null }) => {
   const reduce = useReducedMotion();
   const tiltRef = useRef<HTMLDivElement>(null);
   const CategoryIcon = CATEGORY_ICON[challenge.category] ?? Boxes;
@@ -1980,6 +1998,15 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
               <span className="label-micro truncate" style={{ color: hue }}>
                 {challenge.category}
               </span>
+              {scene && (
+                <span
+                  className="pk-scene-tag shrink-0"
+                  style={{ ['--pk-scene-accent' as string]: scene.accent }}
+                  title={`Battle scene: ${scene.label}`}
+                >
+                  {scene.label}
+                </span>
+              )}
             </div>
             <div className="shrink-0 text-right">
               <div className="font-mono text-h3 leading-none text-cyber-neon">{points}</div>
@@ -2136,6 +2163,11 @@ interface ChallengeModalProps {
   solvedBy?: string;
   /** The viewer's own handle. */
   me?: string;
+  /**
+   * The Ramayana battle scene this challenge is dressed in, or null for
+   * every challenge that has none — which is the ordinary platform look.
+   */
+  scene?: Scene | null;
 }
 
 interface Solver {
@@ -2145,6 +2177,7 @@ interface Solver {
 
 const ChallengeModal: React.FC<ChallengeModalProps> = ({
   challenge,
+  scene = null,
   origin,
   points,
   usedHints,
@@ -2391,7 +2424,6 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
           anywhere without a card (or after a scroll that moved it), `origin` is
           null and this degrades to the plain centre scale it always was. */}
       <motion.div
-        style={{ transformPerspective: 1200 }}
         // A few degrees of pitch on arrival: the panel docks out of the depth
         // the environment already has, in the same language as a view change.
         initial={reduce ? false : {
@@ -2407,8 +2439,12 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-label={challenge.title}
-        className="surface-overlay relative w-full max-w-2xl overflow-hidden"
+        className={`surface-overlay relative w-full max-w-2xl overflow-hidden${scene ? ' pk-scene' : ''}`}
+        style={scene
+          ? ({ transformPerspective: 1200, ['--pk-scene-accent' as string]: scene.accent })
+          : { transformPerspective: 1200 }}
       >
+        {scene && <SceneBackdrop scene={scene} />}
         {/* Insane operations announce themselves. 900ms, pointer-transparent,
             over an already-readable panel — atmosphere, never a gate. */}
         {isInsane && <OperationIntro operationId={challenge.id} />}
@@ -2483,6 +2519,8 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
 
               <hr className="divider my-6" />
 
+              {/* The scene's prologue, above the organisers' real brief. */}
+              {scene && <SceneIntro scene={scene} />}
               {/* Description */}
               <div className="surface-inset rounded-card p-4 sm:p-5 text-left">
                 <div className={MARKDOWN_PROSE}>
@@ -2676,7 +2714,7 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
                         disabled={isLocked || submitting}
                         className={`btn btn-primary btn-lg shrink-0 ${submitting ? 'is-loading' : ''}`}
                       >
-                        {submitting ? '...' : 'Execute'}
+                        {submitting ? '...' : (scene?.buttonLabel ?? 'Execute')}
                       </button>
                     </div>
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">

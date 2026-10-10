@@ -1,0 +1,142 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Ramayana Battle Scenes — the Free-challenge dialog.
+
+   Everything here is scoped to html[data-theme="pinaka"] AND to a dialog
+   that actually carries .pk-scene, so a challenge with no scene mapped,
+   or the whole platform with the skin off, renders exactly as before.
+
+   The accent arrives as --pk-scene-accent, set inline per dialog from the
+   scene's measured colour. It is used for a thin rim and a low glow only:
+   never for text, because twelve different accents cannot all be made to
+   pass contrast against the same card.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+html[data-theme='pinaka'] .pk-scene {
+  /* The rim is the scene's colour; the card beneath it stays near-black so
+     body copy keeps its contrast whatever the picture behind it is doing. */
+  border: 1px solid color-mix(in srgb, var(--pk-scene-accent, #dfa049) 55%, transparent);
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.55),
+    0 0 28px -6px color-mix(in srgb, var(--pk-scene-accent, #dfa049) 40%, transparent),
+    0 24px 64px -24px rgb(0 0 0 / 0.85);
+}
+
+/* ── the picture ──────────────────────────────────────────────────────── */
+
+html[data-theme='pinaka'] .pk-scene-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+html[data-theme='pinaka'] .pk-scene-bg__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* The art is a bright painting and the dialog is a reading surface, so
+     the picture is dimmed at the source as well as under the scrim. */
+  /* Tuned against the real dialog: below ~0.7 the painting reads as a
+     smudge rather than a scene. The body copy is safe because it sits on
+     .surface-inset, which brings its own ground; only the title block and
+     the meta pills sit directly on the picture, and the scrim below is
+     weighted for them. */
+  opacity: 0.72;
+  filter: saturate(1.05);
+}
+
+/* The readability layer. Darkest at the bottom, where the flag field and
+   the hint prices sit; lightest at the top, where the art is worth seeing. */
+html[data-theme='pinaka'] .pk-scene-bg__scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      to bottom,
+      rgb(8 6 4 / 0.34) 0%,
+      rgb(8 6 4 / 0.58) 38%,
+      rgb(8 6 4 / 0.86) 100%
+    ),
+    radial-gradient(
+      120% 80% at 50% 0%,
+      color-mix(in srgb, var(--pk-scene-accent, #dfa049) 12%, transparent) 0%,
+      transparent 60%
+    );
+}
+
+/* Everything the player reads sits above both layers. */
+html[data-theme='pinaka'] .pk-scene > *:not(.pk-scene-bg) {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── the story panel ──────────────────────────────────────────────────── */
+
+html[data-theme='pinaka'] .pk-scene-intro {
+  margin-bottom: 0.875rem;
+  padding: 0.875rem 1rem;
+  border-radius: var(--radius-card, 0.75rem);
+  border-left: 2px solid color-mix(in srgb, var(--pk-scene-accent, #dfa049) 70%, transparent);
+  background: rgb(0 0 0 / 0.38);
+  backdrop-filter: blur(2px);
+}
+
+html[data-theme='pinaka'] .pk-scene-intro__eyebrow {
+  margin: 0 0 0.25rem;
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  /* Lifted well clear of the accent's own lightness so this stays readable
+     even for the darker scenes (Meghnad's red, the two blues). */
+  color: color-mix(in srgb, var(--pk-scene-accent, #dfa049) 72%, #fff);
+}
+
+html[data-theme='pinaka'] .pk-scene-intro__line {
+  margin: 0;
+  font-style: italic;
+  line-height: 1.55;
+  color: rgb(255 255 255 / 0.9);
+  text-wrap: pretty;
+}
+
+/* ── the small label on a challenge card ──────────────────────────────── */
+
+html[data-theme='pinaka'] .pk-scene-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--pk-scene-accent, #dfa049) 42%, transparent);
+  background: color-mix(in srgb, var(--pk-scene-accent, #dfa049) 12%, transparent);
+  font-size: 0.625rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--pk-scene-accent, #dfa049) 70%, #fff);
+  white-space: nowrap;
+}
+
+/* ── restraint ────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme='pinaka'] .pk-scene-bg__img { transition: none; }
+}
+
+/* A still device gets the picture without the glow doing any work. */
+html[data-theme='pinaka'][data-still='1'] .pk-scene {
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.55), 0 16px 40px -20px rgb(0 0 0 / 0.8);
+}
+
+/* In forced colours the picture is noise: drop it and keep the text. */
+@media (forced-colors: active) {
+  html[data-theme='pinaka'] .pk-scene-bg { display: none; }
+  html[data-theme='pinaka'] .pk-scene,
+  html[data-theme='pinaka'] .pk-scene-intro,
+  html[data-theme='pinaka'] .pk-scene-tag {
+    border-color: CanvasText;
+    box-shadow: none;
+    background: Canvas;
+  }
+}

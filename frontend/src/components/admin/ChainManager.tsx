@@ -7,6 +7,7 @@ import { supabase, DBChallenge } from '../../lib/supabase';
 import type { Challenge } from '../../types';
 import { buildChainSeriesVM } from '../chain/chainModel';
 import type { DBChainSeries, DBChainMember } from '../../lib/supabase';
+import { CHAPTERS, CHAPTER_ORDER } from '../../themes/pinaka/chapters/config';
 
 const ChainExperience = React.lazy(() => import('../chain/ChainExperience'));
 
@@ -115,6 +116,23 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
     return null;
   };
 
+  // Pinaka event: which chapter of the journey this chain is. Its own
+  // table, so chain_series keeps its exact shape and dropping the table
+  // removes the mapping entirely.
+  const [chapter, setChapter] = useState('');
+  useEffect(() => {
+    const id = draft?.id;
+    if (!id) { setChapter(''); return; }
+    let live = true;
+    void (async () => {
+      const { data, error: err } = await supabase
+        .from('pinaka_series_chapter').select('chapter').eq('series_id', id).maybeSingle();
+      // Absent table just means the event migration is not applied yet.
+      if (live) setChapter(!err && data?.chapter ? data.chapter : '');
+    })();
+    return () => { live = false; };
+  }, [draft?.id]);
+
   const saveDraft = async (publishAfter?: boolean) => {
     if (!draft) return;
     const wantPublish = publishAfter ?? draft.is_published;
@@ -136,6 +154,19 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
       });
       if (up.error || up.data?.error) throw new Error(up.data?.error ?? up.error?.message);
       const seriesId = draft.id || up.data.series_id;
+
+      // Pinaka event: record which chapter this chain is. Its own table and
+      // its own RPC, so a failure here is reported without costing the
+      // organiser the chain they just saved.
+      const ch = await supabase.rpc('admin_set_series_chapter', {
+        p_series_id: seriesId,
+        p_chapter: chapter || null,
+      });
+      if (ch.error || ch.data?.error) {
+        setError('Chain saved, but its Pinaka chapter could not be set: '
+          + (ch.data?.error ?? ch.error?.message)
+          + '. If the Pinaka event migration has not been applied yet, this is expected.');
+      }
 
       // 2. Replace membership atomically (validated server-side).
       const setM = await supabase.rpc('admin_set_chain_members', {
@@ -286,6 +317,15 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
                 <span className="label-micro">Category</span>
                 <select className="select mt-1" value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })}>
                   {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <span className="label-micro">Pinaka chapter</span>
+                <select className="select mt-1" value={chapter} onChange={(e) => setChapter(e.target.value)}>
+                  <option value="">— None —</option>
+                  {CHAPTER_ORDER.map((id) => (
+                    <option key={id} value={id}>{CHAPTERS[id].title} — {CHAPTERS[id].subtitle}</option>
+                  ))}
                 </select>
               </label>
               <label className="block">

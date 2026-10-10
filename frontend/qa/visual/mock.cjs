@@ -263,6 +263,13 @@ function createMock(opts = {}) {
     user_scores: scoresHidden ? [] : userRows,
     public_challenges: visibleChallenges.map(c => ({ ...c, files: c.files, hints: c.hints.map(h => ({ id: h.id, cost: h.cost })) })),
     challenges: ALL,
+    // Pinaka event: the battle-scene mapping. Dressing the first two
+    // challenges is enough to show both the card label and the dialog.
+    pinaka_challenge_scene: ALL.slice(0, 2).map((c, i) => ({
+      challenge_id: c.id,
+      scene: ['golden-deer', 'ashoka-vatika'][i],
+    })),
+    pinaka_series_chapter: [],
     challenge_files: ALL.flatMap(c => c.files.map(f => ({ ...f, challenge_id: c.id, created_at: c.created_at }))),
     hints: ALL.flatMap(c => c.hints.map(h => ({ id: h.id, challenge_id: c.id, cost: h.cost, content: h.content }))),
     hint_unlocks: [],

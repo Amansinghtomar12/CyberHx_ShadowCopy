@@ -5,6 +5,7 @@ import { useAuth } from '../../hooks/useAuth';
 import OwnerFlagVault from './OwnerFlagVault';
 import { exportScoreboardCsv } from '../../lib/scoreboardExport';
 import { safeHttpUrl } from '../../lib/url';
+import { SCENES, SCENE_ORDER } from '../../themes/pinaka/scenes/config';
 import {
   Plus, Eye, EyeOff, Trash2, Edit3, Shield, Users, Flag, Activity, RotateCcw, KeyRound,
   X, AlertTriangle, Megaphone, Zap, Lightbulb, Link2, Save, Inbox, Lock,
@@ -206,6 +207,23 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
   const [rootFlag, setRootFlag] = useState('');
   const [rootPoints, setRootPoints] = useState(150);
   const [chainSeriesId, setChainSeriesId] = useState('');
+  // Pinaka event: which Ramayana battle scene dresses this Free challenge.
+  // '' is "None / Default", which is also what every challenge is without
+  // the event, so this stays inert when the skin is off.
+  const [sceneId, setSceneId] = useState('');
+  useEffect(() => {
+    const id = initial?.id;
+    if (!id) { setSceneId(''); return; }
+    let live = true;
+    void (async () => {
+      const { data, error } = await supabase
+        .from('pinaka_challenge_scene').select('scene').eq('challenge_id', id).maybeSingle();
+      // The event migration may not be applied; that is not an error worth
+      // showing an organiser mid-edit, it just means no scene is set.
+      if (live) setSceneId(!error && data?.scene ? data.scene : '');
+    })();
+    return () => { live = false; };
+  }, [initial?.id]);
   const [b2rSeriesId, setB2rSeriesId] = useState('');
   const [chainSeriesList, setChainSeriesList] = useState<{ id: string; title: string; members: { challenge_id: string }[] }[]>([]);
   const [b2rSeriesList, setB2rSeriesList] = useState<{ id: string; title: string; members: { box_id: string }[] }[]>([]);
@@ -448,6 +466,23 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
       }
     }
 
+    // Pinaka event: store the battle scene alongside the challenge. Its own
+    // table, so a failure here cannot cost the organiser the challenge they
+    // just wrote — it is reported and the save still stands.
+    if (challengeId) {
+      const { data: scRes, error: scErr } = await supabase.rpc('admin_set_challenge_scene', {
+        p_challenge_id: challengeId,
+        p_scene: sceneId || null,
+      });
+      if (scErr || scRes?.error) {
+        setSaving(false);
+        setError('Challenge saved, but its battle scene could not be set: '
+          + (scRes?.error ?? scErr?.message)
+          + '. If the Pinaka event migration has not been applied yet, this is expected.');
+        return;
+      }
+    }
+
     // Save hints in place. Deleting and re-inserting them gave every hint a
     // new id and cascaded away each player's paid hint_unlocks while their
     // hint_spend stayed charged — one typo fix mid-event took every bought
@@ -576,6 +611,19 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
                   </button>
                 ))}
               </div>
+              {placement === 'free' && (
+                <div className="mt-3 min-w-0 md:max-w-md">
+                  <label className="field-label" htmlFor="chal-scene">Ramayana Battle Scene</label>
+                  <select id="chal-scene" className="select" value={sceneId} onChange={e => setSceneId(e.target.value)}>
+                    <option value="">— None / Default —</option>
+                    {SCENE_ORDER.map(id => <option key={id} value={id}>{SCENES[id].label}</option>)}
+                  </select>
+                  <p className="mt-1.5 text-small text-text-muted">
+                    Optional. Sets the background and story line on the challenge dialog during
+                    Pinaka CTF. Scoring, hints, files and the category are unaffected.
+                  </p>
+                </div>
+              )}
               {placement === 'chain' && (
                 <div className="mt-3 min-w-0 md:max-w-md">
                   <label className="field-label" htmlFor="chal-chain-series">Add to chain</label>
