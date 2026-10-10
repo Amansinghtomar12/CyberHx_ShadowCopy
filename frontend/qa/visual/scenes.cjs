@@ -68,6 +68,54 @@ module.exports = [
   // Pinaka event: opening an arena hands the scene to the whole page.
   // Assert on the plate the environment is actually painting, not on how
   // the page looks through the dialog's scrim.
+  // Pinaka event: dismissing the brief must NOT leave the arena. Only
+  // "Take rest" folds the card and gives the chapter's sky back.
+  // What the player is left looking at once the brief is dismissed.
+  scene('arena-standing', {
+    before: async (page, h) => {
+      await h.boardReady();
+      await h.openChallenge(EASY);
+      await page.waitForTimeout(1200);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(1800);
+      const card = page.locator('.pk-scenecard[data-open="1"]');
+      await card.scrollIntoViewIfNeeded().catch(() => {});
+      await page.waitForTimeout(600);
+    },
+    shots: [{ at: 600 }],
+  }),
+
+  scene('arena-stays-open', {
+    before: async (page, h) => {
+      const state = async (label) => {
+        const r = await page.evaluate(() => ({
+          plate: [...document.querySelectorAll('.pk-env-plate')]
+            .filter(e => getComputedStyle(e).opacity === '1')
+            .map(e => { const i = e.querySelector('img'); return i ? (i.currentSrc||i.src).split('/').pop() : '?'; }),
+          flipped: !!document.querySelector('.pk-scenecard[data-open="1"]'),
+          brief: !!document.querySelector('[role="dialog"]'),
+        }));
+        console.log(`        ${label.padEnd(22)} plate=${JSON.stringify(r.plate)} flipped=${r.flipped} brief=${r.brief}`);
+        return r;
+      };
+      await h.boardReady();
+      await state('start');
+      await h.openChallenge(EASY);
+      await page.waitForTimeout(1200);
+      await state('entered arena');
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(1600);
+      await state('brief dismissed');
+      // now leave properly, from the card's own back face
+      const leave = page.locator('.pk-scenecard[data-open="1"] .pk-scenecard__leave');
+      console.log('        take-rest button visible: ' + (await leave.count() > 0));
+      await leave.first().click();
+      await page.waitForTimeout(3600);
+      await state('after take rest');
+    },
+    shots: [{ at: 400 }],
+  }),
+
   scene('arena-plate-check', {
     before: async (page, h) => {
       const plate = async () => page.evaluate(() => {

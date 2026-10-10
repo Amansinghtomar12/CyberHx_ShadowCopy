@@ -527,16 +527,35 @@ export default function App() {
   // Story-mode locks. The server is the authority; this is so the board
   // can show a lock instead of walking someone into a refusal.
   const chainProgress = useChainProgress(pinaka);
+  /**
+   * The battle scene the page is currently wearing, and the challenge it
+   * belongs to. Deliberately separate from `selectedChallenge`: being in
+   * the arena and reading the brief are two different states, so the
+   * dialog can be dismissed to look at the scene without leaving it.
+   * Only "Take rest" clears this.
+   */
+  const [arenaChallenge, setArenaChallenge] = useState<Challenge | null>(null);
   // The scene the open challenge is dressed in, if any. This is what turns
   // the whole page into the arena: while it is set the environment wears
   // the scene's plate instead of the chapter's, and closing puts the
   // chapter back.
   const openScene = useMemo(
-    () => (pinaka && selectedChallenge
-      ? sceneOf(challengeScenes.get(selectedChallenge.id))
+    () => (pinaka && arenaChallenge
+      ? sceneOf(challengeScenes.get(arenaChallenge.id))
       : null),
-    [pinaka, selectedChallenge, challengeScenes],
+    [pinaka, arenaChallenge, challengeScenes],
   );
+  // An arena whose scene mapping disappeared (unassigned mid-event) has
+  // nothing left to stand in, so it closes itself rather than stranding
+  // the player on a chapter background with a turned card.
+  useEffect(() => {
+    if (arenaChallenge && !openScene) setArenaChallenge(null);
+  }, [arenaChallenge, openScene]);
+  // The arena belongs to the challenge board. Walking off it — to the
+  // scoreboard, a profile, the admin panel — gives the chapter back.
+  useEffect(() => {
+    if (currentView !== 'challenges') setArenaChallenge(null);
+  }, [currentView]);
   const chapter = CHAPTERS[journey.current];
   useChapterAttributes(pinaka ? journey.current : null);
   const unlock = useChapterUnlock(journey);
@@ -937,7 +956,7 @@ export default function App() {
   // the solve/submit flow is completely unchanged.
   const openChainChallenge = useCallback((challengeId: string) => {
     const ch = challenges.find(c => c.id === challengeId);
-    if (ch) { setSelectedOrigin(null); setSelectedChallenge(ch); }
+    if (ch) { setSelectedOrigin(null); setArenaChallenge(null); setSelectedChallenge(ch); }
   }, [challenges]);
 
   const handleLogout = async () => {
@@ -1678,8 +1697,21 @@ export default function App() {
                                 solvedCount={solveCounts[challenge.id] ?? challenge.solvedCount ?? 0}
                                 difficulty={challenge.difficulty}
                                 isSolved={isChallengeSolved(challenge.id)}
-                                open={selectedChallenge?.id === challenge.id}
-                                onEnter={(origin) => { setSelectedOrigin(origin); setSelectedChallenge(challenge); }}
+                                open={arenaChallenge?.id === challenge.id}
+                                briefOpen={selectedChallenge?.id === challenge.id}
+                                onEnter={(origin) => {
+                                  setSelectedOrigin(origin);
+                                  setArenaChallenge(challenge);
+                                  setSelectedChallenge(challenge);
+                                }}
+                                onResume={(origin) => {
+                                  setSelectedOrigin(origin);
+                                  setSelectedChallenge(challenge);
+                                }}
+                                onLeave={() => {
+                                  setSelectedChallenge(null);
+                                  setArenaChallenge(null);
+                                }}
                               />
                             );
                             return (
@@ -1692,7 +1724,7 @@ export default function App() {
                               isSolved={isChallengeSolved(challenge.id)}
                               solvedBy={solvedByMap[challenge.id]}
                               firstBlood={firstBloodMap[challenge.id]}
-                              onClick={(origin) => { setSelectedOrigin(origin); setSelectedChallenge(challenge); }}
+                              onClick={(origin) => { setSelectedOrigin(origin); setArenaChallenge(null); setSelectedChallenge(challenge); }}
                             />
                             );
                           })}
@@ -1813,7 +1845,11 @@ export default function App() {
               hintTexts={hintTexts}
               hintError={hintError}
               onUnlockHint={(hintId) => handleUnlockHint(selectedChallenge.id, hintId)}
+              // Dismissing the brief leaves the player standing in the
+              // arena: the card stays turned and the page keeps the
+              // painting. Only "Take rest" (onLeaveArena) folds it back.
               onClose={() => { setSelectedChallenge(null); setHintError(''); }}
+              onLeaveArena={() => { setSelectedChallenge(null); setArenaChallenge(null); setHintError(''); }}
               isSolved={isChallengeSolved(selectedChallenge.id)}
               canSubmit={canSubmit}
               eventStatus={eventStatus}
@@ -2200,6 +2236,12 @@ interface ChallengeModalProps {
   /** The viewer's own handle. */
   me?: string;
   /**
+   * Leave the battle scene entirely — fold the card, give the chapter's
+   * sky back. Distinct from onClose, which only dismisses this brief and
+   * leaves the player standing in the arena.
+   */
+  onLeaveArena?: () => void;
+  /**
    * The Ramayana battle scene this challenge is dressed in, or null for
    * every challenge that has none — which is the ordinary platform look.
    */
@@ -2214,6 +2256,7 @@ interface Solver {
 const ChallengeModal: React.FC<ChallengeModalProps> = ({
   challenge,
   scene = null,
+  onLeaveArena,
   origin,
   points,
   usedHints,
@@ -2760,12 +2803,12 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
                           returns the page to the chapter's own sky. Nothing
                           is lost — the challenge is Free, so leaving it costs
                           no attempt and no progress. */}
-                      {scene && (
+                      {scene && onLeaveArena && (
                         <button
                           type="button"
-                          onClick={onClose}
+                          onClick={onLeaveArena}
                           className="btn btn-ghost btn-sm"
-                          title="Leave this scene. The board returns to your chapter; nothing is lost."
+                          title="Leave the scene entirely: the card folds and the board returns to your chapter. Closing this panel instead keeps you here, looking at the scene."
                         >
                           Take rest
                         </button>

@@ -61,6 +61,47 @@ html[data-theme='pinaka'] .pk-scenecard__back {
   gap: 0.5rem;
 }
 
+/* The two ways on from here: back to the brief, or out of the arena. */
+html[data-theme='pinaka'] .pk-scenecard__backacts {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+/* Deliberately quieter than the call to arms above it: leaving should be
+   easy to find and hard to hit by accident. */
+html[data-theme='pinaka'] .pk-scenecard__leave {
+  width: 100%;
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--radius-control, 0.5rem);
+  border: 1px solid rgb(255 255 255 / 0.16);
+  background: transparent;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.6);
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease;
+}
+
+html[data-theme='pinaka'] .pk-scenecard__leave:hover {
+  border-color: rgb(255 255 255 / 0.34);
+  color: rgb(255 255 255 / 0.85);
+}
+
+html[data-theme='pinaka'] .pk-scenecard__leave:focus-visible {
+  outline: 2px solid rgb(255 255 255 / 0.7);
+  outline-offset: 2px;
+}
+
+/* A face turned away from the viewer must not swallow clicks meant for
+   the one facing them. backface-visibility hides it; this disarms it. */
+html[data-theme='pinaka'] .pk-scenecard__face[aria-hidden='true'] {
+  pointer-events: none;
+}
+
 /* ── the closed face ──────────────────────────────────────────────────── */
 
 html[data-theme='pinaka'] .pk-scenecard__head {
