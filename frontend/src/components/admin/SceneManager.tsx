@@ -173,9 +173,9 @@ export const SceneManager: React.FC<SceneManagerProps> = ({ catalogue, onChanged
             width={art.width}
             height={art.height}
           />
-          <div className="px-3 py-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-small text-text-muted">
-            <span>{art.width}×{art.height}</span>
-            <span>{Math.round(art.blob.size / 1024)} KB</span>
+          <div className="pk-admin-scene-meta px-3 py-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-small text-text-muted">
+            <span data-size>{art.width}×{art.height}</span>
+            <span data-weight>{Math.round(art.blob.size / 1024)} KB</span>
             <span className="inline-flex items-center gap-1.5">
               accent
               <span
@@ -184,6 +184,12 @@ export const SceneManager: React.FC<SceneManagerProps> = ({ catalogue, onChanged
                 style={{ background: art.accent }}
               />
               <code>{art.accent}</code>
+            </span>
+            {/* Where the crop will centre. Worth showing: it is the one
+                number an organiser can sanity-check by eye, and a picture
+                whose subject sits against an edge gets clamped. */}
+            <span data-focal>
+              focal {Math.round(art.focal.x * 100)}% / {Math.round(art.focal.y * 100)}%
             </span>
             <button type="button" className="btn btn-ghost btn-sm ml-auto" onClick={reset}>
               <X className="w-3.5 h-3.5" aria-hidden="true" /> Clear

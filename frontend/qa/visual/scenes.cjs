@@ -506,6 +506,95 @@ module.exports = [
     shots: [{ waitText: 'Pinaka story', at: 1200 }, { name: 'full', at: 300, full: true }],
   }),
 
+  // ── Adding a battle scene, through the real panel ───────────────────────
+  // Not a picture: a measurement that fails the run.
+  //
+  // The whole point of the catalogue is that an organiser can add artwork
+  // during their own event without an engineer, so the thing worth proving
+  // is the part that happens in their browser: a picture they picked is
+  // resized to what the board paints, re-encoded small, and measured — the
+  // focal point, the light, and the accent the card's border takes.
+  //
+  // Guessed numbers do not fail a build. They show up as a subject cropped
+  // out on a phone and a border in a colour the painting does not contain,
+  // which is why this drives the real file input rather than calling the
+  // module directly.
+  scene('admin-scene-upload', {
+    me: { isAdmin: true },
+    event: { theme: 'pinaka', pinaka_story_mode: true },
+    before: async (page, h) => {
+      await h.nav('Admin');
+      await h.waitText('Challenge catalogue');
+      await page.getByText('Pinaka battle scenes').click();
+      await h.waitText('Artwork');
+
+      // A picture with its subject and its light deliberately off centre:
+      // a measurement that is really a default would land at 0.5 and pass
+      // a weaker test than this one.
+      const png = await page.evaluate(async () => {
+        const c = document.createElement('canvas');
+        c.width = 1600; c.height = 900;
+        const x = c.getContext('2d');
+        x.fillStyle = '#101820'; x.fillRect(0, 0, 1600, 900);
+        // A bright warm mass low and right.
+        const g = x.createRadialGradient(1180, 640, 10, 1180, 640, 330);
+        g.addColorStop(0, '#ffd27f'); g.addColorStop(1, 'rgba(255,210,127,0)');
+        x.fillStyle = g; x.fillRect(0, 0, 1600, 900);
+        x.fillStyle = '#e8a33c'; x.beginPath(); x.arc(1180, 640, 150, 0, 7); x.fill();
+        const b = await new Promise(r => c.toBlob(r, 'image/png'));
+        const buf = new Uint8Array(await b.arrayBuffer());
+        return Array.from(buf);
+      });
+
+      await page.setInputFiles('#scene-art', {
+        name: 'rama-returns.png', mimeType: 'image/png', buffer: Buffer.from(png),
+      });
+      // Not the word "accent": the help text above the input already says
+      // it, so waiting on that passes before anything has been prepared.
+      // The Clear button exists only once a picture is in hand.
+      await page.getByRole('button', { name: 'Clear' }).waitFor({ state: 'visible' });
+
+      // Read the fields, not the page: adjacent spans concatenate in
+      // textContent, so "1600×900" and "7 KB" scrape as "9007".
+      const read = await page.evaluate(() => {
+        const row = document.querySelector('.pk-admin-scene-meta');
+        const t = (sel) => (row?.querySelector(sel)?.textContent || '').trim();
+        const size = t('[data-size]').match(/(\d+)×(\d+)/);
+        const kb = t('[data-weight]').match(/(\d+)/);
+        const hex = (row?.querySelector('code')?.textContent || '').trim();
+        const foc = t('[data-focal]').match(/(\d+)% \/ (\d+)%/);
+        return {
+          w: size && +size[1], h: size && +size[2], kb: kb && +kb[1],
+          accent: hex || null, fx: foc && +foc[1], fy: foc && +foc[2],
+        };
+      });
+      console.log('            prepared: ' + read.w + '×' + read.h + '  ' + read.kb + ' KB  accent '
+        + read.accent + '  focal ' + read.fx + '%/' + read.fy + '%');
+
+      // Resized to what the board paints, not left at whatever was picked.
+      if (read.w !== 1600 || read.h !== 900) throw new Error('unexpected prepared size: ' + read.w + '×' + read.h);
+      // Re-encoded: a 1600-wide PNG of this is far larger than this.
+      if (!(read.kb > 0 && read.kb < 400)) throw new Error('re-encode did not shrink it: ' + read.kb + ' KB');
+      // Measured, not defaulted: the art is warm, so a grey border means
+      // the hue pass never ran.
+      if (!read.accent) throw new Error('no accent was measured');
+      const [r, g, b] = [1, 3, 5].map(i => parseInt(read.accent.slice(i, i + 2), 16));
+      if (!(r > g && g > b)) throw new Error('accent is not the warm hue in the art: ' + read.accent);
+      // The lit mass sits low and right, at roughly 74% / 71%, which the
+      // clamp pulls to the far corner of what it allows. A focal point at
+      // the middle means the centroid never ran and a default was printed.
+      if (!(read.fx >= 65 && read.fy >= 62)) {
+        throw new Error('focal did not follow the light: ' + read.fx + '%/' + read.fy + '%');
+      }
+
+      // And the name becomes the id the storage path and plate key use.
+      await page.fill('#scene-label', 'Rama Returns');
+      await h.waitText('rama-returns');
+      await h.park();
+    },
+    shots: [{ at: 300 }],
+  }),
+
   scene('blur-audit', blurAudit()),
   // And with a challenge open: the dialog and its scrim are the other two
   // places a blur has historically lived.
