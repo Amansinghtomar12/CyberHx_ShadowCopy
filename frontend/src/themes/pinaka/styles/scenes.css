@@ -395,11 +395,12 @@ html[data-theme='pinaka'] .pk-scenecard__face {
 }
 
 /* The buttons sit on the glass too, so give them a little body of their
-   own rather than relying on the card to provide it. */
+   own rather than relying on the card to provide it. A fill, not a blur:
+   the card stopped blurring and a button that still did was the last
+   smeared thing on the board. */
 html[data-theme='pinaka'] .pk-scenecard__enter,
 html[data-theme='pinaka'] .pk-scenecard__leave {
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background-color: rgb(10 8 6 / 0.34);
 }
 
 [data-tier='still'] .pk-scenecard__enter,
