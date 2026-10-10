@@ -26,6 +26,11 @@ mid-event without losing the artwork.
 Admin panel → **Pinaka experience** card → **Open Pinaka for everyone**.
 Players pick it up on their next poll, within about 30 seconds.
 
+The same switch sits in the header for admins, one click from anywhere:
+a palette button beside the Admin tab. It is labelled "Open Pinaka" /
+"Close Pinaka" on a wide screen and in the phone menu, and shows the icon
+alone in between, where the row has no width to spare for the words.
+
 That card also has a **preview** that opens a new tab showing the skin to
 you alone — nobody else is affected, and closing the tab ends it.
 

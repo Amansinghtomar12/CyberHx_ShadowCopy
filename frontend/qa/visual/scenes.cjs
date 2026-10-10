@@ -30,6 +30,50 @@ const armPaidHint = async (page, h) => {
   await h.waitText('Confirm decryption');
 };
 
+// ── The header has to fit ───────────────────────────────────────────────
+// Not a picture: a measurement that fails the run. The row is one flex
+// line with a shrink-0 right group, so anything the left group cannot fit
+// is painted over the clock rather than clipped — which is exactly what
+// happened to an admin at every desktop width until the wordmark, the
+// event badge and the switch learned to give way. Both skins, both roles,
+// every width where the desktop row is on.
+const navFits = (opts) => ({
+  ...opts,
+  before: async (page, h) => {
+    await h.boardReady();
+    const bad = [];
+    for (const w of [1024, 1080, 1180, 1280, 1366, 1440, 1536, 1600, 1920]) {
+      await page.setViewportSize({ width: w, height: 900 });
+      await page.waitForTimeout(160);
+      const r = await page.evaluate(() => {
+        const row = document.querySelector('nav.sticky > div');
+        const [left, right] = Array.from(row.children);
+        // The painted edge, not the box: a child that overflows its group
+        // is the whole failure mode being guarded against.
+        const edge = (el) => Math.max(
+          el.getBoundingClientRect().right,
+          ...Array.from(el.querySelectorAll('*'))
+            .filter(e => e.getClientRects().length)
+            .map(e => e.getBoundingClientRect().right),
+        );
+        const strip = left.querySelector('.nav-strip');
+        return {
+          gap: Math.round(right.getBoundingClientRect().left - edge(left)),
+          // The strip scrolls rather than overlaps now, so a clear gap is
+          // only half the answer: a scrollable strip means a tab is cut off.
+          cut: strip ? strip.scrollWidth - strip.clientWidth : 0,
+        };
+      });
+      if (r.gap < 0) bad.push('overlaps the controls at ' + w + 'px by ' + -r.gap + 'px');
+      if (r.cut > 0) bad.push('cuts the tab strip at ' + w + 'px by ' + r.cut + 'px');
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.waitForTimeout(200);
+    if (bad.length) throw new Error('header ' + bad.join('; '));
+  },
+  shots: [{ at: 200 }],
+});
+
 module.exports = [
   // ── Auth ────────────────────────────────────────────────────────────────
   scene('auth-login', { loggedOut: true, shots: [{ waitSelector: '#auth-email', at: 1200 }] }),
@@ -74,6 +118,9 @@ module.exports = [
   // The three beats: closed (scene only) -> entered (real name, no brief)
   // -> brief open. And a separate way back at every point.
   scene('arena-three-beats', {
+    // The arena card only exists under the event skin; on the classic
+    // look there is no card to press, so this is nothing to measure.
+    skip: (run) => run.theme !== 'pinaka' && 'pinaka-only scene',
     before: async (page, h) => {
       const look = async (label) => {
         const r = await page.evaluate(() => {
@@ -161,6 +208,9 @@ module.exports = [
     shots: [{ at: 200 }],
   }),
 
+  scene('nav-fits-admin', navFits({ me: { isAdmin: true }, event: { theme: 'pinaka' } })),
+  scene('nav-fits-player', navFits({ event: { theme: 'pinaka' } })),
+
   scene('glass-measure2', {
     before: async (page, h) => {
       await h.boardReady();
@@ -204,6 +254,9 @@ module.exports = [
   }),
 
   scene('arena-standing', {
+    // The arena card only exists under the event skin; on the classic
+    // look there is no card to press, so this is nothing to measure.
+    skip: (run) => run.theme !== 'pinaka' && 'pinaka-only scene',
     before: async (page, h) => {
       await h.boardReady();
       await page.locator('.pk-scenecard__enter').first().click();
@@ -215,6 +268,9 @@ module.exports = [
   }),
 
   scene('arena-stays-open', {
+    // The arena card only exists under the event skin; on the classic
+    // look there is no card to press, so this is nothing to measure.
+    skip: (run) => run.theme !== 'pinaka' && 'pinaka-only scene',
     before: async (page, h) => {
       const state = async (label) => {
         const r = await page.evaluate(() => ({
