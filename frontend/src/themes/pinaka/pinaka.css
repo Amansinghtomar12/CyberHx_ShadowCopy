@@ -26,3 +26,6 @@
 @import './styles/partners.css';
 /* last, so a chapter's accents win over the base skin on equal specificity */
 @import './styles/chapters.css';
+/* after chapters: a battle scene dresses one dialog, and its accent should
+   win over the chapter tint the rest of the page is wearing */
+@import './styles/scenes.css';

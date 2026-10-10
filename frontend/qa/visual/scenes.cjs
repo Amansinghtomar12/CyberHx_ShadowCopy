@@ -65,6 +65,25 @@ module.exports = [
 
   // ── Challenge modal ─────────────────────────────────────────────────────
   scene('challenge-modal', { before: open(EASY), shots: [{ at: 900 }] }),
+  // Pinaka event: the foot of a scene-dressed dialog, where the story's own
+  // submit wording replaces "Execute". Scrolled, because it sits below the
+  // fold on a 900px viewport.
+  scene('challenge-modal-scene-foot', {
+    before: async (page, h) => {
+      await h.openChallenge(EASY);
+      // The dialog itself does not scroll; find whichever descendant does.
+      await page.locator('[role="dialog"]').first().evaluate(root => {
+        const all = [root, ...root.querySelectorAll('*')];
+        const box = all.find(e => e.scrollHeight > e.clientHeight + 40);
+        if (box) box.scrollTop = box.scrollHeight;
+      }).catch(() => {});
+      await page.waitForTimeout(500);
+      const label = await page.locator('[role="dialog"] button[type="submit"]')
+        .first().innerText().catch(() => '<not found>');
+      console.log('        submit button reads: ' + JSON.stringify(label.trim()));
+    },
+    shots: [{ at: 900 }],
+  }),
   scene('challenge-modal-insane', { before: open(INSANE), shots: [{ at: 1200 }] }),
   scene('hint-confirm', { before: armPaidHint, shots: [{ at: 500 }] }),
   scene('hint-unlocked', {
