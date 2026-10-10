@@ -52,11 +52,11 @@ html[data-theme='pinaka'] .pk-scenecard__face {
   background:
     linear-gradient(
       160deg,
-      color-mix(in srgb, var(--pk-scene-accent, #dfa049) 14%, rgb(10 8 6 / 0.34)) 0%,
-      rgb(10 8 6 / 0.56) 100%
+      color-mix(in srgb, var(--pk-scene-accent, #dfa049) 14%, rgb(10 8 6 / 0.16)) 0%,
+      rgb(10 8 6 / 0.32) 100%
     );
-  backdrop-filter: blur(14px) saturate(1.12);
-  -webkit-backdrop-filter: blur(14px) saturate(1.12);
+  backdrop-filter: blur(10px) saturate(1.14);
+  -webkit-backdrop-filter: blur(10px) saturate(1.14);
   box-shadow:
     0 0 0 1px rgb(0 0 0 / 0.35),
     0 18px 44px -24px rgb(0 0 0 / 0.8);
@@ -382,8 +382,8 @@ html[data-theme='pinaka'] .pk-scenecard__face::before {
   border-radius: inherit;
   pointer-events: none;
   background:
-    linear-gradient(to bottom, rgb(6 5 4 / 0.42) 0%, transparent 34%),
-    linear-gradient(to top, rgb(6 5 4 / 0.46) 0%, transparent 38%);
+    linear-gradient(to bottom, rgb(6 5 4 / 0.28) 0%, transparent 30%),
+    linear-gradient(to top, rgb(6 5 4 / 0.32) 0%, transparent 34%);
 }
 
 /* The face is the stacking context the wash sits behind. */

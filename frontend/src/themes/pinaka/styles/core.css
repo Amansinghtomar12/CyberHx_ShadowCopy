@@ -177,8 +177,8 @@ html[data-theme="pinaka"] [data-tier]:not(:is([data-tier="high"], [data-tier="me
        thing this rule still owns is the wider blur a full-width frame
        wants. */
     background-color: transparent;
-    -webkit-backdrop-filter: blur(20px) saturate(1.14);
-    backdrop-filter: blur(20px) saturate(1.14);
+    -webkit-backdrop-filter: blur(10px) saturate(1.14);
+    backdrop-filter: blur(10px) saturate(1.14);
   }
 
   /* Every other panel gets a smaller version of the same trick, so a stat
@@ -188,24 +188,25 @@ html[data-theme="pinaka"] [data-tier]:not(:is([data-tier="high"], [data-tier="me
        are the same object in two places: 0.34 at the head, 0.56 at the
        foot where the numbers sit. */
     background-color: transparent;
-    background-image: linear-gradient(160deg, rgb(10 8 6 / 0.34) 0%, rgb(10 8 6 / 0.56) 100%);
+    background-image: linear-gradient(160deg, rgb(10 8 6 / 0.16) 0%, rgb(10 8 6 / 0.32) 100%);
     /* The battle card's recipe exactly: a blur and a little saturation,
        and no brightness. Dimming the backdrop is what made these read as
        shut even at half alpha — it is the filter, not the alpha, that
        decides whether a painting comes through. Contrast is carried the
        way the cards carry it, by the wash and the shadows below. */
-    -webkit-backdrop-filter: blur(14px) saturate(1.12);
-    backdrop-filter: blur(14px) saturate(1.12);
+    -webkit-backdrop-filter: blur(10px) saturate(1.14);
+    backdrop-filter: blur(10px) saturate(1.14);
   }
 
   /* A glass panel is no longer a dark ground, so the muted text inside it
      gets the same lift the theme already gives text sitting straight on
      the painting. Measured against the worst case the artwork can offer —
-     a pure white sky right behind the panel — this is 5.2:1 for muted and
-     9.3:1 for body, where leaving the token alone would have been 3.4:1.
-     Opacity buys none of that back; the colour does. */
+     the brightest two per cent of a panel's composited ground over the
+     campaign art — this is 4.5:1 for muted and 6.6:1 for body, and 7.4:1
+     and 8.6:1 over that ground's median. Opacity buys none of that back;
+     the colour does, and the colour costs no transparency. */
   html[data-theme="pinaka"] :is([data-tier="high"], [data-tier="medium"]) :is(.surface, .card-interactive, .page-shell aside.border-r) {
-    --color-text-muted: #cdc0a6;
+    --color-text-muted: #e2d8c4;
   }
 }
 
@@ -545,8 +546,8 @@ html[data-theme="pinaka"] [data-offscreen="true"] *::after {
     border-radius: inherit;
     pointer-events: none;
     background:
-      linear-gradient(to bottom, rgba(6, 7, 14, 0.5) 0%, transparent 30%),
-      linear-gradient(to top, rgba(6, 7, 14, 0.52) 0%, transparent 32%);
+      linear-gradient(to bottom, rgba(6, 7, 14, 0.28) 0%, transparent 30%),
+      linear-gradient(to top, rgba(6, 7, 14, 0.32) 0%, transparent 34%);
   }
   html[data-theme="pinaka"] :is([data-tier="high"], [data-tier="medium"]) :is(.surface, .card-interactive) {
     position: relative;
@@ -559,7 +560,7 @@ html[data-theme="pinaka"] [data-offscreen="true"] *::after {
 
   html[data-theme="pinaka"] :is([data-tier="high"], [data-tier="medium"])
     :is(.surface, .card-interactive, .page-shell aside.border-r, .page-shell header.surface) {
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8), 0 0 10px rgba(0, 0, 0, 0.55);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 8px rgba(0, 0, 0, 0.72), 0 0 18px rgba(0, 0, 0, 0.5);
   }
   /* Foil lockups and numerals paint their own glow; leave them alone. */
   html[data-theme="pinaka"] :is([data-tier="high"], [data-tier="medium"])
@@ -608,7 +609,7 @@ html[data-theme="pinaka"] [data-surface="work"] {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
     background-image: none;
-    background-color: rgba(10, 8, 6, 0.24);
+    background-color: rgba(10, 8, 6, 0.14);
   }
   /* A nested panel has a surface above it, so it does not need the wash
      the outer one already paints. */
