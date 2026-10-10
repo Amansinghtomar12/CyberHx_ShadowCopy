@@ -114,6 +114,23 @@ const B2R_BOXES = [
   { id: uuid('box:indra'), title: 'Indrajit Relay', category: 'b2r', description: 'Invisible on the network until it is not.', difficulty: 'Insane', display_order: 3, readme_url: null, user: B2R_FLAGS.indraU, root: B2R_FLAGS.indraR, series_id: B2R_SERIES[0].id, position: 2 },
 ];
 
+// ── Pinaka chapters ────────────────────────────────────────────────────────
+// The event's two published chains, filed under the first two chapters, so
+// the board has something to group and something to lock. The ids match
+// themes/pinaka/chapters/config.ts and the pinaka_chapter table.
+const PINAKA_CHAPTERS = [
+  { id: 'ayodhya', position: 1, title: 'Ayodhya' },
+  { id: 'mithila', position: 2, title: 'Mithila' },
+  { id: 'vanvaas', position: 3, title: 'Vanvaas' },
+  { id: 'kishkindha', position: 4, title: 'Kishkindha' },
+  { id: 'setu', position: 5, title: 'Setu Bandhan' },
+  { id: 'lanka', position: 6, title: 'Lanka' },
+];
+const PINAKA_CHAPTER_OF_SERIES = [
+  { series_id: CHAIN_SERIES[0].id, chapter: 'ayodhya' },
+  { series_id: CHAIN_SERIES[1].id, chapter: 'mithila' },
+];
+
 // ── Teams, players, ledger ─────────────────────────────────────────────────
 const TEAM_NAMES = ['Vanara Scouts', 'Lanka Watch', 'Pushpaka Flight', 'Ashoka Grove', 'Kishkindha Relay', 'Setu Builders', 'Saptarishi', 'Golden Deer', 'Panchavati', 'Dandaka Drift', 'Sanjeevani', 'Mandara Churn', 'Agni Pariksha', 'Indrajit Null'];
 const STRENGTH = [0, 21, 18, 13, 12, 10, 9, 8, 7, 6, 5, 4, 3, 2]; // solves per team; index 0 is mine (explicit)
@@ -269,7 +286,7 @@ function createMock(opts = {}) {
       challenge_id: c.id,
       scene: ['golden-deer', 'ashoka-vatika'][i],
     })),
-    pinaka_series_chapter: [],
+    pinaka_series_chapter: PINAKA_CHAPTER_OF_SERIES,
     challenge_files: ALL.flatMap(c => c.files.map(f => ({ ...f, challenge_id: c.id, created_at: c.created_at }))),
     hints: ALL.flatMap(c => c.hints.map(h => ({ id: h.id, challenge_id: c.id, cost: h.cost, content: h.content }))),
     hint_unlocks: [],
@@ -287,7 +304,74 @@ function createMock(opts = {}) {
   };
 
   const teamSolves = (teamId) => solves.filter(e => e.team_id === teamId).map(e => ({ challenge_id: e.challenge_id, username: e.username, submitted_at: e.at }));
+
+  // ── The chapter gate, as the database computes it ───────────────────────
+  // Mirrored here rather than stubbed, because a board grouped by chapters
+  // that are never actually locked would photograph as working while the
+  // only interesting state goes untested. Kept deliberately close to
+  // 20261011000000_pinaka_chapter_gate.sql so a change there shows up as a
+  // difference here rather than as a silent agreement.
+  const storyMode = !!event.pinaka_story_mode;
+  const chapterOfSeries = new Map(PINAKA_CHAPTER_OF_SERIES.map(r => [r.series_id, r.chapter]));
+  const chainRows = CHAIN_SERIES.flatMap(s =>
+    s.members.map((c, i) => ({ series_id: s.id, challenge_id: c.id, position: i + 1 })));
+  const mineSolved = new Set(teamSolves(MY_TEAM_ID).map(e => e.challenge_id));
+  const positionOf = new Map(PINAKA_CHAPTERS.map(c => [c.id, c.position]));
+
+  const chapterContent = (chapterId) =>
+    chainRows.filter(r => chapterOfSeries.get(r.series_id) === chapterId);
+  const chapterComplete = (chapterId) =>
+    chapterContent(chapterId).every(r => mineSolved.has(r.challenge_id));
+  const chapterUnlocked = (chapterId) => {
+    if (!storyMode || !chapterId) return true;
+    const pos = positionOf.get(chapterId);
+    if (pos === undefined) return true;
+    return PINAKA_CHAPTERS.filter(c => c.position < pos).every(c => chapterComplete(c.id));
+  };
+  const challengeUnlocked = (row) => {
+    if (!storyMode) return true;
+    if (!chapterUnlocked(chapterOfSeries.get(row.series_id))) return false;
+    if (row.position <= 1) return true;
+    const prev = chainRows.find(r => r.series_id === row.series_id && r.position === row.position - 1);
+    return !!prev && mineSolved.has(prev.challenge_id);
+  };
+
   const rpc = {
+    get_team_chain_progress: () => chainRows.map(r => ({
+      challenge_id: r.challenge_id,
+      series_id: r.series_id,
+      chain_position: r.position,
+      is_solved: mineSolved.has(r.challenge_id),
+      is_unlocked: challengeUnlocked(r),
+      is_gate: r.position === Math.max(...chainRows.filter(x => x.series_id === r.series_id).map(x => x.position)),
+      chapter: chapterOfSeries.get(r.series_id) ?? null,
+      chapter_unlocked: chapterUnlocked(chapterOfSeries.get(r.series_id)),
+    })),
+    get_team_chapter_progress: () => PINAKA_CHAPTERS.map(c => {
+      const content = chapterContent(c.id);
+      return {
+        chapter: c.id,
+        chapter_position: c.position,
+        title: c.title,
+        series_count: new Set(content.map(r => r.series_id)).size,
+        total: content.length,
+        solved: content.filter(r => mineSolved.has(r.challenge_id)).length,
+        is_complete: chapterComplete(c.id),
+        is_unlocked: chapterUnlocked(c.id),
+      };
+    }),
+    admin_list_pinaka_chapters: () => ({
+      chapters: PINAKA_CHAPTERS.map(c => ({
+        ...c,
+        series: CHAIN_SERIES
+          .filter(s => chapterOfSeries.get(s.id) === c.id)
+          .map(s => ({
+            id: s.id, title: s.title, category: s.category,
+            is_published: true, display_order: s.display_order,
+            challenge_count: s.members.length,
+          })),
+      })),
+    }),
     get_team_solves: ({ p_team_id }) => teamSolves(p_team_id),
     get_solve_data: () => paused && !me.isAdmin ? [] : Object.entries(solveCount).map(([challenge_id, n]) => ({ challenge_id, solve_count: n, first_blood_username: firstBlood[challenge_id] ?? null })),
     get_my_hint_texts: () => hintTexts,

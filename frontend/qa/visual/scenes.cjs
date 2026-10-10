@@ -305,6 +305,35 @@ module.exports = [
     shots: [{ at: 200 }],
   }),
 
+  // ── The chapter gate, on the board ──────────────────────────────────────
+  // Story mode ON: the chained board is cut into chapters, Ayodhya is open
+  // and Mithila is sealed behind it. The whole point of the feature is the
+  // state a screenshot of an unlocked board can never show.
+  scene('chapters-locked', {
+    event: { theme: 'pinaka', pinaka_story_mode: true },
+    before: async (_p, h) => { await h.boardTab('Chained'); },
+    shots: [{ waitText: 'Ayodhya', at: 1200 }, { name: 'full', at: 300, full: true }],
+  }),
+  // The same board with the gate asleep: one flat grid, exactly as every
+  // event that is not running a story sees it.
+  scene('chapters-off', {
+    event: { theme: 'pinaka', pinaka_story_mode: false },
+    before: async (_p, h) => { await h.boardTab('Chained'); },
+    shots: [{ waitText: 'Enter chain', at: 1200 }],
+  }),
+  // The organisers' side: chapters first, chains filed under them.
+  scene('admin-chapters', {
+    me: { isAdmin: true },
+    event: { theme: 'pinaka', pinaka_story_mode: true },
+    before: async (page, h) => {
+      await h.nav('Admin');
+      await h.waitText('Challenge catalogue');
+      await page.getByRole('button', { name: 'Chains', exact: true }).click();
+      await h.park();
+    },
+    shots: [{ waitText: 'Pinaka story', at: 1200 }, { name: 'full', at: 300, full: true }],
+  }),
+
   scene('nav-fits-admin', navFits({ me: { isAdmin: true }, event: { theme: 'pinaka' } })),
   scene('nav-fits-player', navFits({ event: { theme: 'pinaka' } })),
 
