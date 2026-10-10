@@ -1454,6 +1454,7 @@ export default function App() {
                 {pinaka && canSeeChallenges && !needsTeam && (
                   <React.Suspense fallback={null}>
                     <JourneyMap
+                      journey={journey}
                       phase={worldPhase}
                       progress={challenges.length ? totalSolvedCount / challenges.length : 0}
                       total={challenges.length}

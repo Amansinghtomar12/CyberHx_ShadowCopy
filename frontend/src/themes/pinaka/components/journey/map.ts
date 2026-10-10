@@ -13,7 +13,7 @@
  * result rather than trusting the arithmetic. They are fractions so the
  * mark stays on its dot at every size the plate is drawn at.
  */
-import type { StationKey } from './geo';
+import type { ChapterId } from '../../chapters/config';
 
 export interface MapPoint {
   /** 0..1 across the image. */
@@ -24,16 +24,22 @@ export interface MapPoint {
   side: 'left' | 'right';
 }
 
-export const MAP_POINTS: Record<StationKey, MapPoint> = {
+/**
+ * One point per chapter, because the chapter is what the whole skin counts
+ * in: the rail at the top of the board, the list beside this map and the
+ * mark on it all read the same six states now. The map prints more places
+ * than that — Chitrakoot, Videha, the return — and they stay printed; the
+ * journey simply does not stop at them.
+ */
+export const CHAPTER_POINTS: Record<ChapterId, MapPoint> = {
   ayodhya:    { x: 0.347,  y: 0.2012, side: 'right' },
-  chitrakoot: { x: 0.3828, y: 0.2861, side: 'right' },
-  panchavati: { x: 0.4036, y: 0.4521, side: 'right' },
+  mithila:    { x: 0.5658, y: 0.2617, side: 'right' },
+  // Vanvaas is the forest; Panchavati is where the map names it.
+  vanvaas:    { x: 0.4036, y: 0.4521, side: 'right' },
   kishkindha: { x: 0.4401, y: 0.582,  side: 'right' },
-  rameswaram: { x: 0.4896, y: 0.6973, side: 'right' },
+  // Setu Bandhan is the causeway; Rameswaram is the shore it leaves from.
+  setu:       { x: 0.4896, y: 0.6973, side: 'right' },
   lanka:      { x: 0.6706, y: 0.8789, side: 'right' },
-  // The return is the same city, arrived at from the other direction; the
-  // mark reads to its left so it does not sit on the outbound label.
-  return:     { x: 0.347,  y: 0.2012, side: 'left' },
 };
 
 /** The map's own aspect, so the plate reserves the right box before it loads. */
