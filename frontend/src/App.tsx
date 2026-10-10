@@ -78,7 +78,7 @@ import EventClock from './components/EventClock';
 import MilestoneBanner from './components/MilestoneBanner';
 import { pendingInvite, clearInvite, type InvitePreview } from './lib/invite';
 import { detectMilestones, type Milestone } from './lib/milestones';
-import { buildChainSeriesVM } from './components/chain/chainModel';
+import { buildChainSeriesVM, type ChainSeriesVM } from './components/chain/chainModel';
 import { isPinaka, useTheme, noteServerTheme, registerCategoryIcons } from './themes';
 // Admins only, so it is not in the default bundle.
 const AdminThemeControl = React.lazy(() => import('./themes/AdminThemeControl'));
@@ -95,7 +95,7 @@ import { sceneOf, type Scene } from './themes/pinaka/scenes/config';
 import { shouldShowIntro } from './themes/pinaka/intro-gate';
 import {
   PinakaEnvironment, PinakaIntro, JourneyMap, ArrowSolveLight,
-  JourneyBar, ChapterUnlock,
+  JourneyBar, ChapterUnlock, ChapterChain,
 } from './themes/pinaka/lazy';
 import { buildB2RBoxVM, buildB2RSeriesVM } from './components/b2r/b2rModel';
 
@@ -578,6 +578,7 @@ export default function App() {
       };
     });
   }, [pinaka, chainProgress.chapterOfSeries, chainProgress.lockedChapters, journey.chapters]);
+
   /**
    * The battle scene the page is currently wearing, and the challenge it
    * belongs to. Deliberately separate from `selectedChallenge`: being in
@@ -1013,6 +1014,33 @@ export default function App() {
     const ch = challenges.find(c => c.id === challengeId);
     if (ch) { setSelectedOrigin(null); setArenaChallenge(null); setSelectedChallenge(ch); }
   }, [challenges]);
+
+  /**
+   * A chapter's chain, drawn the way the organisers drew it: the operations
+   * as a row of linked cards on the chapter's own painting, rather than one
+   * card you have to click into to see what is inside.
+   *
+   * Returns null for a chain whose chapter is unknown, and the board falls
+   * back to its ordinary card — which is also what happens on the classic
+   * skin, where this never runs at all.
+   */
+  const renderChapterChain = useCallback((vm: ChainSeriesVM, enter: () => void) => {
+    if (!pinaka) return null;
+    const id = chainProgress.chapterOfSeries.get(vm.id);
+    if (!id || !isChapterId(id)) return null;
+    return (
+      <React.Suspense fallback={null}>
+        <ChapterChain
+          series={vm}
+          chapter={id}
+          locked={chainProgress.locked}
+          sceneOf={(challengeId) => challengeScenes.get(challengeId)}
+          onOpen={openChainChallenge}
+          onEnter={enter}
+        />
+      </React.Suspense>
+    );
+  }, [pinaka, chainProgress.chapterOfSeries, chainProgress.locked, challengeScenes, openChainChallenge]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -1678,7 +1706,14 @@ export default function App() {
                       </div>
                     }
                   >
-                    <ChainedBoard vms={chainVMs} category={selectedCat} onOpenChallenge={openChainChallenge} chainLocked={chainProgress.locked} groups={chainGroups} />
+                    <ChainedBoard
+                      vms={chainVMs}
+                      category={selectedCat}
+                      onOpenChallenge={openChainChallenge}
+                      chainLocked={chainProgress.locked}
+                      groups={chainGroups}
+                      renderSeries={renderChapterChain}
+                    />
                   </React.Suspense>
                 ) : boardMode === 'b2r' ? (
                   <React.Suspense

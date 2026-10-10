@@ -178,6 +178,25 @@ position max → the last link; finishing every chain's last link finishes
 A challenge belongs to at most one chain (`idx_chain_member_one_series`
 enforces it), so "the previous challenge" is never ambiguous.
 
+### What a chapter looks like to a player
+
+The chapter's painting fills the page, and its operations sit on it as a
+row of linked cards — solved behind you, the one you are on glowing in the
+chapter's own colour, the rest sealed. The link between two cards lights
+when both ends are solved, which is the same rule the steel chain has
+always used for an ignited segment.
+
+A card wears the battle scene assigned to its challenge, if it has one
+(section 3); otherwise it wears a different part of the chapter's own
+painting, so a chapter of six is not six identical thumbnails.
+
+A chapter that is still shut shows its name, its number and one line
+saying what has to be finished first. The journey is meant to be seen
+ahead of you.
+
+> The steel-chain renderer is untouched and is still what **Enter chain**
+> opens. This is the chapter view that gets a player there.
+
 ### Three things worth knowing
 
 > **A chapter you leave empty is skipped, not a wall.** Using three of the

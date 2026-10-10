@@ -46,6 +46,20 @@ interface Props {
    * which is what every event that is not running a story gets.
    */
   groups?: readonly ChainGroup[];
+  /**
+   * Draw a grouped chain some other way than as a card. The event skin
+   * uses it to lay a chapter's operations out as a row of linked cards on
+   * the chapter's own painting; returning null falls back to the card, so
+   * a chain the caller has no special drawing for still appears.
+   *
+   * `enter` opens the chain experience — the steel-chain renderer — which
+   * is what the card's own button does. A custom drawing is expected to
+   * offer it too: replacing the card must not be how a player loses the
+   * way in.
+   *
+   * Only inside a group. The flat board is the platform's and stays so.
+   */
+  renderSeries?: (vm: ChainSeriesVM, enter: () => void) => React.ReactNode;
 }
 
 const DIFF_COLOR: Record<string, string> = {
@@ -80,7 +94,7 @@ function MiniChain({ vm }: { vm: ChainSeriesVM }) {
   );
 }
 
-export default function ChainedBoard({ vms, category, onOpenChallenge, chainLocked, groups }: Props) {
+export default function ChainedBoard({ vms, category, onOpenChallenge, chainLocked, groups, renderSeries }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const shown = useMemo(
@@ -186,6 +200,17 @@ export default function ChainedBoard({ vms, category, onOpenChallenge, chainLock
             <p className="rounded-lg border border-dashed border-border-subtle px-4 py-5 text-small text-text-muted">
               {group.lockedReason ?? 'Locked. Finish the chapter before this one.'}
             </p>
+          ) : renderSeries ? (
+            <div className="space-y-2">
+              {list.map((vm) => {
+                const custom = renderSeries(vm, () => setSelectedId(vm.id));
+                return (
+                  <React.Fragment key={vm.id}>
+                    {custom ?? <div className="md:max-w-sm">{<SeriesCard vm={vm} onEnter={() => setSelectedId(vm.id)} />}</div>}
+                  </React.Fragment>
+                );
+              })}
+            </div>
           ) : (
             grid(list)
           )}

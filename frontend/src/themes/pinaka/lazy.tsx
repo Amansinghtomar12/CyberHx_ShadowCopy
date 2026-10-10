@@ -24,6 +24,8 @@ export const ThemeSwitch = React.lazy(() => import('./components/ThemeSwitch'));
 export const JourneyBar = React.lazy(() => import('./components/JourneyBar'));
 /** The moment a chapter closes and the next opens. */
 export const ChapterUnlock = React.lazy(() => import('./components/ChapterUnlock'));
+/** A chapter's operations as a row of linked cards, on the chapter's art. */
+export const ChapterChain = React.lazy(() => import('./components/ChapterChain'));
 
 /** The solve acknowledgement, from the motif family. Preloaded at boot. */
 export const ArrowSolveLight = React.lazy(() =>

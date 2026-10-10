@@ -1,0 +1,369 @@
+/* ============================================================================
+   The chapter chain — a chapter's operations as a row of linked cards.
+
+   The organisers' drawings: the chapter's painting fills the page and its
+   operations sit on it, joined by a lit chain. Solved behind you, the one
+   you are on glowing in the chapter's own colour, the rest shut.
+
+   Colour comes in as four custom properties set by ChapterChain.tsx from
+   the chapter's accents, so Ayodhya's gold and Lanka's fire are the same
+   rules with different values and there is no per-chapter CSS to drift.
+
+   Glass here follows the rest of the skin: a fill and a wash, no blur, so
+   the painting behind the card reads through it exactly as it reads
+   through a battle card.
+   ========================================================================== */
+
+html[data-theme='pinaka'] .pk-chapchain {
+  --pk-chap-glow: #f2b24c;
+  --pk-chap-soft: #ffd79a;
+  --pk-chap-deep: #b07c28;
+  --pk-chap-line: rgba(242, 178, 76, 0.3);
+  margin-block: 0.25rem 1.25rem;
+}
+
+html[data-theme='pinaka'] .pk-chapchain__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+html[data-theme='pinaka'] .pk-chapchain__title {
+  font-family: var(--pk-font-display, inherit);
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--pk-parchment, #f3e8d1);
+  letter-spacing: 0.01em;
+}
+
+html[data-theme='pinaka'] .pk-chapchain__meta {
+  font-size: var(--text-micro);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+html[data-theme='pinaka'] .pk-chapchain__enter {
+  margin-inline-start: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: var(--text-micro);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pk-chap-glow);
+  background: none;
+  border: 0;
+  padding: 0.1rem 0;
+  cursor: pointer;
+}
+html[data-theme='pinaka'] .pk-chapchain__enter:hover { color: var(--pk-chap-soft); }
+html[data-theme='pinaka'] .pk-chapchain__enter:focus-visible {
+  outline: 2px solid var(--pk-chap-soft);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ── the row ──────────────────────────────────────────────────────────────
+   A scroller on a narrow screen rather than a wrap: a chain that wraps
+   stops reading as a line, and the line is the whole idea. The cards keep
+   their width and the row scrolls, which is also how the board's own chip
+   strip behaves on a phone. */
+html[data-theme='pinaka'] .pk-chapchain__row {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin: 0;
+  padding: 0 0 0.5rem;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-snap-type: x proximity;
+}
+html[data-theme='pinaka'] .pk-chapchain__row::-webkit-scrollbar { display: none; }
+
+/* The cards share the row rather than claiming a fixed width, so a chapter
+   of six fills the frame the way the drawings show it and a chapter of
+   three does not leave a gap. They stop shrinking at 9rem, which is where
+   a two-line title stops fitting; past that the row scrolls instead. */
+html[data-theme='pinaka'] .pk-chapchain__card {
+  flex: 1 1 0;
+  min-width: 9rem;
+  max-width: 15rem;
+  scroll-snap-align: start;
+}
+
+/* ── the link between two cards ───────────────────────────────────────────
+   A hairline with a ring at its middle. Dark until both ends are solved,
+   then it carries the chapter's light — the same rule the steel chain has
+   always used for an ignited segment. */
+html[data-theme='pinaka'] .pk-chapchain__link {
+  flex: 0 0 auto;
+  width: 2.25rem;
+  align-self: center;
+  position: relative;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+}
+
+html[data-theme='pinaka'] .pk-chapchain__link::before {
+  content: '';
+  position: absolute;
+  inset-inline: -1px;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--pk-chap-deep) 55%, transparent),
+    color-mix(in srgb, var(--pk-chap-deep) 20%, transparent));
+  border-radius: 2px;
+}
+
+html[data-theme='pinaka'] .pk-chapchain__node {
+  position: relative;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--pk-chap-deep) 70%, transparent);
+  background: rgb(10 8 6 / 0.55);
+}
+
+html[data-theme='pinaka'] .pk-chapchain__link[data-lit='1']::before {
+  background: linear-gradient(90deg, var(--pk-chap-deep), var(--pk-chap-glow), var(--pk-chap-deep));
+  box-shadow: 0 0 10px -1px color-mix(in srgb, var(--pk-chap-glow) 70%, transparent);
+}
+html[data-theme='pinaka'] .pk-chapchain__link[data-lit='1'] .pk-chapchain__node {
+  border-color: var(--pk-chap-glow);
+  background: color-mix(in srgb, var(--pk-chap-glow) 35%, rgb(10 8 6 / 0.6));
+  box-shadow:
+    0 0 12px -2px var(--pk-chap-glow),
+    inset 0 0 6px -2px var(--pk-chap-soft);
+}
+
+/* ── the card ─────────────────────────────────────────────────────────── */
+html[data-theme='pinaka'] .pk-chapcard {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  text-align: left;
+  border-radius: var(--radius-card, 0.75rem);
+  border: 1px solid color-mix(in srgb, var(--pk-chap-deep) 50%, transparent);
+  background-image: linear-gradient(160deg, rgb(10 8 6 / 0.16) 0%, rgb(10 8 6 / 0.32) 100%);
+  color: inherit;
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.35), 0 18px 44px -26px rgb(0 0 0 / 0.8);
+  transition:
+    transform var(--duration-base, 200ms) var(--ease-out-quint, ease),
+    border-color var(--duration-base, 200ms) ease,
+    box-shadow var(--duration-base, 200ms) ease;
+}
+
+html[data-theme='pinaka'] .pk-chapcard:hover:not([data-state='locked']) {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--pk-chap-glow) 70%, transparent);
+}
+
+html[data-theme='pinaka'] .pk-chapcard:focus-visible {
+  outline: 2px solid var(--pk-chap-soft);
+  outline-offset: 3px;
+}
+
+/* The one you are on. The glow is the card's own, not a filter on the
+   page, so a chapter with six cards has exactly one lit object. */
+html[data-theme='pinaka'] .pk-chapcard[data-state='current'] {
+  border-color: var(--pk-chap-glow);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--pk-chap-glow) 55%, transparent),
+    0 0 22px -6px var(--pk-chap-glow),
+    0 18px 44px -26px rgb(0 0 0 / 0.8);
+}
+
+html[data-theme='pinaka'] .pk-chapcard[data-state='solved'] {
+  border-color: color-mix(in srgb, var(--color-cyber-neon, #8fd14f) 42%, transparent);
+}
+
+html[data-theme='pinaka'] .pk-chapcard[data-state='locked'] {
+  cursor: not-allowed;
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--pk-chap-deep) 35%, transparent);
+}
+/* Dim the picture, not the type: a locked card still has to be readable,
+   and dimming the whole card is what makes a locked board look broken. */
+html[data-theme='pinaka'] .pk-chapcard[data-state='locked'] .pk-chapcard__art img {
+  filter: grayscale(0.55) brightness(0.62);
+}
+
+/* ── the picture ──────────────────────────────────────────────────────── */
+html[data-theme='pinaka'] .pk-chapcard__art {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-bottom: 1px solid color-mix(in srgb, var(--pk-chap-deep) 40%, transparent);
+}
+
+html[data-theme='pinaka'] .pk-chapcard__art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Each card looks at a different part of the painting.
+     object-position alone could not do it: the source is 16:9 and so is
+     the card, so `cover` leaves no slack to pan into. Scaling past the
+     frame creates the slack, and the shift walks along it — which also
+     reads better as card art than a whole panorama squeezed into 200px.
+     At 1.55 the slack is about 35% of the frame, so ±14% stays inside. */
+  transform: scale(1.55) translateX(var(--pk-card-pan, 0%));
+  transform-origin: center;
+  display: block;
+  transition: filter var(--duration-base, 200ms) ease;
+}
+
+/* A short wash at the foot of the picture, so the title below always has
+   an edge to sit against whatever the painting is doing up there. */
+html[data-theme='pinaka'] .pk-chapcard__art::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 45%;
+  background: linear-gradient(to top, rgb(8 6 5 / 0.72), transparent);
+  pointer-events: none;
+}
+
+html[data-theme='pinaka'] .pk-chapcard__badge {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  display: grid;
+  place-items: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  border: 1.5px solid;
+  background: rgb(8 6 5 / 0.72);
+  z-index: 1;
+}
+html[data-theme='pinaka'] .pk-chapcard__badge[data-state='solved'] {
+  border-color: var(--color-cyber-neon, #8fd14f);
+  color: var(--color-cyber-neon, #8fd14f);
+}
+html[data-theme='pinaka'] .pk-chapcard__badge[data-state='locked'] {
+  border-color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.72);
+}
+html[data-theme='pinaka'] .pk-chapcard__badge[data-state='current'],
+html[data-theme='pinaka'] .pk-chapcard__badge[data-state='open'] {
+  border-color: var(--pk-chap-glow);
+  color: var(--pk-chap-glow);
+  box-shadow: 0 0 10px -2px var(--pk-chap-glow);
+}
+
+/* The link's number, so a player can see the order at a glance. */
+html[data-theme='pinaka'] .pk-chapcard__num {
+  position: absolute;
+  left: 0.45rem;
+  bottom: 0.35rem;
+  z-index: 1;
+  font-family: var(--pk-font-mono, ui-monospace, monospace);
+  font-size: var(--text-micro);
+  letter-spacing: 0.08em;
+  color: var(--pk-chap-soft);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+}
+
+/* ── the body ─────────────────────────────────────────────────────────── */
+html[data-theme='pinaka'] .pk-chapcard__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1 1 auto;
+  padding: 0.6rem 0.7rem 0.7rem;
+}
+
+html[data-theme='pinaka'] .pk-chapcard__title {
+  font-family: var(--pk-font-display, inherit);
+  font-size: var(--text-small);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--pk-parchment, #f3e8d1);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+html[data-theme='pinaka'] .pk-chapcard__desc {
+  font-size: var(--text-micro);
+  line-height: 1.4;
+  color: var(--color-text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+html[data-theme='pinaka'] .pk-chapcard__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin-top: auto;
+  padding-top: 0.45rem;
+}
+
+html[data-theme='pinaka'] .pk-chapcard__cat {
+  font-size: var(--text-micro);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--pk-chap-deep) 55%, transparent);
+  background: rgb(10 8 6 / 0.35);
+  color: var(--pk-chap-soft);
+  white-space: nowrap;
+}
+
+html[data-theme='pinaka'] .pk-chapcard__pts {
+  font-size: var(--text-micro);
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+html[data-theme='pinaka'] .pk-chapcard__pts b {
+  font-family: var(--pk-font-mono, ui-monospace, monospace);
+  font-weight: 700;
+  color: var(--pk-chap-glow);
+}
+
+/* ── the quiet tiers ──────────────────────────────────────────────────── */
+/* No glass to give up here — the card never blurred — but the glow is a
+   paint cost on a device that asked for less, so it goes. */
+html[data-theme='pinaka'] [data-tier]:not(:is([data-tier='high'], [data-tier='medium']))
+  .pk-chapcard[data-state='current'] {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--pk-chap-glow) 55%, transparent);
+}
+html[data-theme='pinaka'] [data-tier]:not(:is([data-tier='high'], [data-tier='medium']))
+  .pk-chapchain__link[data-lit='1']::before,
+html[data-theme='pinaka'] [data-tier]:not(:is([data-tier='high'], [data-tier='medium']))
+  .pk-chapchain__link[data-lit='1'] .pk-chapchain__node {
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme='pinaka'] .pk-chapcard { transition: none; }
+  html[data-theme='pinaka'] .pk-chapcard:hover:not([data-state='locked']) { transform: none; }
+}
+
+/* On a phone the cards are a little narrower, so three of them still hint
+   at a line rather than filling the screen one at a time. */
+@media (max-width: 640px) {
+  html[data-theme='pinaka'] .pk-chapchain__card { flex: 0 0 auto; width: 11.5rem; max-width: none; }
+  html[data-theme='pinaka'] .pk-chapchain__link { width: 1.5rem; }
+}
