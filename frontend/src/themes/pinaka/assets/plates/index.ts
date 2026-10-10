@@ -32,6 +32,7 @@ import lankaArt3840 from './lanka-art-3840.webp';
 import lankaArt1920 from './lanka-art-1920.webp';
 import lankaArt960 from './lanka-art-960.webp';
 import lankaArtPortrait from './lanka-art-portrait.webp';
+import { SCENE_PLATES, type SceneId } from '../scenes';
 
 /** The official Pinaka CTF 2026 key art: the golden temple-city on the water. */
 const TEMPLE_ART: Plate = {
@@ -62,7 +63,14 @@ const TEMPLE_ART: Plate = {
  */
 export type ChapterPlateKey = `chapter-${ChapterId}`;
 
-export type PlateKey = World | 'hero' | ChapterPlateKey;
+/**
+ * A battle scene's background, keyed apart again. A scene dresses the site
+ * only while a player has that Free challenge open; the chapter plate
+ * underneath it is what they return to.
+ */
+export type ScenePlateKey = `scene-${SceneId}`;
+
+export type PlateKey = World | 'hero' | ChapterPlateKey | ScenePlateKey;
 
 export interface Plate {
   /** Bundled URL of the 1920×1080 file. */
@@ -147,7 +155,15 @@ export const PLATES: Record<PlateKey, Plate> = {
   ...(Object.fromEntries(
     CHAPTER_ORDER.map(id => [`chapter-${id}`, CHAPTER_PLATES[id]]),
   ) as Record<ChapterPlateKey, Plate>),
+  ...(Object.fromEntries(
+    (Object.keys(SCENE_PLATES) as SceneId[]).map(id => [`scene-${id}`, SCENE_PLATES[id]]),
+  ) as Record<ScenePlateKey, Plate>),
 };
+
+/** The plate a battle scene is painted with. */
+export function scenePlateKey(id: SceneId): ScenePlateKey {
+  return `scene-${id}`;
+}
 
 /** The plate a chapter is painted with. */
 export function chapterPlateKey(id: ChapterId): ChapterPlateKey {

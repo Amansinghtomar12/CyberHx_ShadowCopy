@@ -106,7 +106,13 @@ function helpers(page, run) {
     /** Opens an operation card by title and returns its dialog locator. */
     openChallenge: async (title) => {
       await h.boardReady();
-      await page.locator('button[data-diff]', { hasText: title }).first().click();
+      // During the Pinaka event a Free challenge with a battle scene is an
+      // arena door rather than an ordinary card: the whole card is not the
+      // button, its call to arms is. Try that first, fall back to the card.
+      const arena = page.locator('.pk-scenecard', { hasText: title })
+        .locator('.pk-scenecard__enter');
+      if (await arena.count()) await arena.first().click();
+      else await page.locator('button[data-diff]', { hasText: title }).first().click();
       const dialog = page.getByRole('dialog', { name: title });
       await dialog.waitFor({ state: 'visible' });
       await park();

@@ -65,6 +65,44 @@ module.exports = [
 
   // ── Challenge modal ─────────────────────────────────────────────────────
   scene('challenge-modal', { before: open(EASY), shots: [{ at: 900 }] }),
+  // Pinaka event: opening an arena hands the scene to the whole page.
+  // Assert on the plate the environment is actually painting, not on how
+  // the page looks through the dialog's scrim.
+  scene('arena-plate-check', {
+    before: async (page, h) => {
+      const plate = async () => page.evaluate(() => {
+        const imgs = [...document.querySelectorAll('img')]
+          .map(i => i.currentSrc || i.src).filter(Boolean);
+        // Which plate is actually being shown: the environment keeps two
+        // slots and crossfades, so both files stay in the DOM. Report the
+        // file in whichever slot is opaque.
+        // .pk-env-plate is the slot; .pk-env-plate-art is the picture in it.
+        return [...document.querySelectorAll('.pk-env-plate')].map(slot => {
+          const img = slot.querySelector('img');
+          const file = img ? (img.currentSrc || img.src).split('/').pop() : '<none>';
+          return file + ' @opacity ' + getComputedStyle(slot).opacity;
+        });
+      });
+      await h.boardReady();
+      console.log('        before open : ' + JSON.stringify(await plate()));
+      await h.openChallenge(EASY);
+      await page.waitForTimeout(1400);
+      console.log('        while open  : ' + JSON.stringify(await plate()));
+      const flip = await page.evaluate(() => {
+        const c = document.querySelector('.pk-scenecard[data-open="1"]');
+        if (!c) return 'no card marked open';
+        const t = getComputedStyle(c.querySelector('.pk-scenecard__inner')).transform;
+        return 'data-open=1  transform=' + t;
+      });
+      console.log('        card flip   : ' + flip);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(1400);
+      console.log('        close +1.4s : ' + JSON.stringify(await plate()));
+      await page.waitForTimeout(3000);
+      console.log('        close +4.4s : ' + JSON.stringify(await plate()));
+    },
+    shots: [{ at: 400 }],
+  }),
   // Pinaka event: the foot of a scene-dressed dialog, where the story's own
   // submit wording replaces "Execute". Scrolled, because it sits below the
   // fold on a 900px viewport.
