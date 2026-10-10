@@ -227,6 +227,46 @@ ahead of you.
 > **Free challenges are never locked at all.** A challenge that is not a
 > member of any chain is always open, whatever story mode says.
 
+> **A challenge that is not visible is not part of its chain.** Hide one
+> mid-chain and the step after it opens on the last visible step before it,
+> so nobody is stranded; chapter completion ignores it the same way. (This
+> needs `20261012000000_pinaka_chain_skips_hidden.sql`. Without it, hiding a
+> step deadlocks every team for the rest of the event.)
+
+---
+
+## 4b. Is it actually set up? One query that says
+
+Paste this into the Supabase SQL editor. It answers, in order: are the three
+migrations applied, is the skin on, is story mode on, are the chapters
+seeded, and is anything filed under them.
+
+```sql
+select 1 as ord, 'migration: event theme'   as item,
+       (to_regprocedure('public.admin_set_theme(text)') is not null)::text as value
+union all select 2, 'migration: pinaka event mode',
+       (to_regclass('public.pinaka_series_chapter') is not null
+        and to_regprocedure('public.pinaka_team_unlocked(uuid,uuid)') is not null)::text
+union all select 3, 'migration: pinaka chapter gate',
+       (to_regclass('public.pinaka_chapter') is not null
+        and to_regprocedure('public.get_team_chapter_progress()') is not null)::text
+union all select 4, 'theme', coalesce((select theme from public.event_settings where id = 1), '(unset)')
+union all select 5, 'story mode on',
+       coalesce((select pinaka_story_mode from public.event_settings where id = 1)::text, '(unset)')
+union all select 6, 'chapters in the table', (select count(*)::text from public.pinaka_chapter)
+union all select 7, 'chains filed under a chapter', (select count(*)::text from public.pinaka_series_chapter)
+union all select 8, 'chains with no chapter yet',
+       (select count(*)::text from public.chain_series s
+        where not exists (select 1 from public.pinaka_series_chapter p where p.series_id = s.id))
+order by ord;
+```
+
+Rows 1–3 and 6 are the migrations: `true`, `true`, `true`, `6`. Row 4 must
+read `pinaka` and row 5 `true`, or nothing is gated. Rows 7 and 8 are the
+content: **7 = 0 and 8 = 0 together mean there are no chains at all yet**,
+which is why a freshly migrated event shows six empty chapters. Row 8 on its
+own counts the chains still waiting for a chapter.
+
 ---
 
 ## 5. Testing locked / unlocked behaviour
@@ -234,7 +274,7 @@ ahead of you.
 ### The automated test
 
 `supabase/tests/run.sh` builds a throwaway database, applies every
-migration, loads fixtures and runs both gate tests. Every check prints
+migration, loads fixtures and runs the three gate tests. Every check prints
 `ok` or `MISMATCH`, and the script exits non-zero if any failed.
 
 ```bash
@@ -250,6 +290,7 @@ PGPORT=54399 supabase/tests/run.sh
 |---|---|
 | `pinaka_story_mode_test.sql` | the chain gate: link by link, teammates cannot race it, a locked challenge says nothing about itself, turning it off restores ordinary play |
 | `pinaka_chapter_gate_test.sql` | the chapter gate: a first door that is still shut because its chapter is, finishing a chapter opens the next and only the next, empty chapters skip, unfiled chains are not gated |
+| `pinaka_chapter_edges_test.sql` | the events people actually build the night before: no chains filed at all, content only in a late chapter, two chains in one chapter, a chain filed but empty, a chain not published, a challenge not visible |
 
 It writes fixture rows into a database it creates and drops —
 **never point it at production.**
