@@ -1,7 +1,7 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Plus, Trash2, ChevronUp, ChevronDown, Eye, EyeOff, Save, X,
-  Flame, Loader2, Link2, PlayCircle,
+  Flame, Loader2, Link2, PlayCircle, BookOpen, Lock,
 } from 'lucide-react';
 import { supabase, DBChallenge } from '../../lib/supabase';
 import type { Challenge } from '../../types';
@@ -15,6 +15,21 @@ const CATEGORIES = ['web', 'crypto', 'steg', 'rev', 'pwn', 'forensic', 'osint', 
 const DIFFICULTIES = ['Easy', 'Medium', 'Hard', 'Insane'];
 
 interface AdminMember { challenge_id: string; position: number; }
+
+/** One chapter with the chains filed under it, as the server reports it. */
+interface AdminChapter {
+  id: string;
+  position: number;
+  title: string;
+  series: {
+    id: string;
+    title: string;
+    category: string;
+    is_published: boolean;
+    display_order: number;
+    challenge_count: number;
+  }[];
+}
 interface AdminSeries {
   id: string;
   title: string;
@@ -52,6 +67,15 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
   const [preview, setPreview] = useState(false);
   const [simulate, setSimulate] = useState(0);
 
+  /**
+   * The Pinaka story board: the six chapters, in order, with the chains
+   * filed under each. `null` means the chapter migration has not been
+   * applied to this database — a different thing from "no chains yet", and
+   * shown differently, because there is nothing to organise until it is.
+   */
+  const [chapters, setChapters] = useState<AdminChapter[] | null>(null);
+  const [storyMode, setStoryMode] = useState<boolean | null>(null);
+
   const challengeById = useMemo(() => {
     const m = new Map<string, DBChallenge>();
     challenges.forEach((c) => m.set(c.id, c));
@@ -60,12 +84,22 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data: listRes }, { data: es }] = await Promise.all([
+    const [{ data: listRes }, { data: es }, chapterRes] = await Promise.all([
       supabase.rpc('admin_list_chain_series'),
-      supabase.from('event_settings').select('chain_experience_enabled').eq('id', 1).maybeSingle(),
+      supabase.from('event_settings')
+        .select('chain_experience_enabled, pinaka_story_mode').eq('id', 1).maybeSingle(),
+      supabase.rpc('admin_list_pinaka_chapters'),
     ]);
     if (listRes && !listRes.error) setSeries((listRes.series ?? []) as AdminSeries[]);
     if (es) setEnabled(!!es.chain_experience_enabled);
+    // A missing column and a missing function are both the un-migrated
+    // case; neither is a fault worth shouting about on this screen.
+    setStoryMode(es && 'pinaka_story_mode' in es ? !!(es as any).pinaka_story_mode : null);
+    setChapters(
+      chapterRes.error || chapterRes.data?.error || !Array.isArray(chapterRes.data?.chapters)
+        ? null
+        : (chapterRes.data.chapters as AdminChapter[]),
+    );
     setLoading(false);
   }, []);
 
@@ -80,7 +114,12 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
     setEnabled(next);
   };
 
-  const startNew = () => { setDraft(blankDraft()); setError(''); setPreview(false); };
+  // `chapterFor` is the Pinaka chapter the new chain should land in. The
+  // effect below only reads the chapter back for a chain that already
+  // exists, so a preselection made here survives into the editor.
+  const startNew = (chapterFor = '') => {
+    setDraft(blankDraft()); setChapter(chapterFor); setError(''); setPreview(false);
+  };
   const editSeries = (s: AdminSeries) => { setDraft({ ...s, members: [...s.members] }); setError(''); setPreview(false); };
 
   const availableToAdd = useMemo(() => {
@@ -122,7 +161,10 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
   const [chapter, setChapter] = useState('');
   useEffect(() => {
     const id = draft?.id;
-    if (!id) { setChapter(''); return; }
+    // A chain that does not exist yet has no stored chapter to read, and
+    // whatever startNew() preselected is the answer. Clearing it here is
+    // what used to throw away "new chain in Mithila".
+    if (!id) return;
     let live = true;
     void (async () => {
       const { data, error: err } = await supabase
@@ -252,12 +294,114 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
         </button>
       </div>
 
+      {/* ── The Pinaka story board ─────────────────────────────────────
+          Chapters first, chains underneath. The ordinary list below still
+          holds every chain, filed or not; this is the view that matches
+          how the event is actually built — pick a chapter, put its
+          operations in it, move on. */}
+      {chapters && (
+        <div className="surface space-y-4 rounded-lg border border-border-subtle p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-card border border-border-neon bg-cyber-neon/10">
+                <BookOpen className="h-5 w-5 text-cyber-neon" />
+              </span>
+              <div className="min-w-0">
+                <h3 className="text-h3 font-bold text-cyber-text">Pinaka story — the six chapters</h3>
+                <p className="max-w-2xl text-small text-text-muted">
+                  Teams walk these in order. A chapter opens only when{' '}
+                  <strong>every operation in the chapter before it</strong> is solved, and inside a
+                  chapter each chain still opens one link at a time. Put as many operations in a
+                  chapter as you like — the order you give the chain is the order teams play it.
+                  A chain left without a chapter is never chapter-gated.
+                </p>
+              </div>
+            </div>
+            <span className={`badge shrink-0 ${storyMode ? 'badge-neon' : 'badge-locked'}`}>
+              {storyMode === null ? 'Not installed' : storyMode ? 'Locked in order' : 'Open order'}
+            </span>
+          </div>
+
+          {storyMode === false && (
+            <p className="rounded-control border border-border-subtle bg-surface-inset px-3 py-2 text-small text-text-muted">
+              Story mode is off, so nothing below is locked yet — every chapter is open to everyone.
+              Turn it on from <strong>Admin → Event → Pinaka experience</strong> when you are ready.
+            </p>
+          )}
+
+          <ol className="space-y-2">
+            {chapters.map((ch) => {
+              const previous = chapters.find((c) => c.position === ch.position - 1);
+              const count = ch.series.reduce((n, x) => n + x.challenge_count, 0);
+              return (
+                <li key={ch.id} className="rounded-lg border border-border-subtle bg-surface-raised p-4">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-border-neon text-micro font-semibold text-cyber-neon">
+                      {ch.position}
+                    </span>
+                    <h4 className="text-body font-semibold text-cyber-text">{ch.title}</h4>
+                    <span className="text-micro text-text-muted">
+                      {ch.series.length === 0
+                        ? 'empty'
+                        : `${ch.series.length} chain${ch.series.length === 1 ? '' : 's'} · ${count} operation${count === 1 ? '' : 's'}`}
+                    </span>
+                    <button
+                      onClick={() => startNew(ch.id)}
+                      className="btn btn-ghost btn-sm ml-auto inline-flex items-center gap-1.5"
+                    >
+                      <Plus className="h-4 w-4" /> New chain here
+                    </button>
+                  </div>
+
+                  {previous && (
+                    <p className="mt-1.5 inline-flex items-center gap-1.5 text-micro text-text-muted">
+                      <Lock className="h-3 w-3" /> opens when {previous.title} is finished
+                    </p>
+                  )}
+
+                  {ch.series.length > 0 && (
+                    <ul className="mt-3 space-y-1.5">
+                      {ch.series.map((x) => (
+                        <li key={x.id}>
+                          <button
+                            onClick={() => {
+                              const full = series.find((v) => v.id === x.id);
+                              if (full) editSeries(full);
+                            }}
+                            className="flex w-full items-center gap-2 rounded-control border border-border-subtle bg-surface-inset px-3 py-2 text-left hover:border-border-neon"
+                          >
+                            <span className="label-micro shrink-0 text-text-muted">{x.category}</span>
+                            <span className="min-w-0 flex-1 truncate text-small text-cyber-text">{x.title}</span>
+                            <span className="shrink-0 font-mono text-micro text-text-muted">
+                              {x.challenge_count} op{x.challenge_count === 1 ? '' : 's'}
+                            </span>
+                            {x.is_published
+                              ? <span className="shrink-0 rounded-full bg-cyber-neon/15 px-1.5 py-0.5 text-micro font-semibold text-cyber-neon">Published</span>
+                              : <span className="shrink-0 rounded-full bg-surface-sunken px-1.5 py-0.5 text-micro text-text-muted">Draft</span>}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {ch.series.length === 0 && (
+                    <p className="mt-2 text-micro text-text-muted">
+                      Nothing here yet. An empty chapter is skipped rather than blocking the journey.
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         {/* Series list */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-h3 font-bold text-cyber-text">Chain Series</h3>
-            <button onClick={startNew} className="btn btn-primary btn-sm inline-flex items-center gap-1.5">
+            <button onClick={() => startNew()} className="btn btn-primary btn-sm inline-flex items-center gap-1.5">
               <Plus className="h-4 w-4" /> New chain
             </button>
           </div>

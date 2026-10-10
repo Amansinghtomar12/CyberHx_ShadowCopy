@@ -4,7 +4,7 @@ Two features, one migration, both temporary.
 
 | | Free challenges | Chained challenges |
 |---|---|---|
-| what it adds | the card becomes a Ramayana battle scene; opening it dresses the whole page | the journey: each challenge opens only once the team solved the one before it |
+| what it adds | the card becomes a Ramayana battle scene; opening it dresses the whole page | the journey: six chapters in order, and inside each one a chain that opens a link at a time |
 | who it affects | nobody's play — cosmetic only | every chained challenge, while story mode is on |
 | switch | per challenge, in the challenge editor | one master flag, plus per-series chapters |
 
@@ -115,27 +115,82 @@ choosing "None / Default" deletes it.
 
 ---
 
-## 4. Assigning chapters and order to the chain
+## 4. Building the story: chapters, chains, challenges
 
-**Chapter**: Admin → Chains → open a chain → **Pinaka chapter** dropdown
-→ pick one of the six → Save. Stored in `public.pinaka_series_chapter`.
-
-**Order**: unchanged from how chains already work. The order of a chain's
-members *is* the story order, and the **last member of a chain is its
-chapter gate**. There is no separate "is gate" switch to get out of sync:
+The journey has **two levels of lock**, and they are independent:
 
 ```
-position 1  → the chapter's first door, always open
-position 2  → opens when the team solves position 1
-position n  → opens when the team solves position n-1
-position max→ the chapter gate
+chapter gate   Mithila opens when EVERY operation in Ayodhya is solved
+   chain gate  inside a chapter, link 2 opens when link 1 is solved
+```
+
+### The six chapters
+
+They are fixed, named and ordered — in `public.pinaka_chapter` for the
+gate and in `themes/pinaka/chapters/config.ts` for the art, and the two
+agree by id:
+
+| # | id | name | what it is |
+|---|---|---|---|
+| 1 | `ayodhya` | Ayodhya | The Beginning |
+| 2 | `mithila` | Mithila | The Trial of Pinaka |
+| 3 | `vanvaas` | Vanvaas | Into the Forest |
+| 4 | `kishkindha` | Kishkindha | Alliance & Recon |
+| 5 | `setu` | Setu Bandhan | The Bridge to Lanka |
+| 6 | `lanka` | Lanka | The Final War |
+
+Each one brings its own backdrop, colour and ambience; the page changes
+character the moment a team walks into it.
+
+### Filling a chapter
+
+**Admin → Chains → _Pinaka story — the six chapters_.** The six are listed
+in order with whatever is filed under each. From there:
+
+1. **New chain here** on the chapter you want — the editor opens with that
+   chapter already chosen.
+2. Name the chain, pick its category, add as many challenges as you like,
+   in the order teams should play them. There is no limit: five, six,
+   eight — whatever the chapter is worth.
+3. Save, then **Publish**.
+
+Repeat for as many chains as a chapter needs. A chapter is finished only
+when **every operation in every published chain filed under it** is solved,
+so two chains in one chapter means both must be completed before the next
+chapter opens.
+
+An existing chain can also be moved: open it and use the **Pinaka chapter**
+dropdown. The mapping lives in `public.pinaka_series_chapter`.
+
+### The order inside a chain
+
+Unchanged from how chains already work. The order of a chain's members *is*
+the story order:
+
+```
+position 1   → the chain's first door — open once the CHAPTER is open
+position 2   → opens when the team solves position 1
+position n   → opens when the team solves position n-1
+position max → the last link; finishing every chain's last link finishes
+               the chapter, and the next chapter opens
 ```
 
 A challenge belongs to at most one chain (`idx_chain_member_one_series`
 enforces it), so "the previous challenge" is never ambiguous.
 
-> **Free challenges are never chain-locked.** A challenge that is not a
-> member of any chain is always unlocked, whatever story mode says.
+### Three things worth knowing
+
+> **A chapter you leave empty is skipped, not a wall.** Using three of the
+> six is fine: an empty chapter counts as finished for the gate, so the
+> journey carries on. On the players' rail it does *not* show a tick — a
+> team is never told they completed a chapter nobody wrote.
+
+> **A chain with no chapter is never chapter-gated.** It still locks link
+> by link, but it is reachable from the start. That is the behaviour an
+> event that does not use chapters had before any of this existed.
+
+> **Free challenges are never locked at all.** A challenge that is not a
+> member of any chain is always open, whatever story mode says.
 
 ---
 
@@ -143,16 +198,26 @@ enforces it), so "the previous challenge" is never ambiguous.
 
 ### The automated test
 
-`supabase/tests/pinaka_story_mode_test.sql` runs the whole gate against a
-throwaway database. Every line prints `ok` or `MISMATCH`.
+`supabase/tests/run.sh` builds a throwaway database, applies every
+migration, loads fixtures and runs both gate tests. Every check prints
+`ok` or `MISMATCH`, and the script exits non-zero if any failed.
 
 ```bash
-createdb ctf
-for f in supabase/migrations/*.sql; do psql -d ctf -f "$f"; done
-psql -d ctf -f supabase/tests/pinaka_story_mode_test.sql
+# once: a cluster to test against
+/usr/lib/postgresql/16/bin/initdb -D /tmp/pgt/data -A trust -U postgres
+/usr/lib/postgresql/16/bin/pg_ctl -D /tmp/pgt/data \
+  -o '-p 54399 -c listen_addresses=127.0.0.1' -l /tmp/pgt/server.log start
+
+PGPORT=54399 supabase/tests/run.sh
 ```
 
-It writes fixture rows — **never point it at production.**
+| file | what it proves |
+|---|---|
+| `pinaka_story_mode_test.sql` | the chain gate: link by link, teammates cannot race it, a locked challenge says nothing about itself, turning it off restores ordinary play |
+| `pinaka_chapter_gate_test.sql` | the chapter gate: a first door that is still shut because its chapter is, finishing a chapter opens the next and only the next, empty chapters skip, unfiled chains are not gated |
+
+It writes fixture rows into a database it creates and drops —
+**never point it at production.**
 
 ### By hand, as a player
 
@@ -194,11 +259,26 @@ admin sees every chapter and can verify any challenge at any time.
 
 ### Added (nothing existing was altered)
 
+By `20261010000000_pinaka_event_mode.sql`:
+
 - `event_settings.pinaka_story_mode` — new column, defaults `false`
 - `public.pinaka_challenge_scene`, `public.pinaka_series_chapter` — new tables
 - `pinaka_team_unlocked`, `pinaka_viewer_unlocked`, `get_team_chain_progress`
 - `admin_set_pinaka_story_mode`, `admin_set_challenge_scene`, `admin_set_series_chapter`
 - `idx_submissions_team_challenge_correct`
+
+By `20261011000000_pinaka_chapter_gate.sql` (the chapter level):
+
+- `public.pinaka_chapter` — new table: the six ids, their order, their names
+- `pinaka_chapter_complete`, `pinaka_chapter_unlocked`
+- `get_team_chapter_progress`, `admin_list_pinaka_chapters`
+- `idx_pinaka_series_chapter_chapter`, `idx_chain_series_published`
+- `pinaka_team_unlocked` replaced in place, same name and signature, to AND
+  in the chapter gate. Every caller — both wrappers, both views, both
+  policies — picked it up without being touched.
+- `get_team_chain_progress` dropped and recreated with two more columns
+  (`chapter`, `chapter_unlocked`). The existing columns kept their names,
+  order and types, so a client built against the old shape kept working.
 
 ### Wrapped (the originals are untouched, just renamed)
 
@@ -231,11 +311,16 @@ select public.admin_set_pinaka_story_mode(false);
 alter function public.submit_flag_tx_core(uuid,uuid,text,text) rename to submit_flag_tx;
 alter function public.unlock_hint_core(uuid) rename to unlock_hint;
 
--- 3. drop what was added
-drop table if exists public.pinaka_challenge_scene, public.pinaka_series_chapter;
+-- 3. drop what was added, callers before the things they call
+drop function if exists public.get_team_chapter_progress();
 drop function if exists public.get_team_chain_progress();
+drop function if exists public.admin_list_pinaka_chapters();
 drop function if exists public.pinaka_viewer_unlocked(uuid);
 drop function if exists public.pinaka_team_unlocked(uuid,uuid);
+drop function if exists public.pinaka_chapter_unlocked(uuid,text);
+drop function if exists public.pinaka_chapter_complete(uuid,text);
+drop table if exists public.pinaka_chapter;
+drop table if exists public.pinaka_challenge_scene, public.pinaka_series_chapter;
 drop function if exists public.admin_set_challenge_scene(uuid,text);
 drop function if exists public.admin_set_series_chapter(uuid,text);
 drop function if exists public.admin_set_pinaka_story_mode(boolean);

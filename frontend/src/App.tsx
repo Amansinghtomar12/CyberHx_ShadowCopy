@@ -84,9 +84,10 @@ import { isPinaka, useTheme, noteServerTheme, registerCategoryIcons } from './th
 const AdminThemeControl = React.lazy(() => import('./themes/AdminThemeControl'));
 import { deriveWorld, derivePhase } from './themes/pinaka/hooks';
 import { useJourney, useChapterAttributes, useChapterUnlock } from './themes/pinaka/chapters/useChapter';
-import { CHAPTERS } from './themes/pinaka/chapters/config';
+import { CHAPTERS, CHAPTER_LIST, isChapterId } from './themes/pinaka/chapters/config';
 import { useChallengeScenes } from './themes/pinaka/scenes/useScenes';
 import { useChainProgress } from './themes/pinaka/chapters/useChainProgress';
+import { useChapterProgress } from './themes/pinaka/chapters/useChapterProgress';
 import { SceneIntro } from './themes/pinaka/components/SceneIntro';
 import { SceneCard } from './themes/pinaka/components/SceneCard';
 import { scenePlateKey } from './themes/pinaka/assets/plates';
@@ -504,10 +505,17 @@ export default function App() {
     );
   }, [chainEnabled, chainSeries, chainMembers, challenges, solvedIds, teamSolvedIds]);
 
-  // Event skin: where the team stands in the six-chapter journey. Derived
-  // from the very same trusted solve arrays the chains use -- a chapter is
-  // complete when its gate challenge is solved -- so the skin can never show
-  // progress the platform has not recorded. Null until the skin is on.
+  // Event skin: where the team stands in the six-chapter journey.
+  //
+  // The server answers this directly once the chapter migration is in:
+  // get_team_chapter_progress() is computed by the same functions that
+  // decide whether a flag is accepted, so the chapter the page wears and
+  // the chapter the gate enforces are one thing. The block below is the
+  // fallback for a database without that migration — it works the journey
+  // out from the trusted solve arrays and the names organisers gave their
+  // chains, which is a guess, and is used only when there is nothing
+  // better. Either way the skin can never show progress the platform has
+  // not recorded. Null until the skin is on.
   const journeyInput = useMemo(() => {
     if (!pinaka) return null;
     const solvedSet = new Set<string>([...solvedIds, ...teamSolvedIds]);
@@ -520,13 +528,56 @@ export default function App() {
       isSolved: (id: string) => solvedSet.has(id),
     };
   }, [pinaka, challenges, chainSeries, chainMembers, solvedIds, teamSolvedIds]);
-  const journey = useJourney(journeyInput);
+  const serverJourney = useChapterProgress(pinaka);
+  const journey = useJourney(journeyInput, serverJourney.journey);
   // Which battle scene dresses which Free challenge. Empty unless the
   // skin is on and the event migration has been applied.
   const challengeScenes = useChallengeScenes(pinaka);
   // Story-mode locks. The server is the authority; this is so the board
   // can show a lock instead of walking someone into a refusal.
   const chainProgress = useChainProgress(pinaka);
+
+  /**
+   * The chained board, cut into chapters.
+   *
+   * Only when the organisers have actually filed chains under chapters —
+   * an event that has not used them gets the flat board it has always had,
+   * and so does the classic skin. The locked state comes from the gate
+   * itself (`lockedChapters`), not from counting solves here: the board
+   * and the database have to agree about what is shut, and only one of
+   * them is allowed to decide.
+   */
+  const chainGroups = useMemo(() => {
+    if (!pinaka || chainProgress.chapterOfSeries.size === 0) return undefined;
+
+    const byChapter = new Map<string, string[]>();
+    chainProgress.chapterOfSeries.forEach((chapterId, seriesId) => {
+      if (!isChapterId(chapterId)) return;
+      const list = byChapter.get(chapterId);
+      if (list) list.push(seriesId); else byChapter.set(chapterId, [seriesId]);
+    });
+
+    return CHAPTER_LIST.map((c, i) => {
+      const p = journey.chapters.find(x => x.id === c.id);
+      const previous = i > 0 ? CHAPTER_LIST[i - 1] : null;
+      const locked = chainProgress.lockedChapters.has(c.id);
+      return {
+        key: c.id,
+        title: c.title,
+        subtitle: c.subtitle,
+        ordinal: c.index,
+        state: locked ? 'locked' as const
+             : p?.state === 'completed' ? 'completed' as const
+             : 'current' as const,
+        solved: p?.solved,
+        total: p?.total,
+        lockedReason: previous
+          ? `Sealed until ${previous.title} is finished. Complete every operation there and this chapter opens.`
+          : undefined,
+        seriesIds: byChapter.get(c.id) ?? [],
+      };
+    });
+  }, [pinaka, chainProgress.chapterOfSeries, chainProgress.lockedChapters, journey.chapters]);
   /**
    * The battle scene the page is currently wearing, and the challenge it
    * belongs to. Deliberately separate from `selectedChallenge`: being in
@@ -558,7 +609,11 @@ export default function App() {
   }, [currentView]);
   const chapter = CHAPTERS[journey.current];
   useChapterAttributes(pinaka ? journey.current : null);
-  const unlock = useChapterUnlock(journey);
+  // The journey is real once the server has answered, or — on a database
+  // without the chapter migration — once the board's own data has arrived.
+  // Before that it reads as "nothing completed", which is not the same as
+  // knowing that nothing is completed.
+  const unlock = useChapterUnlock(journey, serverJourney.journey !== null || journeyInput !== null);
 
   // B2R view-models. Each flag is an ordinary challenge underneath, so
   // "captured" comes straight from the same trusted solve arrays; a box is
@@ -1623,7 +1678,7 @@ export default function App() {
                       </div>
                     }
                   >
-                    <ChainedBoard vms={chainVMs} category={selectedCat} onOpenChallenge={openChainChallenge} chainLocked={chainProgress.locked} />
+                    <ChainedBoard vms={chainVMs} category={selectedCat} onOpenChallenge={openChainChallenge} chainLocked={chainProgress.locked} groups={chainGroups} />
                   </React.Suspense>
                 ) : boardMode === 'b2r' ? (
                   <React.Suspense
@@ -1882,9 +1937,12 @@ export default function App() {
                 // Shockwave from this challenge's own node — the field
                 // registers the breach, not just the modal.
                 pulseChallenge(challengeId);
-                // A solve may have opened the next link of a chain; ask the
-                // server rather than guessing at the chain's shape here.
+                // A solve may have opened the next link of a chain, and the
+                // last link of a chain may have opened the next chapter.
+                // Ask the server both questions rather than guessing at the
+                // shape of the journey here.
                 chainProgress.refresh();
+                serverJourney.refresh();
                 setSolvedIds(prev => prev.includes(challengeId) ? prev : [...prev, challengeId]);
                 setTeamSolvedIds(prev => prev.includes(challengeId) ? prev : [...prev, challengeId]);
                 setSolvedByMap(prev => ({ ...prev, [challengeId]: profile?.username ?? 'you' }));

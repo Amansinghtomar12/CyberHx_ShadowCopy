@@ -22,8 +22,12 @@ export interface ChainProgress {
   readonly locked: ReadonlySet<string>;
   /** Challenge ids the team has solved, as the server counts them. */
   readonly solved: ReadonlySet<string>;
-  /** Chapter-gate challenge ids — the last link of each series. */
+  /** The last link of each chain: solving it finishes that chain. */
   readonly gates: ReadonlySet<string>;
+  /** Which chapter each chain belongs to. Absent for an unfiled chain. */
+  readonly chapterOfSeries: ReadonlyMap<string, string>;
+  /** Chapters this team has not opened yet. */
+  readonly lockedChapters: ReadonlySet<string>;
   /** Re-read after a solve, so the next link opens without a reload. */
   readonly refresh: () => void;
 }
@@ -35,41 +39,68 @@ interface Row {
   is_solved: boolean;
   is_unlocked: boolean;
   is_gate: boolean;
+  /** Added with the chapter gate; absent against an older database. */
+  chapter?: string | null;
+  chapter_unlocked?: boolean | null;
 }
 
 const NONE: ReadonlySet<string> = new Set();
+const NO_MAP: ReadonlyMap<string, string> = new Map();
+
+interface State {
+  locked: ReadonlySet<string>;
+  solved: ReadonlySet<string>;
+  gates: ReadonlySet<string>;
+  chapterOfSeries: ReadonlyMap<string, string>;
+  lockedChapters: ReadonlySet<string>;
+}
+
+const EMPTY: State = {
+  locked: NONE, solved: NONE, gates: NONE,
+  chapterOfSeries: NO_MAP, lockedChapters: NONE,
+};
 
 export function useChainProgress(enabled: boolean): ChainProgress {
-  const [locked, setLocked] = useState<ReadonlySet<string>>(NONE);
-  const [solved, setSolved] = useState<ReadonlySet<string>>(NONE);
-  const [gates, setGates] = useState<ReadonlySet<string>>(NONE);
+  const [state, setState] = useState<State>(EMPTY);
   const [tick, setTick] = useState(0);
 
   const refresh = useCallback(() => setTick(t => t + 1), []);
 
   useEffect(() => {
-    if (!enabled) { setLocked(NONE); setSolved(NONE); setGates(NONE); return; }
+    if (!enabled) { setState(EMPTY); return; }
     let live = true;
 
     void (async () => {
       const { data, error } = await supabase.rpc('get_team_chain_progress');
       if (!live) return;
-      if (error || !Array.isArray(data)) { setLocked(NONE); setSolved(NONE); setGates(NONE); return; }
+      if (error || !Array.isArray(data)) { setState(EMPTY); return; }
 
       const l = new Set<string>(), s = new Set<string>(), g = new Set<string>();
+      const chapterOfSeries = new Map<string, string>();
+      const lockedChapters = new Set<string>();
       for (const r of data as Row[]) {
         if (!r.is_unlocked) l.add(r.challenge_id);
         if (r.is_solved) s.add(r.challenge_id);
         if (r.is_gate) g.add(r.challenge_id);
+        // Both fields arrived with the chapter gate. Against a database
+        // that has not had that migration applied they are simply absent,
+        // and the board renders exactly as it did before chapters existed.
+        if (r.chapter) {
+          chapterOfSeries.set(r.series_id, r.chapter);
+          if (r.chapter_unlocked === false) lockedChapters.add(r.chapter);
+        }
       }
-      setLocked(l); setSolved(s); setGates(g);
+      setState({ locked: l, solved: s, gates: g, chapterOfSeries, lockedChapters });
     })();
 
     return () => { live = false; };
   }, [enabled, tick]);
 
-  return { locked, solved, gates, refresh };
+  return { ...state, refresh };
 }
 
-/** The one sentence a locked card is allowed to say. */
+/** The one sentence a card locked by its own chain is allowed to say. */
 export const LOCKED_COPY = 'Locked. Complete the previous challenge to unlock.';
+
+/** And the one a card locked by its chapter gets instead. */
+export const CHAPTER_LOCKED_COPY = 'Locked. Finish the chapter before this one.';
