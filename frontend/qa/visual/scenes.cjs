@@ -111,6 +111,34 @@ module.exports = [
 
   // Measure the glass as the browser resolves it, rather than trusting a
   // grep against minified CSS.
+  // The gateway's partner line: institutions on top, everyone else running.
+  scene('gateway-partners', {
+    loggedOut: true,
+    before: async (page) => {
+      await page.waitForTimeout(2500);
+      const run = page.locator('.pk-sponsor-run').first();
+      await run.scrollIntoViewIfNeeded().catch(() => {});
+      await page.waitForTimeout(900);
+      const info = await page.evaluate(() => {
+        const lane = document.querySelector('.pk-sponsor-run');
+        const tracks = document.querySelectorAll('.pk-sponsor-run-track');
+        const items = document.querySelectorAll('.pk-sponsor-run-item');
+        const honours = document.querySelectorAll('.pk-partners-honours > *');
+        return {
+          lane: !!lane,
+          tracks: tracks.length,
+          itemsPerTrack: items.length / (tracks.length || 1),
+          anim: lane ? getComputedStyle(tracks[0]).animationName : '-',
+          onTop: [...honours].map(e => e.className).join(' | '),
+        };
+      });
+      console.log('        lane=' + info.lane + ' tracks=' + info.tracks +
+                  ' tiles/track=' + info.itemsPerTrack + ' anim=' + info.anim);
+      console.log('        on top: ' + info.onTop);
+    },
+    shots: [{ at: 500 }],
+  }),
+
   scene('glass-measure', {
     before: async (page, h) => {
       await h.boardReady();
