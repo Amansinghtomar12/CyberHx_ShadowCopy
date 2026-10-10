@@ -109,34 +109,36 @@ export const SceneCard: React.FC<SceneCardProps> = ({
           </button>
         </div>
 
-        {/* ── open: standing in the arena ─────────────────────────────
+        {/* ── the side the reveal turns up ─────────────────────────────
             Hidden from assistive tech while the brief is up, because the
             dialog is the thing being read then; it becomes the live
             content again the moment the brief is dismissed. */}
         <div className="pk-scenecard__face pk-scenecard__back" aria-hidden={!open || briefOpen}>
-          <p className="pk-scenecard__backeyebrow">{scene.label}</p>
-          {/* The reveal: what this arena actually holds. */}
-          <h3 className="pk-scenecard__reveal">{title}</h3>
-          <p className="pk-scenecard__backline">{scene.intro}</p>
+          {/* The whole face is the way in, so there is no button to hunt
+              for: the card you just turned over is the thing you press.
+              It is still a real <button>, so it keeps focus, Enter and
+              Space without re-implementing any of them. */}
+          <button
+            type="button"
+            className="pk-scenecard__open"
+            onClick={() => onResume(origin())}
+            tabIndex={open && !briefOpen ? undefined : -1}
+            aria-label={`Open ${title}`}
+          >
+            <span className="pk-scenecard__backeyebrow">{scene.label}</span>
+            {/* The reveal: the title the organisers actually wrote. */}
+            <span className="pk-scenecard__reveal">{title}</span>
+            <span className="pk-scenecard__cue">Open the challenge</span>
+          </button>
 
-          <div className="pk-scenecard__backacts">
-            <button
-              type="button"
-              className="pk-scenecard__enter pk-scenecard__brief"
-              onClick={() => onResume(origin())}
-              tabIndex={open && !briefOpen ? undefined : -1}
-            >
-              Open the brief
-            </button>
-            <button
-              type="button"
-              className="pk-scenecard__leave"
-              onClick={onLeave}
-              tabIndex={open && !briefOpen ? undefined : -1}
-            >
-              Take rest
-            </button>
-          </div>
+          <button
+            type="button"
+            className="pk-scenecard__leave"
+            onClick={onLeave}
+            tabIndex={open && !briefOpen ? undefined : -1}
+          >
+            Take rest
+          </button>
         </div>
       </div>
     </div>

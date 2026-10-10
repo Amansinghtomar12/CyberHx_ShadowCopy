@@ -96,7 +96,7 @@ module.exports = [
       await page.locator('.pk-scenecard__enter').first().click();
       await page.waitForTimeout(1300);
       await look('entered');
-      await page.locator('.pk-scenecard[data-open="1"] .pk-scenecard__brief').first().click();
+      await page.locator('.pk-scenecard[data-open="1"] .pk-scenecard__open').first().click();
       await page.waitForTimeout(1200);
       await look('brief open');
       await page.keyboard.press('Escape');
