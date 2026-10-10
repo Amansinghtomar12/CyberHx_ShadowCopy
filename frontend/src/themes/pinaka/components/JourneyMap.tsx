@@ -51,9 +51,10 @@ import { getCapability } from '../../../components/environment/performance';
 import { devanagariNumber } from '../config';
 import { PINAKA_STORAGE_KEYS } from '../keys';
 import type { EventPhase } from '../hooks';
-import {
-  LAND, MAP_VIEWBOX, MAP_WIDTH, ROUTE_D, ROUTE_STATION_T, STATIONS, WATER_LINES, type StationKey,
-} from './journey/geo';
+import { MAP_WIDTH, ROUTE_STATION_T, STATIONS, type StationKey } from './journey/geo';
+import { MAP_POINTS } from './journey/map';
+import mapLarge from '../assets/map/ramayana-map-1536.webp';
+import mapSmall from '../assets/map/ramayana-map-768.webp';
 import { MILESTONES, milestonesReached } from './journey/milestones';
 
 interface JourneyMapProps {
@@ -386,6 +387,10 @@ export default function JourneyMap({ phase, progress, total = 0, personal, colla
     );
   }
 
+  // The station the team stands on: the last one their share of the board
+  // has reached. The marks on the map are placed by this and nothing else.
+  const teamStation = Math.max(0, Math.min(STATIONS.length - 1, reachedP - 1));
+
   /* ── The sentence a screen reader gets instead of the drawing ── */
   const sentence =
     `Campaign map of India and Sri Lanka: the road from Ayodhya to Lanka and back, in seven stations. ` +
@@ -434,115 +439,45 @@ export default function JourneyMap({ phase, progress, total = 0, personal, colla
       </ol>
 
       <div className="pk-journey-scroll" id={mapId} ref={scrollRef}>
-        {/* The plate: one image to assistive technology (the sentence above),
-            two drawings to the browser, stacked in one grid cell. */}
+        {/* The plate: one image to assistive technology (the sentence
+            above), the organisers' map and the team's mark to the browser. */}
         <div ref={plateRef} className="pk-journey-plate" role="img" aria-label={sentence} data-compact={MAP_WIDTH / k < LABELS_MIN_PX ? 'true' : undefined}>
-        {/* 1. The land and the road: still, rasterised once. */}
-        <svg
-          className="pk-journey-svg pk-journey-svg-land"
-          viewBox={MAP_VIEWBOX}
-          preserveAspectRatio="xMidYMid meet"
+        {/* The organisers' own map. The road is dashed on it, the coast is
+            drawn on it and every station is named on it in its own hand,
+            so the only thing left for this component to say is where the
+            team has got to — one mark, not a second map. */}
+        <img
+          className="pk-journey-map"
+          src={mapLarge}
+          srcSet={`${mapSmall} 768w, ${mapLarge} 1536w`}
+          sizes="(max-width: 48rem) 92vw, 44rem"
+          alt=""
           aria-hidden="true"
-          focusable="false"
-        >
-          <defs>
-            <clipPath id={landClipId}>
-              {LAND.filter(l => l.main).map(l => <path key={l.name} d={l.d} />)}
-            </clipPath>
-          </defs>
+          decoding="async"
+          width={1536}
+          height={1024}
+        />
 
-          {/* the neighbours, faint, so the subcontinent reads as a place */}
-          {LAND.filter(l => !l.main).map(l => (
-            <path key={l.name} className="pk-journey-land is-faint" d={l.d} vectorEffect="non-scaling-stroke" />
-          ))}
-          {/* India and Sri Lanka: stone fill, an inner glow along the coast
-              (a wide translucent stroke clipped to the land), a gold hairline */}
-          {LAND.filter(l => l.main).map(l => (
-            <path key={l.name} className="pk-journey-land" d={l.d} />
-          ))}
-          <g clipPath={`url(#${landClipId})`}>
-            {LAND.filter(l => l.main).map(l => (
-              <path key={l.name} className="pk-journey-shore" d={l.d} vectorEffect="non-scaling-stroke" />
-            ))}
-          </g>
-          {LAND.filter(l => l.main).map(l => (
-            <path key={l.name} className="pk-journey-coast" d={l.d} vectorEffect="non-scaling-stroke" />
-          ))}
-          {/* open water */}
-          {WATER_LINES.map((d, i) => (
-            <path key={i} className="pk-journey-water" d={d} vectorEffect="non-scaling-stroke" />
-          ))}
-
-          {/* the road, in bronze */}
-          <path ref={routeRef} className="pk-journey-track" d={ROUTE_D} vectorEffect="non-scaling-stroke" />
-        </svg>
-
-        {/* 2. What moves: the lit stretch, the stations, the travellers. Its
-            own layer (journey.css), so the pulse and the halo repaint only
-            this drawing. Same viewBox, so the coordinates are the same. */}
-        <svg
-          className="pk-journey-svg pk-journey-svg-road"
-          viewBox={MAP_VIEWBOX}
-          preserveAspectRatio="xMidYMid meet"
-          aria-hidden="true"
-          focusable="false"
-        >
-          {/* the lit stretch, ending exactly under the team's arrow. pathLength
-              puts the dash in percent of the road; the stroke scales with the
-              drawing (no non-scaling-stroke: with it, Chromium draws the dash
-              in screen units and the lit stretch runs ahead of the arrow), so
-              its width is given in user units, k per CSS pixel. */}
-          <path
-            className="pk-journey-fill"
-            d={ROUTE_D}
-            pathLength="100"
-            style={{ strokeDashoffset: 100 - teamT * 100, strokeWidth: 1.75 * k }}
-          />
-
-          {/* the stations, drawn in CSS pixels (scaled by k) */}
-          {STATIONS.map((s, i) => {
-            const l = LABEL[s.key];
-            const state = i < reached ? 'reached' : 'ahead';
-            // the pulse marks where the team is heading: the next milestone
-            const isNext = i === reached && phase === 'during';
-            return (
-              <g
-                key={s.key}
-                className="pk-journey-node"
-                data-key={s.key}
-                data-state={state}
-                data-current={isNext ? 'true' : undefined}
-                transform={`translate(${s.x} ${s.y}) scale(${k.toFixed(4)})`}
-              >
-                {isNext && !still && <circle className="pk-journey-pulse" r={l.ring + 4.5} />}
-                <circle className="pk-journey-ring" r={l.ring} />
-                {s.key !== 'return' && <circle className="pk-journey-dot" r="2.2" />}
-                <text className="pk-journey-label" x={l.dx} y={l.dy} textAnchor={l.anchor}>
-                  <tspan className="pk-journey-numeral" lang="hi">{devanagariNumber(i + 1)}</tspan>
-                  <tspan className="pk-journey-place" dx="4">{l.text}</tspan>
-                </text>
-              </g>
-            );
-          })}
-
-          {/* the viewer's own mark: a small diamond, under the team's arrow */}
-          {hasYou && (
-            <g ref={youRef} className="pk-journey-you">
-              <title>you</title>
-              <g transform={`scale(${k.toFixed(4)})`}>
-                <path d="M0 -5 5 0 0 5 -5 0Z" />
-              </g>
-            </g>
-          )}
-          {/* the team's arrow, turned to the road */}
-          <g ref={teamRef} className="pk-journey-team">
-            <title>the team</title>
-            <g transform={`scale(${k.toFixed(4)})`}>
-              {!still && <circle className="pk-journey-halo" r="11" />}
-              <path className="pk-journey-arrow" d="M-7 -5.5 7 0 -7 5.5 -3.4 0Z" />
-            </g>
-          </g>
-        </svg>
+        {/* Every station the team has passed, quietly, and the one they
+            stand on, lit. The marks are placed in per cent of the image,
+            so they hold their dots at any size the plate is drawn. */}
+        {STATIONS.map((st, i) => {
+          if (i > teamStation) return null;
+          const pt = MAP_POINTS[st.key];
+          const here = i === teamStation;
+          return (
+            <span
+              key={st.key}
+              className="pk-journey-mark"
+              data-here={here ? '1' : undefined}
+              data-side={pt.side}
+              style={{ left: `${pt.x * 100}%`, top: `${pt.y * 100}%` }}
+            >
+              <span className="pk-journey-mark-ring" />
+              {here && <span className="pk-journey-mark-name">{LABEL[st.key].text}</span>}
+            </span>
+          );
+        })}
         </div>
       </div>
     </section>
