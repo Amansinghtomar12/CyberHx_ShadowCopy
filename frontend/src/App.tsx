@@ -87,7 +87,7 @@ import { useJourney, useChapterAttributes, useChapterUnlock } from './themes/pin
 import { CHAPTERS } from './themes/pinaka/chapters/config';
 import { useChallengeScenes } from './themes/pinaka/scenes/useScenes';
 import { useChainProgress } from './themes/pinaka/chapters/useChainProgress';
-import { SceneIntro } from './themes/pinaka/components/SceneBackdrop';
+import { SceneIntro } from './themes/pinaka/components/SceneIntro';
 import { SceneCard } from './themes/pinaka/components/SceneCard';
 import { scenePlateKey } from './themes/pinaka/assets/plates';
 import { sceneOf, type Scene } from './themes/pinaka/scenes/config';
