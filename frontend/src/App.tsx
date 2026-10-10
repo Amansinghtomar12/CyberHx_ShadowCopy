@@ -1699,10 +1699,14 @@ export default function App() {
                                 isSolved={isChallengeSolved(challenge.id)}
                                 open={arenaChallenge?.id === challenge.id}
                                 briefOpen={selectedChallenge?.id === challenge.id}
+                                // Answering the call enters the arena and
+                                // reveals the real name. It does NOT open
+                                // the brief — that is the player's next,
+                                // separate choice, made once they can see
+                                // what they have walked into.
                                 onEnter={(origin) => {
                                   setSelectedOrigin(origin);
                                   setArenaChallenge(challenge);
-                                  setSelectedChallenge(challenge);
                                 }}
                                 onResume={(origin) => {
                                   setSelectedOrigin(origin);
