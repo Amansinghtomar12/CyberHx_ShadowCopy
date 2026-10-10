@@ -581,3 +581,47 @@ html[data-theme="pinaka"] [data-surface="work"] :is(.surface, .card-interactive)
 html[data-theme="pinaka"] [data-surface="work"] {
   --color-text-muted: #a69a84;
 }
+
+
+/* ══ one pass of glass, never two ═══════════════════════════════════════
+   A backdrop filter works on whatever is already painted behind the
+   element, so a blurring panel inside a blurring panel blurs an
+   already-blurred image. Two passes turn the painting to soup, and it is
+   the inner panel — the map inside the journey card, the chart inside the
+   scoreboard, an inset inside a challenge card — that ends up looking
+   muddiest, which is exactly where a player is trying to read.
+
+   So only the outermost surface blurs. Anything nested inside one keeps a
+   thin tint for separation and no filter at all: it is already sitting on
+   glass, and that glass has done the work. */
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-theme="pinaka"] [data-tier="high"]
+    :is(.surface, .surface-raised, .surface-inset, .card-interactive):is(
+      :is(.surface, .surface-raised, .surface-inset, .card-interactive, .pk-scenecard__face, .pk-journey) *
+    ) {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background-image: none;
+    background-color: rgba(10, 8, 6, 0.24);
+  }
+  /* A nested panel has a surface above it, so it does not need the wash
+     the outer one already paints. */
+  html[data-theme="pinaka"] [data-tier="high"]
+    :is(.surface, .card-interactive):is(:is(.surface, .card-interactive, .pk-journey) *)::before {
+    content: none;
+  }
+}
+
+/* Raised and inset panels sitting on the painting get the same glass as
+   everything else rather than the near-opaque tint they used to carry. */
+html[data-theme="pinaka"] .surface-inset { background-color: rgba(10, 8, 6, 0.3); }
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-theme="pinaka"] [data-tier="high"]
+    :is(.surface-raised, .surface-inset):not(
+      :is(.surface, .surface-raised, .surface-inset, .card-interactive, .pk-scenecard__face, .pk-journey) *
+    ) {
+    background-color: rgba(12, 14, 25, 0.42);
+    -webkit-backdrop-filter: blur(14px) saturate(1.12);
+    backdrop-filter: blur(14px) saturate(1.12);
+  }
+}
