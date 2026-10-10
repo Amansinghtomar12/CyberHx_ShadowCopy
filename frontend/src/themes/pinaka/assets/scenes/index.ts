@@ -103,9 +103,9 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
   'shabaris-offering': {
     w1920: shabari1920, w960: shabari960, portrait: shabariPortrait,
     width: 1920, height: 1080,
-    alt: 'Pinaka CTF battle scene: berries set out on leaves in a forest clearing',
-    focal: { x: 0.431, y: 0.464 },
-    sun: { x: 0.406, y: 0.094 },
+    alt: 'Pinaka CTF battle scene: Shabari offering berries to two travellers outside her hut',
+    focal: { x: 0.675, y: 0.398 },
+    sun: { x: 0.969, y: 0.156 },
     credit: {
       title: 'Pinaka CTF 2026 battle scenes',
       author: 'Pinaka CTF · NFSU Chennai',
@@ -133,9 +133,9 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
   'ashoka-vatika': {
     w1920: ashokaVatika1920, w960: ashokaVatika960, portrait: ashokaVatikaPortrait,
     width: 1920, height: 1080,
-    alt: 'Pinaka CTF battle scene: a walled garden at night under lanterns',
-    focal: { x: 0.474, y: 0.436 },
-    sun: { x: 0.344, y: 0.156 },
+    alt: 'Pinaka CTF battle scene: a woman seated beneath a tree in a guarded palace garden',
+    focal: { x: 0.636, y: 0.324 },
+    sun: { x: 0.656, y: 0.219 },
     credit: {
       title: 'Pinaka CTF 2026 battle scenes',
       author: 'Pinaka CTF · NFSU Chennai',
@@ -178,9 +178,9 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
   'setu-stones': {
     w1920: setuStones1920, w960: setuStones960, portrait: setuStonesPortrait,
     width: 1920, height: 1080,
-    alt: 'Pinaka CTF battle scene: stones laid across the sea to form a causeway',
-    focal: { x: 0.434, y: 0.434 },
-    sun: { x: 0.469, y: 0.281 },
+    alt: 'Pinaka CTF battle scene: an army carrying stones into the sea to build a causeway',
+    focal: { x: 0.496, y: 0.3 },
+    sun: { x: 0.406, y: 0.156 },
     credit: {
       title: 'Pinaka CTF 2026 battle scenes',
       author: 'Pinaka CTF · NFSU Chennai',
