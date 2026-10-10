@@ -74,6 +74,45 @@ const navFits = (opts) => ({
   shots: [{ at: 200 }],
 });
 
+// ── nothing under this skin blurs ───────────────────────────────────────
+// The event skin shows the painting through its panels by fill alone; a
+// backdrop-filter anywhere is the thing that makes a page look washed, and
+// it crept back twice — once from the base sheet's blur on every .surface,
+// once from a button nobody thought of. So this lists every blurring
+// element rather than photographing the result, and fails the run when it
+// finds one: "it looks blurry" is not something a screenshot can localise.
+const blurAudit = (opts = {}) => ({
+  event: { theme: 'pinaka', pinaka_story_mode: true },
+  ...opts,
+  before: async (page, h) => {
+    await h.boardReady();
+    await page.evaluate(() => document.querySelector('[data-tier]').setAttribute('data-tier', 'medium'));
+    if (opts.open) await opts.open(page, h);
+    await page.waitForTimeout(400);
+    const rows = await page.evaluate(() => {
+      const out = [];
+      for (const e of document.querySelectorAll('*')) {
+        const c = getComputedStyle(e);
+        const bd = c.backdropFilter && c.backdropFilter !== 'none' ? c.backdropFilter : '';
+        const f = c.filter && c.filter !== 'none' && /blur/.test(c.filter) ? c.filter : '';
+        if (!bd && !f) continue;
+        const r = e.getBoundingClientRect();
+        if (r.width < 8 || r.height < 8) continue;
+        out.push(e.tagName.toLowerCase() + '.'
+          + String(e.className).split(/\s+/).filter(Boolean).slice(0, 3).join('.')
+          + '  ' + (bd ? 'backdrop=' + bd : 'filter=' + f));
+      }
+      return out;
+    });
+    if (rows.length) {
+      for (const r of rows.slice(0, 12)) console.log('            ' + r);
+      throw new Error(rows.length + ' element(s) still blur; first: ' + rows[0]);
+    }
+    console.log('            nothing here blurs');
+  },
+  shots: [{ at: 200 }],
+});
+
 module.exports = [
   // ── Auth ────────────────────────────────────────────────────────────────
   scene('auth-login', { loggedOut: true, shots: [{ waitSelector: '#auth-email', at: 1200 }] }),
@@ -333,6 +372,13 @@ module.exports = [
     },
     shots: [{ waitText: 'Pinaka story', at: 1200 }, { name: 'full', at: 300, full: true }],
   }),
+
+  scene('blur-audit', blurAudit()),
+  // And with a challenge open: the dialog and its scrim are the other two
+  // places a blur has historically lived.
+  scene('blur-audit-modal', blurAudit({
+    open: async (_p, h) => { await h.openChallenge('Robots Welcome'); },
+  })),
 
   scene('nav-fits-admin', navFits({ me: { isAdmin: true }, event: { theme: 'pinaka' } })),
   scene('nav-fits-player', navFits({ event: { theme: 'pinaka' } })),

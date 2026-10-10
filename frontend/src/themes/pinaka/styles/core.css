@@ -44,7 +44,14 @@ html[data-theme="pinaka"] nav.sticky {
   --pk-nav-h: 4rem;
   --pk-nav-corner-w: calc(var(--pk-nav-h) * 83 / 140);
   position: sticky;
-  background-color: rgba(8, 10, 18, 0.8);
+  /* No blur, like everything else under this skin. The bar is denser than
+     a panel on purpose and for the same reason the map plate is: a panel
+     sits over a still painting, and this one has the page scrolling
+     underneath it. At a panel's 0.16 the type on the bar would be read
+     against whatever happened to be passing beneath. */
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background-color: rgba(8, 10, 18, 0.46);
   background-image:
     url('../assets/images/navbar-corner-left.webp'),
     url('../assets/images/navbar-corner-right.webp'),
@@ -165,7 +172,7 @@ html[data-theme="pinaka"] [data-tier]:not(:is([data-tier="high"], [data-tier="me
   backdrop-filter: none;
 }
 /* Without their blur, the nav and the chain frame close up instead. */
-html[data-theme="pinaka"] [data-tier]:not(:is([data-tier="high"], [data-tier="medium"])) nav.sticky { background-color: rgba(8, 10, 18, 0.94); }
+html[data-theme="pinaka"] [data-tier]:not(:is([data-tier="high"], [data-tier="medium"])) nav.sticky { background-color: rgba(8, 10, 18, 0.72); }
 html[data-theme="pinaka"] [data-tier]:not(:is([data-tier="high"], [data-tier="medium"])) .backdrop-blur-xl.bg-black\/70 { background-color: rgba(5, 6, 12, 0.9); }
 html[data-theme="pinaka"] [data-tier]:not(:is([data-tier="high"], [data-tier="medium"])) .scrim { background-color: rgba(5, 7, 14, 0.86); }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -211,6 +218,17 @@ html[data-theme="pinaka"] [data-tier]:not(:is([data-tier="high"], [data-tier="me
   html[data-theme="pinaka"] :is([data-tier="high"], [data-tier="medium"]) :is(.surface, .card-interactive, .page-shell aside.border-r) {
     --color-text-muted: #e2d8c4;
   }
+
+  /* The campaign card is the one panel that sits over sky rather than over
+     architecture, so the brightest two per cent of its ground is brighter
+     than anywhere else on the board and #e2d8c4 falls to 4.1:1 there. One
+     more step, in this component only: 4.5:1 at that worst patch and
+     8.4:1 over the card's median. Local, because making every muted word
+     on the site this light to fix one panel would flatten the hierarchy
+     everywhere to pay for a problem in one place. */
+  html[data-theme="pinaka"] :is([data-tier="high"], [data-tier="medium"]) .pk-journey {
+    --color-text-muted: #ece3d2;
+  }
 }
 
 /* The board's sidebar: its filters and the event block sit straight on the
@@ -235,6 +253,16 @@ html[data-theme="pinaka"] .page-shell aside.border-r {
     backdrop-filter: none;
   }
 }
+/* The scrim behind a dialog. The platform blurs it to push the page back;
+   nothing under this skin blurs, so the dimming does that work on its own
+   — a little deeper than the platform's, because it is now the only thing
+   separating a dialog from the painting behind it. */
+html[data-theme="pinaka"] .scrim {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background-color: rgba(5, 7, 14, 0.62);
+}
+
 html[data-theme="pinaka"] .surface-overlay {
   background-color: #141829;
   box-shadow: var(--shadow-e5), 0 0 0 1px var(--pk-gold-faint);
@@ -562,7 +590,7 @@ html[data-theme="pinaka"] [data-offscreen="true"] *::after {
   }
 
   html[data-theme="pinaka"] :is([data-tier="high"], [data-tier="medium"])
-    :is(.surface, .card-interactive, .page-shell aside.border-r, .page-shell header.surface) {
+    :is(.surface, .card-interactive, .page-shell aside.border-r, .page-shell header.surface, nav.sticky) {
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 8px rgba(0, 0, 0, 0.72), 0 0 18px rgba(0, 0, 0, 0.5);
   }
   /* Foil lockups and numerals paint their own glow; leave them alone. */
@@ -623,15 +651,19 @@ html[data-theme="pinaka"] [data-surface="work"] {
 }
 
 /* Raised and inset panels sitting on the painting get the same glass as
-   everything else rather than the near-opaque tint they used to carry. */
+   everything else rather than the near-opaque tint they used to carry —
+   and, since the card never blurred, the same lack of blur. This rule
+   still carried the old blurred recipe, which is why a dialog's inner
+   panel stayed washed after the board stopped being. */
 html[data-theme="pinaka"] .surface-inset { background-color: rgba(10, 8, 6, 0.3); }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   html[data-theme="pinaka"] :is([data-tier="high"], [data-tier="medium"])
     :is(.surface-raised, .surface-inset):not(
       :is(.surface, .surface-raised, .surface-inset, .card-interactive, .pk-scenecard__face, .pk-journey) *
     ) {
-    background-color: rgba(12, 14, 25, 0.42);
-    -webkit-backdrop-filter: blur(14px) saturate(1.12);
-    backdrop-filter: blur(14px) saturate(1.12);
+    background-color: transparent;
+    background-image: linear-gradient(160deg, rgb(10 8 6 / 0.16) 0%, rgb(10 8 6 / 0.32) 100%);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 }
