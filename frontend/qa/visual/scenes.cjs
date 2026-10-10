@@ -111,6 +111,58 @@ module.exports = [
 
   // Measure the glass as the browser resolves it, rather than trusting a
   // grep against minified CSS.
+  // The gateway's partner line: institutions on top, everyone else running.
+  scene('gateway-partners', {
+    loggedOut: true,
+    before: async (page) => {
+      await page.waitForTimeout(2500);
+      const run = page.locator('.pk-sponsor-run').first();
+      await run.scrollIntoViewIfNeeded().catch(() => {});
+      await page.waitForTimeout(900);
+      const info = await page.evaluate(() => {
+        const lane = document.querySelector('.pk-sponsor-run');
+        const tracks = document.querySelectorAll('.pk-sponsor-run-track');
+        const items = document.querySelectorAll('.pk-sponsor-run-item');
+        const honours = document.querySelectorAll('.pk-partners-honours > *');
+        return {
+          lane: !!lane,
+          tracks: tracks.length,
+          itemsPerTrack: items.length / (tracks.length || 1),
+          anim: lane ? getComputedStyle(tracks[0]).animationName : '-',
+          onTop: [...honours].map(e => e.className).join(' | '),
+        };
+      });
+      console.log('        lane=' + info.lane + ' tracks=' + info.tracks +
+                  ' tiles/track=' + info.itemsPerTrack + ' anim=' + info.anim);
+      console.log('        on top: ' + info.onTop);
+    },
+    shots: [{ at: 500 }],
+  }),
+
+  scene('glass-measure2', {
+    before: async (page, h) => {
+      await h.boardReady();
+      const out = await page.evaluate(() => {
+        const pick = (sel, label) => {
+          const e = document.querySelector(sel);
+          if (!e) return label.padEnd(26) + ' not on this page';
+          const c = getComputedStyle(e);
+          return label.padEnd(26) + ' bg=' + String(c.backgroundColor).padEnd(24)
+               + ' img=' + String(c.backgroundImage).slice(0, 34).padEnd(36)
+               + ' filt=' + c.backdropFilter;
+        };
+        return [
+          pick('.pk-journey', 'journey card'),
+          pick('.pk-journey-stations', 'station list'),
+          pick('.pk-journey-plate', 'map plate'),
+          pick('.pk-scenecard__face', 'battle card (reference)'),
+        ].join('\n            ');
+      });
+      console.log('            ' + out);
+    },
+    shots: [{ at: 300 }],
+  }),
+
   scene('glass-measure', {
     before: async (page, h) => {
       await h.boardReady();

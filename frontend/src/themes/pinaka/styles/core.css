@@ -170,7 +170,13 @@ html[data-theme="pinaka"] [data-tier]:not([data-tier="high"]) .backdrop-blur-xl.
 html[data-theme="pinaka"] [data-tier]:not([data-tier="high"]) .scrim { background-color: rgba(5, 7, 14, 0.86); }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   html[data-theme="pinaka"] [data-tier="high"] :is(.page-shell header.surface, .surface.pk-journey) {
-    background-color: rgba(11, 13, 24, 0.34);
+    /* Transparent on purpose. These are .surface too, so the rule below
+       already paints them the card's gradient; a colour here would sit
+       under that gradient and the two would stack — which is exactly why
+       the journey card read heavier than the cards beside it. The only
+       thing this rule still owns is the wider blur a full-width frame
+       wants. */
+    background-color: transparent;
     -webkit-backdrop-filter: blur(20px) saturate(1.14);
     backdrop-filter: blur(20px) saturate(1.14);
   }
