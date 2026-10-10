@@ -208,6 +208,62 @@ module.exports = [
     shots: [{ at: 200 }],
   }),
 
+  // What the board actually looks like on the tier most visitors get.
+  // Headless Chromium reports 'high', and for a long time that was the only
+  // tier anything here was ever rendered at — which is how glass that was
+  // gated to 'high' shipped looking solid to everyone else. This stamps
+  // 'medium' and keeps a text-free frame beside the real one, so a panel's
+  // composited ground can be measured without the glyphs in the way.
+  scene('glass-medium', {
+    before: async (page, h) => {
+      await h.boardReady();
+      await page.evaluate(() => document.querySelector('[data-tier]').setAttribute('data-tier', 'medium'));
+      await page.waitForTimeout(400);
+      const out = await page.evaluate(() => {
+        const pick = (sel, label) => {
+          const e = document.querySelector(sel);
+          if (!e) return label.padEnd(24) + ' not on this page';
+          const c = getComputedStyle(e);
+          return label.padEnd(24)
+            + ' bg=' + String(c.backgroundColor).padEnd(22)
+            + ' img=' + String(c.backgroundImage).replace(/\s+/g, ' ').slice(0, 60).padEnd(62)
+            + ' filt=' + c.backdropFilter;
+        };
+        return [
+          pick('.pk-scenecard__face', 'battle card'),
+          pick('.page-shell header.surface', 'command header'),
+          pick('.pk-journey', 'journey card'),
+          pick('.page-shell aside.border-r', 'sidebar rail'),
+          pick('.page-shell aside .surface', 'sidebar panel'),
+        ].join('\n            ');
+      });
+      console.log('            ' + out);
+      const text = await page.evaluate(() => {
+        const row = (sel, label) => {
+          const e = document.querySelector(sel);
+          if (!e) return label.padEnd(26) + ' not on this page';
+          const r = e.getBoundingClientRect();
+          return label.padEnd(26) + ' color=' + getComputedStyle(e).color.padEnd(22)
+            + ' box=' + [r.left, r.top, r.right, r.bottom].map(Math.round).join(',');
+        };
+        return [
+          row('.page-shell header.surface h2', 'header title'),
+          row('.page-shell header.surface p', 'header muted line'),
+          row('.pk-journey', 'journey card box'),
+          row('.page-shell aside .surface', 'sidebar panel box'),
+        ].join('\n            ');
+      });
+      console.log('            ' + text);
+    },
+    shots: [
+      { name: 'board', at: 500, full: true },
+      // The same frame with the type taken out, so the panel's composited
+      // ground can be measured without the glyphs skewing the brightest end.
+      { name: 'blank', at: 300, full: true,
+        css: '.page-shell *, .page-shell *::before, .page-shell *::after { color: transparent !important; text-shadow: none !important; }' },
+    ],
+  }),
+
   scene('nav-fits-admin', navFits({ me: { isAdmin: true }, event: { theme: 'pinaka' } })),
   scene('nav-fits-player', navFits({ event: { theme: 'pinaka' } })),
 
