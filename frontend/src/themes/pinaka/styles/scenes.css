@@ -61,12 +61,58 @@ html[data-theme='pinaka'] .pk-scenecard__back {
   gap: 0.5rem;
 }
 
-/* The two ways on from here: back to the brief, or out of the arena. */
-html[data-theme='pinaka'] .pk-scenecard__backacts {
-  margin-top: auto;
+/* The turned face is one press target filling the card, so the thing a
+   player just turned over is the thing they press. It is a real button,
+   reset to look like the face it fills. */
+html[data-theme='pinaka'] .pk-scenecard__open {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.3rem;
+  width: 100%;
+  padding: 0;
+  margin: 0 0 0.6rem;
+  border: 0;
+  background: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-control, 0.5rem);
+}
+
+html[data-theme='pinaka'] .pk-scenecard__open:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--pk-scene-accent, #dfa049) 80%, #fff);
+  outline-offset: 4px;
+}
+
+/* The affordance. Quiet until the face is hovered, so the reveal reads as
+   a name first and an invitation second. */
+html[data-theme='pinaka'] .pk-scenecard__cue {
+  margin-top: 0.15rem;
+  font-size: 0.625rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--pk-scene-accent, #dfa049) 55%, #fff);
+  opacity: 0.72;
+  transition: opacity 160ms ease;
+}
+
+html[data-theme='pinaka'] .pk-scenecard__open:hover .pk-scenecard__cue,
+html[data-theme='pinaka'] .pk-scenecard__open:focus-visible .pk-scenecard__cue {
+  opacity: 1;
+}
+
+/* The revealed title owns the face, the way the scene's name owns the
+   other side, so turning the coin reads as an answer. */
+html[data-theme='pinaka'] .pk-scenecard__open .pk-scenecard__reveal {
+  display: block;
+}
+
+html[data-theme='pinaka'] .pk-scenecard__leave {
+  margin-top: auto;
 }
 
 /* Deliberately quieter than the call to arms above it: leaving should be
@@ -197,6 +243,7 @@ html[data-theme='pinaka'] .pk-scenecard__enter:focus-visible {
 /* ── the opened face ──────────────────────────────────────────────────── */
 
 html[data-theme='pinaka'] .pk-scenecard__backeyebrow {
+  display: block;
   margin: 0;
   font-size: 0.625rem;
   letter-spacing: 0.14em;
@@ -208,7 +255,7 @@ html[data-theme='pinaka'] .pk-scenecard__backeyebrow {
    scene's name does on the closed one, so the turn feels like an answer
    rather than a change of subject. */
 html[data-theme='pinaka'] .pk-scenecard__reveal {
-  margin: 0.15rem 0 0.4rem;
+  margin: 0.1rem 0 0;
   font-size: 1.0625rem;
   font-weight: 700;
   line-height: 1.2;

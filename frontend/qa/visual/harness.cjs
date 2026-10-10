@@ -119,7 +119,7 @@ function helpers(page, run) {
         const enter = card.locator('.pk-scenecard__enter').first();
         await enter.click();
         await page.waitForTimeout(700);
-        const brief = card.locator('.pk-scenecard__brief').first();
+        const brief = card.locator('.pk-scenecard__open').first();
         if (await brief.count()) await brief.click();
       } else {
         // Title hidden on a closed arena: enter each one until it shows.
@@ -130,7 +130,7 @@ function helpers(page, run) {
           await c.locator('.pk-scenecard__enter').first().click();
           await page.waitForTimeout(700);
           if (await c.filter({ hasText: title }).count()) {
-            await c.locator('.pk-scenecard__brief').first().click();
+            await c.locator('.pk-scenecard__open').first().click();
             opened = true; break;
           }
           await c.locator('.pk-scenecard__leave').first().click().catch(() => {});

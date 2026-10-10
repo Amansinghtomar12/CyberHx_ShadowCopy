@@ -1708,6 +1708,8 @@ export default function App() {
                                   setSelectedOrigin(origin);
                                   setArenaChallenge(challenge);
                                 }}
+                                // Pressing the revealed face opens the real
+                                // description. The arena stays either way.
                                 onResume={(origin) => {
                                   setSelectedOrigin(origin);
                                   setSelectedChallenge(challenge);
