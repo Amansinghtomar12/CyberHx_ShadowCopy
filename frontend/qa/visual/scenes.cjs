@@ -139,6 +139,28 @@ module.exports = [
     shots: [{ at: 500 }],
   }),
 
+  scene('tier-matrix', {
+    before: async (page, h) => {
+      await h.boardReady();
+      for (const tier of ['high', 'medium', 'low', 'still']) {
+        const r = await page.evaluate((t) => {
+          const root = document.querySelector('[data-tier]');
+          const was = root.getAttribute('data-tier');
+          root.setAttribute('data-tier', t);
+          const p = document.querySelector('.surface');
+          const c = getComputedStyle(p);
+          const out = { bg: c.backgroundColor, filt: c.backdropFilter };
+          root.setAttribute('data-tier', was);
+          return out;
+        }, tier);
+        console.log('            ' + tier.padEnd(7) + ' panel bg=' + String(r.bg).padEnd(24) + ' filter=' + r.filt);
+      }
+      const real = await page.evaluate(() => document.querySelector('[data-tier]').getAttribute('data-tier'));
+      console.log('            (headless chromium reports: ' + real + ')');
+    },
+    shots: [{ at: 200 }],
+  }),
+
   scene('glass-measure2', {
     before: async (page, h) => {
       await h.boardReady();
