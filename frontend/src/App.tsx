@@ -1758,7 +1758,14 @@ export default function App() {
           ) : currentView === 'userProfile' ? (
             <UserProfile />
           ) : currentView === 'admin' ? (
-            <AdminDashboard />
+            /* A working surface, not a display one. The event skin turns
+               panels to glass so the painting carries through the board;
+               the admin panel is where organisers read tables and toggle
+               what players can see, and precision beats atmosphere there.
+               The theme keys off this to keep it solid. */
+            <div data-surface="work" className="flex flex-1 flex-col min-w-0">
+              <AdminDashboard />
+            </div>
           ) : (
             <Settings />
           )}
