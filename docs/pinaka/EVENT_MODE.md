@@ -4,7 +4,7 @@ Two features, one migration, both temporary.
 
 | | Free challenges | Chained challenges |
 |---|---|---|
-| what it adds | a Ramayana battle scene behind the challenge dialog | the journey: each challenge opens only once the team solved the one before it |
+| what it adds | the card becomes a Ramayana battle scene; opening it dresses the whole page | the journey: each challenge opens only once the team solved the one before it |
 | who it affects | nobody's play — cosmetic only | every chained challenge, while story mode is on |
 | switch | per challenge, in the challenge editor | one master flag, plus per-series chapters |
 
@@ -57,15 +57,21 @@ you deliberately switch it on.
 
 | what | where |
 |---|---|
-| battle scenes (12) | `frontend/src/themes/pinaka/assets/scenes/<slug>-{600,1000,1600}.webp` |
+| battle scenes (12) | `frontend/src/themes/pinaka/assets/scenes/<slug>-{960,1920,portrait}.webp` |
 | chapter backgrounds (6) | `frontend/src/themes/pinaka/assets/chapters/<id>-{960,1920,3840,portrait}.webp` |
 | scene text and accents | `frontend/src/themes/pinaka/scenes/config.ts` |
 | chapter text and accents | `frontend/src/themes/pinaka/chapters/config.ts` |
 
-Scenes ship at three widths and are picked with `srcset`, so a phone
-fetches the 600 and never the 1600. They are `loading="lazy"` and
-`decoding="async"`. The twelve source PNGs were 27 MB; the shipped webp
-set is **2.4 MB** in total.
+Scenes are full-viewport plates, not card art: opening a scene challenge
+swaps the site's plate to its painting and closing puts the chapter's
+plate back. They therefore carry the same four numbers a world plate
+does — 1920, 960, a 9:16 portrait crop, and measured `focal` and `sun`
+points, so the environment's bloom leaves the painted light rather than a
+guessed corner.
+
+The source art is 1672 px wide, so 1920 is a 1.15x lift with a light
+unsharp pass rather than a real upscale. The twelve source PNGs were
+27 MB; the shipped plate set is **4.1 MB** in total.
 
 Scene accent colours are measured from the artwork — the most saturated
 populated hue of each picture, lifted into a band that reads on dark
@@ -84,9 +90,19 @@ Save.
 - The dropdown only shows for Free challenges, as intended: a scene
   dresses a one-off arena, not a step of the story.
 - Scoring, hints, files, category, points and solves are all unaffected.
-- The challenge card gains a small scene label; the dialog gains the
-  background, a one-line prologue, and scene-specific submit wording
-  ("Track the Golden Deer" rather than "Execute").
+- The card becomes the arena door: it leads with the scene's name, keeps
+  the challenge's own title beneath it (a board of twelve arenas still has
+  to be navigable), and carries a call to arms written for that scene —
+  Give Chase, Take the Leap, Win the War. A solved arena reads "Return to
+  the field".
+- Pressing it turns the card over and hands the scene to the **whole
+  page**; the ordinary challenge dialog opens on top, unchanged, with a
+  one-line prologue and scene-specific submit wording ("Track the Golden
+  Deer" rather than "Execute").
+- "Take rest", at the foot of the dialog beside the flag field, is the way
+  back out: the card folds and the chapter's sky returns. Nothing is lost
+  — a Free challenge is free, so leaving costs no attempt. Escape and the
+  dialog's X do the same.
 
 The mapping is stored in `public.pinaka_challenge_scene`, one row per
 challenge. Setting a scene on a challenge that has none inserts a row;
