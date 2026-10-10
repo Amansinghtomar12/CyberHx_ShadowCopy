@@ -525,7 +525,10 @@ module.exports = [
     before: async (page, h) => {
       await h.nav('Admin');
       await h.waitText('Challenge catalogue');
-      await page.getByText('Pinaka battle scenes').click();
+      // Its own tab, not a fold under the challenge list: an organiser
+      // reaches for this mid-event and should not have to scroll a long
+      // board to find it.
+      await page.getByRole('button', { name: 'Scenes', exact: true }).click();
       await h.waitText('Artwork');
 
       // A picture with its subject and its light deliberately off centre:

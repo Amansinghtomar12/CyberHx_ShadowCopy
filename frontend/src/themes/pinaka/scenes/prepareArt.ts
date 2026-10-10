@@ -54,23 +54,96 @@ const QUALITY = 0.82;
 const MAX_INPUT_BYTES = 24 * 1024 * 1024;
 
 /**
- * Decode a file the way an <img> would, so anything the browser can paint
- * is accepted and anything else fails here with a usable message.
+ * What a file actually is, from its first bytes.
+ *
+ * An extension is a claim, not a fact — image tools and phones hand out
+ * `.jpeg` files that are really HEIC or AVIF, and the file picker's
+ * `accept` believes the extension. When the browser then refuses to decode
+ * one, "that file could not be read as an image" is true and useless: the
+ * organiser is looking at a picture that opens fine on their desktop.
+ * Naming the real format is the difference between a dead end and a fix.
  */
-function decode(file: File): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error('That file could not be read as an image.'));
-    };
-    img.src = url;
-  });
+function sniff(bytes: Uint8Array): string | null {
+  const at = (i: number, sig: readonly number[]) => sig.every((b, k) => bytes[i + k] === b);
+  const ascii = (i: number, len: number) =>
+    String.fromCharCode(...Array.from(bytes.slice(i, i + len)));
+
+  if (at(0, [0xff, 0xd8, 0xff])) return 'JPEG';
+  if (at(0, [0x89, 0x50, 0x4e, 0x47])) return 'PNG';
+  if (at(0, [0x47, 0x49, 0x46, 0x38])) return 'GIF';
+  if (at(0, [0x42, 0x4d])) return 'BMP';
+  if (at(0, [0x25, 0x50, 0x44, 0x46])) return 'PDF';
+  if (at(0, [0x49, 0x49, 0x2a, 0x00]) || at(0, [0x4d, 0x4d, 0x00, 0x2a])) return 'TIFF';
+  if (ascii(0, 4) === 'RIFF' && ascii(8, 4) === 'WEBP') return 'WebP';
+  // ISO base media: the brand after 'ftyp' says which.
+  if (ascii(4, 4) === 'ftyp') {
+    const brand = ascii(8, 4).toLowerCase();
+    if (brand.startsWith('avi')) return 'AVIF';
+    if (brand.startsWith('hei') || brand.startsWith('mif') || brand.startsWith('msf')) return 'HEIC';
+    return brand.toUpperCase().trim() || 'ISO media';
+  }
+  const head = ascii(0, 256).trimStart().toLowerCase();
+  if (head.startsWith('<?xml') || head.startsWith('<svg')) return 'SVG';
+  return null;
 }
 
-function draw(img: HTMLImageElement, w: number, h: number): HTMLCanvasElement {
+/** Formats a browser will not paint onto a canvas, and what to do instead. */
+const UNPAINTABLE: Record<string, string> = {
+  HEIC: 'HEIC is what iPhones save by default, and browsers cannot read it.',
+  AVIF: 'AVIF is not readable in every browser.',
+  TIFF: 'TIFF is not a web format.',
+  PDF:  'That is a PDF, not an image.',
+  SVG:  'An SVG cannot be measured for its focal point or its colour.',
+};
+
+/**
+ * Decode a file the way an <img> would, so anything the browser can paint
+ * is accepted and anything else fails here with a usable message.
+ *
+ * Tries createImageBitmap first: it reads a few formats `<img>` will not,
+ * and `imageOrientation` makes it honour a phone's EXIF rotation, which a
+ * canvas draw would otherwise ignore and silently publish sideways.
+ */
+type Decoded = Exclude<CanvasImageSource, SVGImageElement | VideoFrame> & { width: number; height: number };
+
+async function decode(file: File): Promise<Decoded> {
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      if (bitmap.width && bitmap.height) return bitmap;
+    } catch {
+      /* fall through to <img>, which handles a few things bitmaps do not */
+    }
+  }
+
+  const img = await new Promise<HTMLImageElement | null>(resolve => {
+    const url = URL.createObjectURL(file);
+    const el = new Image();
+    el.onload = () => { URL.revokeObjectURL(url); resolve(el); };
+    el.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+    el.src = url;
+  });
+  if (img && img.naturalWidth && img.naturalHeight) {
+    return Object.assign(img, { width: img.naturalWidth, height: img.naturalHeight });
+  }
+
+  // Nothing could read it, so say what it actually is.
+  const head = new Uint8Array(await file.slice(0, 512).arrayBuffer());
+  const kind = sniff(head);
+  const named = file.name.split('.').pop()?.toUpperCase() ?? '';
+  if (kind && UNPAINTABLE[kind]) {
+    throw new Error(
+      `${UNPAINTABLE[kind]} Re-export it as JPEG, PNG or WebP and try again`
+      + (named && named !== kind ? ` — it is named .${named.toLowerCase()}, but the file is ${kind}.` : '.'),
+    );
+  }
+  if (kind) {
+    throw new Error(`That ${kind} file is damaged or incomplete — the browser could not decode it.`);
+  }
+  throw new Error('That file is not an image the browser can read. Try a JPEG, PNG or WebP.');
+}
+
+function draw(img: Decoded, w: number, h: number): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
@@ -89,7 +162,7 @@ function draw(img: HTMLImageElement, w: number, h: number): HTMLCanvasElement {
  * a thumbnail is enough to find where a painting's weight and brightness
  * sit, and reading four million pixels in a loop would lock the tab.
  */
-function measure(img: HTMLImageElement): ArtMeasurements {
+function measure(img: Decoded): ArtMeasurements {
   const small = draw(img, 160, 90);
   const ctx = small.getContext('2d');
   if (!ctx) throw new Error('This browser would not give the page a canvas to work on.');
@@ -201,17 +274,14 @@ export async function prepareArt(file: File): Promise<PreparedArt> {
     throw new Error('That picture is over 24 MB. Export it smaller and try again.');
   }
   const img = await decode(file);
-  if (!img.naturalWidth || !img.naturalHeight) {
-    throw new Error('That file could not be read as an image.');
-  }
 
   const measurements = measure(img);
 
   // Never upscale: a 900 px painting blown up to 1920 is a bigger file and
   // a softer picture.
-  const scale = Math.min(1, MAX_WIDTH / img.naturalWidth);
-  const width = Math.round(img.naturalWidth * scale);
-  const height = Math.round(img.naturalHeight * scale);
+  const scale = Math.min(1, MAX_WIDTH / img.width);
+  const width = Math.round(img.width * scale);
+  const height = Math.round(img.height * scale);
   const blob = await encode(draw(img, width, height));
 
   return {

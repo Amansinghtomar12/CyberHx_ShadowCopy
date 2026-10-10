@@ -12,7 +12,7 @@ import {
   X, AlertTriangle, Megaphone, Zap, Lightbulb, Link2, Save, Inbox, Lock,
   Settings2, ListChecks, Hash, Send, CalendarClock, Radio, Paperclip, Upload, FileDown, Download,
   Clock, Play, Pause, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search,
-  Server, Crown, User,
+  Server, Crown, User, ImagePlus,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { resetEventScores } from '../../api/submitFlag';
@@ -1045,7 +1045,7 @@ function AdminDashboardInner() {
   const [challenges, setChallenges] = useState<DBChallenge[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editChallenge, setEditChallenge] = useState<DBChallenge | null>(null);
-  const [activeTab, setActiveTab] = useState<'challenges' | 'chains' | 'b2r' | 'users' | 'teams' | 'submissions' | 'notifications' | 'event'>('challenges');
+  const [activeTab, setActiveTab] = useState<'challenges' | 'chains' | 'scenes' | 'b2r' | 'users' | 'teams' | 'submissions' | 'notifications' | 'event'>('challenges');
   // Shared by the scene manager below and refreshed after it writes, so a
   // scene added here is in the challenge dropdown without a reload.
   const { catalogue: sceneCatalogue, refresh: refreshScenes } = useSceneCatalogue(true);
@@ -1133,6 +1133,7 @@ function AdminDashboardInner() {
   const tabs = [
     { id: 'challenges', label: 'Challenges', icon: <Flag className="w-3.5 h-3.5" /> },
     { id: 'chains', label: 'Chains', icon: <Link2 className="w-3.5 h-3.5" /> },
+    { id: 'scenes', label: 'Scenes', icon: <ImagePlus className="w-3.5 h-3.5" /> },
     { id: 'b2r', label: 'B2R', icon: <Server className="w-3.5 h-3.5" /> },
     { id: 'users', label: 'Users', icon: <Users className="w-3.5 h-3.5" /> },
     { id: 'teams', label: 'Teams', icon: <Shield className="w-3.5 h-3.5" /> },
@@ -1343,21 +1344,25 @@ function AdminDashboardInner() {
             )}
           </div>
 
-          {/* The battle scenes a challenge can be dressed in. Here rather
-              than behind its own tab: it is the same job as the dropdown
-              on the challenge above, and an organiser writing a challenge
-              mid-event should not have to go looking for it. */}
-          <details className="surface mt-5">
-            <summary className="cursor-pointer select-none">
-              <span className="label-micro">Pinaka battle scenes</span>
-              <p className="mt-1 text-small text-text-muted">
-                Add your own artwork to the scene dropdown. No deploy, and it is pickable at once.
-              </p>
-            </summary>
-            <div className="mt-4">
-              <SceneManager catalogue={sceneCatalogue} onChanged={refreshScenes} />
-            </div>
-          </details>
+        </div>
+      )}
+
+      {/* Battle scenes. Its own tab rather than a fold at the foot of the
+          challenge list: an organiser reaches for this while writing a
+          challenge mid-event, and the list by then is long enough that
+          anything under it is effectively hidden. */}
+      {activeTab === 'scenes' && (
+        <div className="surface">
+          <header className="mb-4">
+            <h2 className="label-micro">Pinaka battle scenes</h2>
+            <p className="mt-1 text-small text-text-muted leading-relaxed">
+              Artwork a Free challenge can be dressed in. Add your own and it is in the
+              <strong> Ramayana Battle Scene </strong> dropdown on every challenge straight away —
+              no deploy, nothing rebuilt. The picture is resized and measured here in your browser
+              before anything is uploaded.
+            </p>
+          </header>
+          <SceneManager catalogue={sceneCatalogue} onChanged={refreshScenes} />
         </div>
       )}
 
