@@ -85,8 +85,10 @@ const blurAudit = (opts = {}) => ({
   event: { theme: 'pinaka', pinaka_story_mode: true },
   ...opts,
   before: async (page, h) => {
-    await h.boardReady();
-    await page.evaluate(() => document.querySelector('[data-tier]').setAttribute('data-tier', 'medium'));
+    // The board, unless the scene says it is somewhere else — the gateway
+    // has no board to wait for and its own things to blur.
+    if (opts.ready) await opts.ready(page, h); else await h.boardReady();
+    await page.evaluate(() => document.querySelector('[data-tier]')?.setAttribute('data-tier', 'medium'));
     if (opts.open) await opts.open(page, h);
     await page.waitForTimeout(400);
     const rows = await page.evaluate(() => {
@@ -94,7 +96,11 @@ const blurAudit = (opts = {}) => ({
       for (const e of document.querySelectorAll('*')) {
         const c = getComputedStyle(e);
         const bd = c.backdropFilter && c.backdropFilter !== 'none' ? c.backdropFilter : '';
-        const f = c.filter && c.filter !== 'none' && /blur/.test(c.filter) ? c.filter : '';
+        // filter: blur() on an element blurs its OWN pixels, which is how a
+        // soft glow is drawn and not what "the page looks blurry" means.
+        // It only counts against something a reader is meant to read.
+        const decorative = c.pointerEvents === 'none' && !(e.textContent || '').trim();
+        const f = !decorative && c.filter && c.filter !== 'none' && /blur/.test(c.filter) ? c.filter : '';
         if (!bd && !f) continue;
         const r = e.getBoundingClientRect();
         if (r.width < 8 || r.height < 8) continue;
@@ -378,6 +384,12 @@ module.exports = [
   // places a blur has historically lived.
   scene('blur-audit-modal', blurAudit({
     open: async (_p, h) => { await h.openChallenge('Robots Welcome'); },
+  })),
+  // And the door. The sponsor plates live only here, which is how four
+  // blur declarations survived an audit that only ever saw the board.
+  scene('blur-audit-gateway', blurAudit({
+    loggedOut: true,
+    ready: async (page) => { await page.locator('#auth-email').waitFor({ state: 'visible' }); },
   })),
 
   scene('nav-fits-admin', navFits({ me: { isAdmin: true }, event: { theme: 'pinaka' } })),

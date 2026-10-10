@@ -11,6 +11,7 @@ import { supabase } from '../lib/supabase';
 import AmbientBackground from './AmbientBackground';
 import MotionToggle from './MotionToggle';
 import { ADMIN_EMAIL, REGISTER_NO_RESET, FORGOT_NO_RESET } from '../lib/support';
+import { getCapability } from './environment/performance';
 import SurfaceLight from './environment/SurfaceLight';
 import CursorRing from './environment/CursorRing';
 import { setMood } from './environment/mood';
@@ -407,7 +408,11 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
   const pinaka = useTheme() === 'pinaka';
 
   return (
-    <div className="min-h-screen bg-cyber-bg overflow-x-hidden relative">
+    /* The same performance tier the app root publishes. Without it every
+       rule in the event skin that keys off a tier — which is all of the
+       glass — was inert on this page, so the door was the one screen that
+       never got the treatment the rest of the site did. */
+    <div className="min-h-screen bg-cyber-bg overflow-x-hidden relative" data-tier={getCapability().tier}>
       {pinaka
         ? <React.Suspense fallback={null}><PinakaEnvironment world="ayodhya" phase="before" intensity="normal" /></React.Suspense>
         : <AmbientBackground intensity="normal" />}
