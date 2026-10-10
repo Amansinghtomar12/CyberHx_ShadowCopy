@@ -18,8 +18,8 @@ import React from 'react';
 import { Check, Lock, Dot, ChevronRight } from 'lucide-react';
 import type { ChainSeriesVM, ChainNodeVM } from '../../../components/chain/chainModel';
 import { CHAPTERS, type ChapterId } from '../chapters/config';
-import { CHAPTER_PLATES } from '../assets/chapters';
 import { SCENE_PLATES } from '../assets/scenes';
+import ChainLink from './ChainLink';
 import type { SceneId } from '../scenes/config';
 
 export interface ChapterChainProps {
@@ -37,24 +37,16 @@ export interface ChapterChainProps {
 type CardState = 'solved' | 'current' | 'locked' | 'open';
 
 /**
- * The card art. A challenge the organisers dressed with a battle scene
- * wears that scene; everything else wears the chapter it belongs to, which
- * is already the page's own background and so costs no extra download.
+ * The card art — only where the organisers put some.
+ *
+ * A challenge dressed with a battle scene wears that scene. Everything
+ * else wears nothing: the chapter's painting is already the page behind
+ * the whole row, and repeating a crop of it inside each card said the
+ * same thing six times and made the row look like a wall of one picture.
+ * A card with no scene is a card: name, brief, category, points.
  */
-function artFor(chapter: ChapterId, scene: SceneId | undefined): string {
-  return scene ? SCENE_PLATES[scene].w960 : CHAPTER_PLATES[chapter].w960;
-}
-
-/**
- * Where in that picture this card looks, as a shift along the slack the
- * stylesheet's zoom creates. Undressed cards all share the chapter's
- * painting, so without this a chapter of six is six identical thumbnails.
- * Walks left to right with the chain, which also means a card keeps its
- * own view when a neighbour is solved.
- */
-function panFor(position: number, total: number): string {
-  if (total <= 1) return '0%';
-  return `${(-14 + ((position - 1) / (total - 1)) * 28).toFixed(1)}%`;
+function artFor(scene: SceneId | undefined): string | null {
+  return scene ? SCENE_PLATES[scene].w960 : null;
 }
 
 /**
@@ -74,12 +66,11 @@ function plain(md: string): string {
 }
 
 function ChainCard({
-  node, state, art, pan, onOpen,
+  node, state, art, onOpen,
 }: {
   node: ChainNodeVM;
   state: CardState;
-  art: string;
-  pan: string;
+  art: string | null;
   onOpen: () => void;
 }) {
   const shut = state === 'locked';
@@ -93,20 +84,27 @@ function ChainCard({
       type="button"
       className="pk-chapcard"
       data-state={state}
-      style={{ ['--pk-card-pan' as string]: pan }}
+      data-art={art ? '1' : undefined}
       onClick={onOpen}
       disabled={shut}
       aria-label={shut ? `${node.title} — locked` : node.title}
     >
-      <span className="pk-chapcard__art">
-        {/* Decorative: the title below says what this is, and a card whose
-            picture failed to load is still a readable card. */}
-        <img src={art} alt="" loading="lazy" decoding="async" width={480} height={270} />
-        <span className="pk-chapcard__badge" data-state={state}>{badge}</span>
-        <span className="pk-chapcard__num" aria-hidden="true">{node.position}</span>
-      </span>
+      {art && (
+        <span className="pk-chapcard__art">
+          {/* Decorative: the title below says what this is, and a card
+              whose picture failed to load is still a readable card. */}
+          <img src={art} alt="" loading="lazy" decoding="async" width={480} height={270} />
+        </span>
+      )}
 
       <span className="pk-chapcard__body">
+        {/* The position and the state live here rather than over the
+            picture, so a card with art and one without are the same
+            object with the same furniture in the same places. */}
+        <span className="pk-chapcard__head">
+          <span className="pk-chapcard__num" aria-hidden="true">{node.position}</span>
+          <span className="pk-chapcard__badge" data-state={state}>{badge}</span>
+        </span>
         <span className="pk-chapcard__title">{node.title}</span>
         {/* A locked challenge's description is blank before it reaches the
             browser — the view withholds it — so this prints the lock
@@ -164,8 +162,10 @@ export const ChapterChain: React.FC<ChapterChainProps> = ({
     >
       <header className="pk-chapchain__head">
         <h4 id={`pk-chain-${series.id}`} className="pk-chapchain__title">{series.title}</h4>
+        {/* No category here. A chain of a web, a crypto and a rev challenge
+            has no single one, and each card already carries its own. */}
         <span className="pk-chapchain__meta">
-          {series.category} · {series.solvedCount} of {series.total}
+          {series.solvedCount} of {series.total}
         </span>
         {/* The steel chain is still here. The cards are the overview — what
             is in this chapter and which of it is open — and this is the
@@ -183,8 +183,7 @@ export const ChapterChain: React.FC<ChapterChainProps> = ({
               <ChainCard
                 node={n}
                 state={stateOf(n, i)}
-                art={artFor(chapter, sceneOf?.(n.challengeId))}
-                pan={panFor(n.position, series.nodes.length)}
+                art={artFor(sceneOf?.(n.challengeId))}
                 onOpen={() => onOpen(n.challengeId)}
               />
             </li>
@@ -196,7 +195,7 @@ export const ChapterChain: React.FC<ChapterChainProps> = ({
                 data-lit={series.segments[i]?.active ? '1' : undefined}
                 aria-hidden="true"
               >
-                <span className="pk-chapchain__node" />
+                <ChainLink chapter={chapter} lit={!!series.segments[i]?.active} />
               </li>
             )}
           </React.Fragment>

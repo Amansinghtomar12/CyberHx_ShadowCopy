@@ -11,7 +11,6 @@ import { CHAPTERS, CHAPTER_ORDER } from '../../themes/pinaka/chapters/config';
 
 const ChainExperience = React.lazy(() => import('../chain/ChainExperience'));
 
-const CATEGORIES = ['web', 'crypto', 'steg', 'rev', 'pwn', 'forensic', 'osint', 'mobile', 'b2r', 'misc'];
 const DIFFICULTIES = ['Easy', 'Medium', 'Hard', 'Insane'];
 
 interface AdminMember { challenge_id: string; position: number; }
@@ -122,12 +121,29 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
   };
   const editSeries = (s: AdminSeries) => { setDraft({ ...s, members: [...s.members] }); setError(''); setPreview(false); };
 
+  /**
+   * What this chain may still be given.
+   *
+   * A challenge belongs to at most one chain — the database enforces it —
+   * so offering one that is already spoken for only ever ends in "A
+   * challenge already belongs to another chain" after the organiser has
+   * picked it, named the chain and pressed Save. The list now leaves them
+   * out, which turns a failed save into a choice that was never there.
+   *
+   * "Another" chain, not any chain: this chain's own members are excluded
+   * separately, so editing an existing chain still works.
+   */
   const availableToAdd = useMemo(() => {
     if (!draft) return [];
     const used = new Set(draft.members.map((m) => m.challenge_id));
+    const spokenFor = new Set(
+      series.filter((s) => s.id !== draft.id).flatMap((s) => s.members.map((m) => m.challenge_id)),
+    );
     // A B2R box's user/root flag challenges live only under the B2R tab.
-    return challenges.filter((c) => !used.has(c.id) && !(c.tags ?? []).includes('b2r'));
-  }, [draft, challenges]);
+    return challenges.filter(
+      (c) => !used.has(c.id) && !spokenFor.has(c.id) && !(c.tags ?? []).includes('b2r'),
+    );
+  }, [draft, challenges, series]);
 
   const addMember = (challengeId: string) => {
     if (!draft || !challengeId) return;
@@ -146,9 +162,33 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
     setDraft({ ...draft, members: arr.map((m, i) => ({ ...m, position: i + 1 })) });
   };
 
+  /**
+   * A chain's category, worked out from what is in it.
+   *
+   * chain_series.category is NOT NULL and the board's filter chips read
+   * it, so the column stays — but it was a second place to state
+   * something every challenge already states, and a chain of a web, a
+   * crypto and a rev challenge never had one honest answer anyway. The
+   * most common category among the members wins; ties go to the first
+   * link, which is where a chain's character is set.
+   */
+  const deriveCategory = (d: AdminSeries): string => {
+    const counts = new Map<string, number>();
+    for (const m of d.members) {
+      const cat = challengeById.get(m.challenge_id)?.category;
+      if (cat) counts.set(cat, (counts.get(cat) ?? 0) + 1);
+    }
+    if (counts.size === 0) return d.category || 'misc';
+    const first = challengeById.get(d.members[0]?.challenge_id ?? '')?.category;
+    let best = first && counts.has(first) ? first : '';
+    for (const [cat, n] of counts) {
+      if (!best || n > (counts.get(best) ?? 0)) best = cat;
+    }
+    return best || 'misc';
+  };
+
   const validate = (d: AdminSeries, forPublish: boolean): string | null => {
     if (!d.title.trim()) return 'Title is required';
-    if (!d.category.trim()) return 'Category is required';
     if (forPublish && d.members.length < 2) return 'A chain needs at least 2 challenges to publish';
     const ids = d.members.map((m) => m.challenge_id);
     if (new Set(ids).size !== ids.length) return 'A challenge cannot appear twice in the same chain';
@@ -186,7 +226,7 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
       const up = await supabase.rpc('admin_upsert_chain_series', {
         p_id: draft.id || null,
         p_title: draft.title,
-        p_category: draft.category,
+        p_category: deriveCategory(draft),
         p_description: draft.description,
         p_readme: draft.readme,
         p_difficulty: draft.difficulty,
@@ -456,12 +496,6 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
               <label className="block">
                 <span className="label-micro">Name</span>
                 <input className="input mt-1" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="Operation Blackout" />
-              </label>
-              <label className="block">
-                <span className="label-micro">Category</span>
-                <select className="select mt-1" value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })}>
-                  {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
               </label>
               <label className="block">
                 <span className="label-micro">Pinaka chapter</span>

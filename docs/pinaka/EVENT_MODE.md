@@ -149,10 +149,19 @@ in order with whatever is filed under each. From there:
 
 1. **New chain here** on the chapter you want — the editor opens with that
    chapter already chosen.
-2. Name the chain, pick its category, add as many challenges as you like,
-   in the order teams should play them. There is no limit: five, six,
-   eight — whatever the chapter is worth.
+2. Name the chain and add as many challenges as you like, in the order
+   teams should play them. There is no limit: five, six, eight — whatever
+   the chapter is worth.
 3. Save, then **Publish**.
+
+The picker only offers challenges that are in **no** chain yet. A
+challenge belongs to at most one chain, so one already spoken for is left
+out rather than offered and then refused on save.
+
+There is no category to choose. A chain of a web, a crypto and a rev
+challenge never had one honest answer, and every card already carries its
+own; the chain's category is worked out from its members for the board's
+filter chips and nothing else.
 
 Repeat for as many chains as a chapter needs. A chapter is finished only
 when **every operation in every published chain filed under it** is solved,
@@ -187,8 +196,15 @@ when both ends are solved, which is the same rule the steel chain has
 always used for an ignited segment.
 
 A card wears the battle scene assigned to its challenge, if it has one
-(section 3); otherwise it wears a different part of the chapter's own
-painting, so a chapter of six is not six identical thumbnails.
+(section 3). A challenge with no scene shows no picture — the chapter's
+painting is already the page behind the whole row, and repeating a crop
+of it inside every card said the same thing six times.
+
+The link between the cards is the chapter's own: a plain ring at Ayodhya,
+the bow's lens at Mithila, a leaf in Vanvaas, a forged oval at
+Kishkindha, a dressed stone on the causeway, and a molten spiked ring at
+Lanka. It is what tells a player which chapter they are standing in when
+the cards themselves carry no art.
 
 A chapter that is still shut shows its name, its number and one line
 saying what has to be finished first. The journey is meant to be seen

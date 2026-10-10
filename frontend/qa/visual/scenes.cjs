@@ -392,6 +392,44 @@ module.exports = [
     ready: async (page) => { await page.locator('#auth-email').waitFor({ state: 'visible' }); },
   })),
 
+  // A challenge belongs to at most one chain, so one already spoken for
+  // must not be offered: picking it only ended in "A challenge already
+  // belongs to another chain" after the organiser had named the chain and
+  // pressed Save. Asserts the other chain's members are absent from the
+  // picker, and that this chain's own are still editable.
+  scene('admin-chain-picker', {
+    me: { isAdmin: true },
+    event: { theme: 'pinaka' },
+    before: async (page, h) => {
+      await h.nav('Admin');
+      await h.waitText('Challenge catalogue');
+      await page.getByRole('button', { name: 'Chains', exact: true }).click();
+      await h.park();
+      // Edit the first chain; the second chain's members are the ones that
+      // must not be on offer.
+      await page.locator('button', { hasText: 'Ashoka Vatika' }).first().click();
+      await page.locator('select').last().waitFor({ state: 'visible' });
+
+      const { options } = await page.evaluate(() => {
+        const picker = Array.from(document.querySelectorAll('select'))
+          .find(sel => Array.from(sel.options).some(o => /Add challenge/.test(o.textContent || '')));
+        return {
+          options: picker ? Array.from(picker.options).map(o => (o.textContent || '').trim()) : [],
+        };
+      });
+      // Members of the OTHER chain, which this picker must not offer.
+      const taken = ['First Stone', 'Floating Logs', 'Tide Tables', 'Across the Strait'];
+      const offered = options.filter(o => !/Add challenge/.test(o));
+      console.log('            picker offers ' + offered.length + ' challenge(s)');
+      // Every option must be a challenge in no chain at all. The mock's two
+      // chains hold nine between them, so a picker that still offered them
+      // would be noticeably longer than one that does not.
+      const bad = offered.filter(o => taken.some(t => o.includes(t)));
+      if (bad.length) throw new Error('picker offers challenges already in another chain: ' + bad.join(', '));
+    },
+    shots: [{ at: 300 }],
+  }),
+
   scene('nav-fits-admin', navFits({ me: { isAdmin: true }, event: { theme: 'pinaka' } })),
   scene('nav-fits-player', navFits({ event: { theme: 'pinaka' } })),
 
