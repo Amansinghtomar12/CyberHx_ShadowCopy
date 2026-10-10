@@ -109,10 +109,35 @@ function helpers(page, run) {
       // During the Pinaka event a Free challenge with a battle scene is an
       // arena door rather than an ordinary card: the whole card is not the
       // button, its call to arms is. Try that first, fall back to the card.
-      const arena = page.locator('.pk-scenecard', { hasText: title })
-        .locator('.pk-scenecard__enter');
-      if (await arena.count()) await arena.first().click();
-      else await page.locator('button[data-diff]', { hasText: title }).first().click();
+      // A scene card opens in two presses: the call to arms enters the
+      // arena and reveals the real name, then "Open the brief" opens the
+      // dialog. The closed face no longer carries the title, so find the
+      // card by the title its turned face reveals, falling back to the
+      // whole grid when nothing is open yet.
+      const card = page.locator('.pk-scenecard').filter({ hasText: title });
+      if (await card.count()) {
+        const enter = card.locator('.pk-scenecard__enter').first();
+        await enter.click();
+        await page.waitForTimeout(700);
+        const brief = card.locator('.pk-scenecard__brief').first();
+        if (await brief.count()) await brief.click();
+      } else {
+        // Title hidden on a closed arena: enter each one until it shows.
+        const all = page.locator('.pk-scenecard');
+        let opened = false;
+        for (let i = 0; i < await all.count(); i++) {
+          const c = all.nth(i);
+          await c.locator('.pk-scenecard__enter').first().click();
+          await page.waitForTimeout(700);
+          if (await c.filter({ hasText: title }).count()) {
+            await c.locator('.pk-scenecard__brief').first().click();
+            opened = true; break;
+          }
+          await c.locator('.pk-scenecard__leave').first().click().catch(() => {});
+          await page.waitForTimeout(400);
+        }
+        if (!opened) await page.locator('button[data-diff]', { hasText: title }).first().click();
+      }
       const dialog = page.getByRole('dialog', { name: title });
       await dialog.waitFor({ state: 'visible' });
       await park();

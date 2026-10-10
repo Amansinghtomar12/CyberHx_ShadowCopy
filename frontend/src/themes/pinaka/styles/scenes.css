@@ -204,6 +204,18 @@ html[data-theme='pinaka'] .pk-scenecard__backeyebrow {
   color: color-mix(in srgb, var(--pk-scene-accent, #dfa049) 66%, #fff);
 }
 
+/* The reveal. Reads as the headline of the turned face, the way the
+   scene's name does on the closed one, so the turn feels like an answer
+   rather than a change of subject. */
+html[data-theme='pinaka'] .pk-scenecard__reveal {
+  margin: 0.15rem 0 0.4rem;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-wrap: balance;
+  color: rgb(255 255 255 / 0.95);
+}
+
 html[data-theme='pinaka'] .pk-scenecard__backline {
   margin: 0;
   font-style: italic;

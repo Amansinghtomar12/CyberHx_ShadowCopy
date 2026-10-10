@@ -1,11 +1,18 @@
 /**
  * A Free challenge dressed as its battle scene.
  *
- * The card is the arena door. Closed, it shows the scene's name and a call
- * to arms; the challenge's own title sits under it in small type, because
- * a player still has to be able to find a particular challenge on a board
- * of twelve. Opening it turns the card over and hands the scene to the
- * whole page — the site's background becomes the painting.
+ * The card is the arena door, and it opens in three beats rather than
+ * two. Closed, it is the scene and nothing else: a name, a call to arms,
+ * and the numbers a player needs to choose between arenas. Answering the
+ * call turns the card over, hands the scene to the whole page, and
+ * reveals what actually waits inside — the challenge's real name — with
+ * no brief yet. Reading the brief is a third, separate press.
+ *
+ * Holding the real name back is the point: a closed arena should be a
+ * decision about the scene, not a disguised challenge list. The cost is
+ * that a player hunting one challenge by name has to enter to find it;
+ * search still matches the hidden title, so the card is findable even
+ * while it is not readable.
  *
  * Being in the arena and reading the brief are two different things. The
  * dialog can be dismissed (Escape, its close button, the scrim) without
@@ -78,8 +85,9 @@ export const SceneCard: React.FC<SceneCardProps> = ({
           </div>
 
           <h3 className="pk-scenecard__scene">{scene.label}</h3>
-          {/* The real challenge name, so the board stays navigable. */}
-          <p className="pk-scenecard__title">{title}</p>
+          {/* The real challenge name is deliberately not here. A closed
+              arena is the scene and nothing else; learning what actually
+              waits inside is what entering buys. */}
 
           <div className="pk-scenecard__foot">
             <span className="pk-scenecard__pts">
@@ -107,12 +115,14 @@ export const SceneCard: React.FC<SceneCardProps> = ({
             content again the moment the brief is dismissed. */}
         <div className="pk-scenecard__face pk-scenecard__back" aria-hidden={!open || briefOpen}>
           <p className="pk-scenecard__backeyebrow">{scene.label}</p>
+          {/* The reveal: what this arena actually holds. */}
+          <h3 className="pk-scenecard__reveal">{title}</h3>
           <p className="pk-scenecard__backline">{scene.intro}</p>
 
           <div className="pk-scenecard__backacts">
             <button
               type="button"
-              className="pk-scenecard__enter"
+              className="pk-scenecard__enter pk-scenecard__brief"
               onClick={() => onResume(origin())}
               tabIndex={open && !briefOpen ? undefined : -1}
             >

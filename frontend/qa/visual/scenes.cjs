@@ -71,16 +71,51 @@ module.exports = [
   // Pinaka event: dismissing the brief must NOT leave the arena. Only
   // "Take rest" folds the card and gives the chapter's sky back.
   // What the player is left looking at once the brief is dismissed.
+  // The three beats: closed (scene only) -> entered (real name, no brief)
+  // -> brief open. And a separate way back at every point.
+  scene('arena-three-beats', {
+    before: async (page, h) => {
+      const look = async (label) => {
+        const r = await page.evaluate(() => {
+          const c = document.querySelector('.pk-scenecard');
+          const open = document.querySelector('.pk-scenecard[data-open="1"]');
+          const face = open ? open.querySelector('.pk-scenecard__back') : (c && c.querySelector('.pk-scenecard__front'));
+          return {
+            flipped: !!open,
+            brief: !!document.querySelector('[role="dialog"]'),
+            reveal: open ? (open.querySelector('.pk-scenecard__reveal')||{}).textContent || null : null,
+            frontText: c ? (c.querySelector('.pk-scenecard__front')||{}).innerText.replace(/\n+/g,' / ') : null,
+          };
+        });
+        console.log(`        ${label.padEnd(16)} flipped=${r.flipped} brief=${r.brief} reveal=${JSON.stringify(r.reveal)}`);
+        if (label === 'closed') console.log(`        closed face reads: ${JSON.stringify(r.frontText)}`);
+        return r;
+      };
+      await h.boardReady();
+      await look('closed');
+      await page.locator('.pk-scenecard__enter').first().click();
+      await page.waitForTimeout(1300);
+      await look('entered');
+      await page.locator('.pk-scenecard[data-open="1"] .pk-scenecard__brief').first().click();
+      await page.waitForTimeout(1200);
+      await look('brief open');
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(1400);
+      await look('brief closed');
+      await page.locator('.pk-scenecard[data-open="1"] .pk-scenecard__leave').first().click();
+      await page.waitForTimeout(3400);
+      await look('took rest');
+    },
+    shots: [{ at: 400 }],
+  }),
+
   scene('arena-standing', {
     before: async (page, h) => {
       await h.boardReady();
-      await h.openChallenge(EASY);
-      await page.waitForTimeout(1200);
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(1800);
-      const card = page.locator('.pk-scenecard[data-open="1"]');
-      await card.scrollIntoViewIfNeeded().catch(() => {});
-      await page.waitForTimeout(600);
+      await page.locator('.pk-scenecard__enter').first().click();
+      await page.waitForTimeout(1600);
+      await page.locator('.pk-scenecard[data-open="1"]').scrollIntoViewIfNeeded().catch(() => {});
+      await page.waitForTimeout(700);
     },
     shots: [{ at: 600 }],
   }),
