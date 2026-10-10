@@ -55,8 +55,11 @@ html[data-theme='pinaka'] .pk-scenecard__face {
       color-mix(in srgb, var(--pk-scene-accent, #dfa049) 14%, rgb(10 8 6 / 0.16)) 0%,
       rgb(10 8 6 / 0.32) 100%
     );
-  backdrop-filter: blur(10px) saturate(1.14);
-  -webkit-backdrop-filter: blur(10px) saturate(1.14);
+  /* Deliberately no backdrop-filter. One declared here would be inert
+     anyway — .pk-scenecard__inner carries preserve-3d, which makes it this
+     face's backdrop root, so the filter would sample an empty layer — and
+     leaving it in the file implied the card was blurring when it never
+     was. The panels now match this: fill and wash, no blur. */
   box-shadow:
     0 0 0 1px rgb(0 0 0 / 0.35),
     0 18px 44px -24px rgb(0 0 0 / 0.8);

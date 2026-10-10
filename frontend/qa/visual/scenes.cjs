@@ -264,6 +264,47 @@ module.exports = [
     ],
   }),
 
+  // ── one recipe, or none of this holds ───────────────────────────────────
+  // The panels are supposed to be the battle card in another place. They
+  // were not, twice, and neither time was visible in a computed-style
+  // listing read on its own: first the card's own blur turned out to be
+  // inert (its face sits inside the flip container's preserve-3d subtree,
+  // which becomes the backdrop root, so the filter samples an empty
+  // layer), and then, with the panels' blur removed to match, the base
+  // sheet's blur(12px) on every .surface came back through the gap. Both
+  // times the card showed the painting sharp and the panel washed it out.
+  // So this compares them to each other and fails the run when they differ.
+  scene('glass-matches-card', {
+    before: async (page, h) => {
+      await h.boardReady();
+      await page.evaluate(() => document.querySelector('[data-tier]').setAttribute('data-tier', 'medium'));
+      await page.waitForTimeout(400);
+      const r = await page.evaluate(() => {
+        const of = (sel) => {
+          const e = document.querySelector(sel);
+          return e ? getComputedStyle(e).backdropFilter : null;
+        };
+        return {
+          card: of('.pk-scenecard__face'),
+          panels: [
+            ['command header', of('.page-shell header.surface')],
+            ['journey card', of('.pk-journey')],
+            ['sidebar panel', of('.page-shell aside .surface')],
+          ].filter(([, v]) => v !== null),
+        };
+      });
+      if (!r.card) throw new Error('no battle card on the board to compare against');
+      console.log('            battle card backdrop-filter: ' + r.card);
+      const off = r.panels.filter(([, v]) => v !== r.card);
+      for (const [label, v] of r.panels) console.log('            ' + label.padEnd(16) + ' ' + v);
+      if (off.length) {
+        throw new Error('panels do not match the card (' + r.card + '): '
+          + off.map(([l, v]) => l + '=' + v).join(', '));
+      }
+    },
+    shots: [{ at: 200 }],
+  }),
+
   scene('nav-fits-admin', navFits({ me: { isAdmin: true }, event: { theme: 'pinaka' } })),
   scene('nav-fits-player', navFits({ event: { theme: 'pinaka' } })),
 

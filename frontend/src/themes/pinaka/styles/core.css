@@ -173,29 +173,32 @@ html[data-theme="pinaka"] [data-tier]:not(:is([data-tier="high"], [data-tier="me
     /* Transparent on purpose. These are .surface too, so the rule below
        already paints them the card's gradient; a colour here would sit
        under that gradient and the two would stack — which is exactly why
-       the journey card read heavier than the cards beside it. The only
-       thing this rule still owns is the wider blur a full-width frame
-       wants. */
+       the journey card read heavier than the cards beside it. */
     background-color: transparent;
-    -webkit-backdrop-filter: blur(10px) saturate(1.14);
-    backdrop-filter: blur(10px) saturate(1.14);
   }
 
   /* Every other panel gets a smaller version of the same trick, so a stat
      tile or a sidebar card stops being a solid block on the artwork. */
   html[data-theme="pinaka"] :is([data-tier="high"], [data-tier="medium"]) :is(.surface, .card-interactive) {
     /* The battle card's own values, so a sidebar panel and an arena card
-       are the same object in two places: 0.34 at the head, 0.56 at the
+       are the same object in two places: 0.16 at the head, 0.32 at the
        foot where the numbers sit. */
     background-color: transparent;
     background-image: linear-gradient(160deg, rgb(10 8 6 / 0.16) 0%, rgb(10 8 6 / 0.32) 100%);
-    /* The battle card's recipe exactly: a blur and a little saturation,
-       and no brightness. Dimming the backdrop is what made these read as
-       shut even at half alpha — it is the filter, not the alpha, that
-       decides whether a painting comes through. Contrast is carried the
-       way the cards carry it, by the wash and the shadows below. */
-    -webkit-backdrop-filter: blur(10px) saturate(1.14);
-    backdrop-filter: blur(10px) saturate(1.14);
+    /* No blur, because the battle card has none in practice: its face
+       sits inside the flip container's preserve-3d subtree, and that
+       ancestor is the face's backdrop root, so the filter declared on it
+       samples an empty layer and does nothing. The card has always shown
+       the painting sharp while the panel beside it blurred that painting
+       into a wash — which is the whole of why the two never looked alike,
+       at any alpha. Contrast is carried the way the card carries it: the
+       fill, the wash at head and foot, and the halo on the type.
+
+       Written as `none` rather than simply left out, because the base
+       sheet puts blur(12px) on every .surface: omitting it here would not
+       mean no blur, it would mean the platform's blur. */
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 
   /* A glass panel is no longer a dark ground, so the muted text inside it
