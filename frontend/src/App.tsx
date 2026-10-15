@@ -533,14 +533,39 @@ export default function App() {
   // The battle scenes an organiser may pick from: the twelve that ship,
   // plus any they have added during the event.
   const { catalogue: scenes, refresh: refreshScenes } = useSceneCatalogue(pinaka);
-  // The picture an organiser gave a challenge, where they gave it one.
-  const challengeCards = useChallengeCards(pinaka);
-  const sceneOf = scenes.lookup;
+  // Titles, so a picture uploaded without a name falls back to the
+  // challenge's own rather than printing an empty arena door.
+  const challengeTitles = useMemo(
+    () => new Map(challenges.map(c => [c.id, c.title])),
+    [challenges],
+  );
+  // The picture an organiser gave a challenge — itself a scene now, so the
+  // board draws an upload and a catalogue painting through one path.
+  const challengeCards = useChallengeCards(pinaka, challengeTitles);
+  const catalogueSceneOf = scenes.lookup;
   const serverJourney = useChapterProgress(pinaka);
   const journey = useJourney(journeyInput, serverJourney.journey);
   // Which battle scene dresses which Free challenge. Empty unless the
   // skin is on and the event migration has been applied.
   const challengeScenes = useChallengeScenes(pinaka);
+  /**
+   * The scene a challenge wears, from either source.
+   *
+   * A catalogue painting wins over an upload. Challenges are dressed in
+   * the twelve shipped scenes today, and a picture added to one of those
+   * challenges should sit on its card rather than quietly replace the
+   * arena an organiser already chose.
+   */
+  const sceneFor = useCallback(
+    (challengeId: string | null | undefined) => {
+      if (!pinaka || !challengeId) return null;
+      return catalogueSceneOf(challengeScenes.get(challengeId))
+        ?? challengeCards.get(challengeId)
+        ?? null;
+    },
+    [pinaka, catalogueSceneOf, challengeScenes, challengeCards],
+  );
+
   // Story-mode locks. The server is the authority; this is so the board
   // can show a lock instead of walking someone into a refusal.
   const chainProgress = useChainProgress(pinaka);
@@ -600,10 +625,8 @@ export default function App() {
   // the scene's plate instead of the chapter's, and closing puts the
   // chapter back.
   const openScene = useMemo(
-    () => (pinaka && arenaChallenge
-      ? sceneOf(challengeScenes.get(arenaChallenge.id))
-      : null),
-    [pinaka, arenaChallenge, challengeScenes],
+    () => (arenaChallenge ? sceneFor(arenaChallenge.id) : null),
+    [arenaChallenge, sceneFor],
   );
   // An arena whose scene mapping disappeared (unassigned mid-event) has
   // nothing left to stand in, so it closes itself rather than stranding
@@ -1049,13 +1072,18 @@ export default function App() {
           series={vm}
           chapter={id}
           locked={chainProgress.locked}
-          sceneOf={(challengeId) => sceneOf(challengeScenes.get(challengeId))}
+          /* Inside a chain the painting goes ON the step's card, which is
+             what ChapterChain already does with it. Same lookup as the
+             Free board, so an uploaded picture reaches a chained challenge
+             too -- it simply arrives as a card image here and as an arena
+             door there. */
+          sceneOf={sceneFor}
           onOpen={openChainChallenge}
           onEnter={enter}
         />
       </React.Suspense>
     );
-  }, [pinaka, chainProgress.chapterOfSeries, chainProgress.locked, challengeScenes, openChainChallenge]);
+  }, [pinaka, chainProgress.chapterOfSeries, chainProgress.locked, sceneFor, openChainChallenge]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -1794,10 +1822,15 @@ export default function App() {
                           }}
                         >
                           {items.map((challenge, i) => {
-                            // A Free challenge with a battle scene is shown as
-                            // its arena door instead of an ordinary card. Every
-                            // other challenge keeps the card it always had.
-                            const cardScene = pinaka ? sceneOf(challengeScenes.get(challenge.id)) : null;
+                            // A Free challenge with art is shown as its arena
+                            // door instead of an ordinary card -- the card
+                            // turns, and the painting goes behind the whole
+                            // site when it is entered. Art from the catalogue
+                            // and art uploaded on the challenge form both
+                            // arrive here, which is the point of sceneFor.
+                            // Every challenge without art keeps the card it
+                            // always had.
+                            const cardScene = sceneFor(challenge.id);
                             if (cardScene) return (
                               <SceneCard
                                 key={challenge.id}
@@ -1963,7 +1996,7 @@ export default function App() {
           {selectedChallenge && (
             <ChallengeModal
               challenge={selectedChallenge}
-              scene={pinaka ? sceneOf(challengeScenes.get(selectedChallenge.id)) : null}
+              scene={sceneFor(selectedChallenge.id)}
               origin={selectedOrigin}
               points={getPoints(selectedChallenge)}
               usedHints={usedHintIds[selectedChallenge.id] || []}

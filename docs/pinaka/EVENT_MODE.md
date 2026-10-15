@@ -88,10 +88,13 @@ rather than keeping the old hex.
 
 ## 3a. Adding your own battle scene, during the event
 
-Admin → Challenges → **Pinaka battle scenes** (below the challenge list) →
-pick a picture → give it a name → **Add scene**. It is in the dropdown on
-every challenge straight away. No deploy, nothing rebuilt, and no waiting
-on an engineer.
+**This tab is gone.** Uploading a picture on the challenge itself does the
+same job and does not make you name a shared scene first — see 3b below.
+
+A custom scene added before the change stays in the dropdown and keeps
+working; there is simply no screen to remove one any more
+(`admin_delete_pinaka_scene` still does it). The rest of this section
+describes how that upload is prepared, which has not changed.
 
 The picture is prepared in your own browser before anything is uploaded:
 
@@ -121,50 +124,56 @@ exactly as before and this panel simply has nothing to add to.
 
 ---
 
-## 3b. A picture on any challenge's card
+## 3b. A picture on a challenge — and the words that go with it
 
-Admin → Challenges → create or edit a challenge → **Card picture** → pick a
-file. That is the whole thing. It uploads as soon as you choose it, and the
-picture is on that challenge's card on the board within half a minute.
+Admin → Challenges → create or edit a challenge → **Card picture**. One
+section, one upload, and the words that turn it into an arena door. There
+is no separate Scenes tab any more: art belongs to the challenge wearing
+it.
 
-**This is not a battle scene, and that is the point.** A battle scene is a
-shared thing with a name, a line of story and its own button wording, and
-dressing a challenge in one turns its card into an arena door. Most
-challenges just want a picture. This is a picture and nothing else, chosen
-per challenge while you are writing it.
+**Where the challenge sits decides how the picture is drawn. You do not
+choose, and there is no switch for it.**
 
-A challenge that has both keeps the scene: being an arena is the larger
-claim.
+| Placement | What a player sees |
+|---|---|
+| **Free** | The card leads with your picture and its name. Entering turns the card over to reveal the real challenge, and the painting goes behind the whole site. |
+| **In a chain** | The picture sits on that step's card instead. The chapter keeps the background — two paintings fighting over one screen is exactly what this rule prevents. |
+
+The same upload does both. Move a challenge from Free into a chain and its
+picture follows, drawn the other way.
+
+**The four words**, all optional:
+
+- **Name** — shown on the closed card. Blank uses the challenge's title.
+- **Card button** — what a player clicks to go in. Blank uses "Open".
+- **Prologue** — a sentence or two above the brief. Blank shows none.
+- **Submit button** — replaces "Submit" on the flag field.
+
+A solved arena reads **Return to the field** whatever you typed, because
+the player is going back rather than in.
 
 **Any format your browser can open.** No extension check — it is an admin
-screen, so a file that will not decode simply says so, and says what it
-actually is. Prepared in your own browser exactly like a battle scene:
-resized to 3840 wide with a 1920 copy, re-encoded as WebP, and measured for
-its focal point and the accent its card border takes.
+screen. Prepared in your own browser: resized to 3840 wide with a 1920
+copy, re-encoded as WebP, and measured for its focal point, its light (the
+bloom behind an arena leaves the picture's own sun) and the accent its card
+border takes.
 
-**The whole picture shows, never a crop of it.** The band on the card takes
-the picture's own shape, so a 16:9 screenshot is drawn edge to edge with
-nothing cut off and nothing letterboxed, at every width the board uses.
+**The whole picture shows, never a crop of it**, and a tall picture is
+allowed: the band on a chain card will not go taller than four fifths of
+its width, and the space either side is filled with a blurred copy of the
+picture rather than grey.
 
-**A tall picture is allowed.** The band will not go taller than four fifths
-of its own width, so a portrait upload cannot push the challenge off the
-screen; the picture is shown whole inside that band, and the space either
-side is filled with a blurred copy of the picture itself, so the card reads
-as one object rather than a photograph with grey bars. Landscape is still
-the better choice, but a phone screenshot will not look broken.
+**The twelve shipped Ramayana paintings are still there**, under *"Or use
+one of the twelve shipped paintings"* on the same section. They bring their
+own name, prologue and wording, and a shipped painting takes precedence
+over an upload on the same challenge — challenges are wearing them today,
+and an upload must not silently replace one.
 
-**The card keeps everything it had** — category, points, title, difficulty,
-tags, solve count — all exactly where they were. The picture goes above
-them, not behind them: a board of twenty is read at a glance, and a title
-printed over a painting is a worse card than no painting.
+**Removing it**: the same field, **Remove**.
 
-**Removing it**: the same field, **Remove**. The card goes straight back to
-the ordinary one.
-
-Needs the `pinaka_challenge_card` migration
-(`20261015000000_pinaka_challenge_card.sql`). Without it the field is
-harmless — it simply has nowhere to save to, and every card is the card it
-always was.
+Needs `20261015000000` and `20261016000000`. With only the first, the
+picture saves and the words are silently dropped; with neither, the field
+is harmless and every card is the card it always was.
 
 ---
 
