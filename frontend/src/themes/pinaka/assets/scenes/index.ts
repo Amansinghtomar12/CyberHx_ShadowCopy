@@ -11,18 +11,24 @@
  * one. `sun` is the brightest cell of a 16x16 grid, measured rather than
  * guessed, so the environment's bloom and rays leave the painted light.
  *
- * The source art is 1672 px wide. 1920 is a 1.15x lift with a light
- * unsharp pass; 3840 is a real upscale, and worth being plain about — no
- * process puts back detail a 1672 px painting never had.
+ * The organisers supply these at 3840x2160. Their own pack is plain that
+ * those are "upscaled 4K exports, not native 4K renders" — the paintings
+ * are generated near 1672 px and lifted with Lanczos before they reach us
+ * — and a round trip back through 1672 confirms it: almost nothing of the
+ * file survives as difference, so there is no detail finer than 1672 in
+ * here to protect. Worth stating rather than implying, because "4K" on
+ * these files describes the container and not the picture.
  *
- * It still earns its place. On a 4K screen the browser was stretching the
- * 1920 file with its own filter, which is softer than a Lanczos lift with
- * a measured unsharp, and every chapter plate beside these already carried
- * a 3840 — so an arena looked worse than the chapter it opened from, which
- * reads as the arena being broken rather than as a shared ceiling. Only a
- * screen that asks for 3840 fetches one, so nobody else pays for it.
+ * What did change is that nothing is upscaled HERE any more. The supplied
+ * 3840 is re-encoded at its own size, and 1920 and 960 are real
+ * reductions with a light unsharp; the earlier set resampled 1672 up to
+ * 3840 in this repo, which added a second lift on top of theirs.
  *
- * A genuinely sharper set needs the art re-exported above 3840 at source.
+ * The 3840 still earns its place: a 4K screen would otherwise stretch the
+ * 1920 with the browser's own filter, which is softer, and every chapter
+ * plate beside these carries a 3840 — so an arena looked worse than the
+ * chapter it opened from. Only a screen that asks for 3840 fetches one.
+ *
  * All twelve are the organisers' own artwork and add nothing to the
  * photographers' credit line.
  */
@@ -96,9 +102,9 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
   'golden-deer': {
     w3840: goldenDeer3840, w1920: goldenDeer1920, w960: goldenDeer960, portrait: goldenDeerPortrait,
     width: 1920, height: 1080,
-    alt: 'Pinaka CTF battle scene: a golden deer glowing on a forest path at sunrise',
-    focal: { x: 0.33, y: 0.423 },
-    sun: { x: 0.156, y: 0.094 },
+    alt: 'Pinaka CTF battle scene: a golden deer in a sunlit forest glade, a hermitage and waterfall beyond',
+    focal: { x: 0.519, y: 0.43 },
+    sun: { x: 0.594, y: 0.031 },
     credit: {
       title: 'Pinaka CTF 2026 battle scenes',
       author: 'Pinaka CTF · NFSU Chennai',
@@ -112,8 +118,8 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     w3840: jatayu3840, w1920: jatayu1920, w960: jatayu960, portrait: jatayuPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: a great bird fallen among rocks at dusk',
-    focal: { x: 0.464, y: 0.406 },
-    sun: { x: 0.469, y: 0.406 },
+    focal: { x: 0.47, y: 0.474 },
+    sun: { x: 0.406, y: 0.594 },
     credit: {
       title: 'Pinaka CTF 2026 battle scenes',
       author: 'Pinaka CTF · NFSU Chennai',
@@ -142,8 +148,8 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     w3840: hanumanLeap3840, w1920: hanumanLeap1920, w960: hanumanLeap960, portrait: hanumanLeapPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: a vast leap across open sea from a cliff',
-    focal: { x: 0.428, y: 0.441 },
-    sun: { x: 0.281, y: 0.406 },
+    focal: { x: 0.509, y: 0.443 },
+    sun: { x: 0.656, y: 0.406 },
     credit: {
       title: 'Pinaka CTF 2026 battle scenes',
       author: 'Pinaka CTF · NFSU Chennai',
@@ -157,8 +163,8 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     w3840: ashokaVatika3840, w1920: ashokaVatika1920, w960: ashokaVatika960, portrait: ashokaVatikaPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: a woman seated beneath a tree in a guarded palace garden',
-    focal: { x: 0.636, y: 0.324 },
-    sun: { x: 0.656, y: 0.219 },
+    focal: { x: 0.575, y: 0.532 },
+    sun: { x: 0.906, y: 0.094 },
     credit: {
       title: 'Pinaka CTF 2026 battle scenes',
       author: 'Pinaka CTF · NFSU Chennai',
@@ -172,8 +178,8 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     w3840: lankaDahan3840, w1920: lankaDahan1920, w960: lankaDahan960, portrait: lankaDahanPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: a city skyline taken by fire',
-    focal: { x: 0.421, y: 0.522 },
-    sun: { x: 0.281, y: 0.344 },
+    focal: { x: 0.509, y: 0.462 },
+    sun: { x: 0.719, y: 0.094 },
     credit: {
       title: 'Pinaka CTF 2026 battle scenes',
       author: 'Pinaka CTF · NFSU Chennai',
@@ -187,8 +193,8 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     w3840: sanjeevani3840, w1920: sanjeevani1920, w960: sanjeevani960, portrait: sanjeevaniPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: a mountain carried under moonlight',
-    focal: { x: 0.478, y: 0.492 },
-    sun: { x: 0.219, y: 0.094 },
+    focal: { x: 0.56, y: 0.55 },
+    sun: { x: 0.844, y: 0.281 },
     credit: {
       title: 'Pinaka CTF 2026 battle scenes',
       author: 'Pinaka CTF · NFSU Chennai',
@@ -261,9 +267,9 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
   'ravanas-ten-heads': {
     w3840: ravanaHeads3840, w1920: ravanaHeads1920, w960: ravanaHeads960, portrait: ravanaHeadsPortrait,
     width: 1920, height: 1080,
-    alt: 'Pinaka CTF battle scene: ten crowned silhouettes against a storm',
-    focal: { x: 0.295, y: 0.444 },
-    sun: { x: 0.094, y: 0.219 },
+    alt: 'Pinaka CTF battle scene: Ravana crowned and armoured above his citadel, his ten heads against a red sky',
+    focal: { x: 0.533, y: 0.455 },
+    sun: { x: 0.969, y: 0.281 },
     credit: {
       title: 'Pinaka CTF 2026 battle scenes',
       author: 'Pinaka CTF · NFSU Chennai',
