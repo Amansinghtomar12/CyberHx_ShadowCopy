@@ -208,8 +208,8 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     w3840: setuStones3840, w1920: setuStones1920, w960: setuStones960, portrait: setuStonesPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: an army carrying stones into the sea to build a causeway',
-    focal: { x: 0.496, y: 0.3 },
-    sun: { x: 0.406, y: 0.156 },
+    focal: { x: 0.49, y: 0.573 },
+    sun: { x: 0.781, y: 0.344 },
     credit: {
       title: 'Pinaka CTF 2026 battle scenes',
       author: 'Pinaka CTF · NFSU Chennai',
@@ -223,8 +223,8 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     w3840: meghnadTrap3840, w1920: meghnadTrap1920, w960: meghnadTrap960, portrait: meghnadTrapPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: a shimmering illusion closing over a forest',
-    focal: { x: 0.35, y: 0.475 },
-    sun: { x: 0.156, y: 0.406 },
+    focal: { x: 0.491, y: 0.548 },
+    sun: { x: 0.656, y: 0.719 },
     credit: {
       title: 'Pinaka CTF 2026 battle scenes',
       author: 'Pinaka CTF · NFSU Chennai',
@@ -238,8 +238,8 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     w3840: kumbhakarna3840, w1920: kumbhakarna1920, w960: kumbhakarna960, portrait: kumbhakarnaPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: an enormous sleeper stirring underground',
-    focal: { x: 0.386, y: 0.447 },
-    sun: { x: 0.219, y: 0.031 },
+    focal: { x: 0.482, y: 0.533 },
+    sun: { x: 0.781, y: 0.094 },
     credit: {
       title: 'Pinaka CTF 2026 battle scenes',
       author: 'Pinaka CTF · NFSU Chennai',

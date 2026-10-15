@@ -96,8 +96,8 @@ export const CHAPTER_PLATES: Record<ChapterId, ChapterPlate> = {
     w3840: setu3840, w1920: setu1920, w960: setu960, portrait: setuPortrait,
     width: 3840, height: 2160,
     alt: 'A causeway of inscribed stones laid across a breaking sea toward a far citadel at sunset',
-    focal: { x: 0.6, y: 0.46 },
-    sun: { x: 0.656, y: 0.156 },
+    focal: { x: 0.471, y: 0.549 },
+    sun: { x: 0.281, y: 0.219 },
     credit: { title: 'Setu Bandhan — the bridge', ...EVENT_ART },
   },
   lanka: {
