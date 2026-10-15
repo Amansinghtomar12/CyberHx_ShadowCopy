@@ -95,9 +95,12 @@ on an engineer.
 
 The picture is prepared in your own browser before anything is uploaded:
 
-- **Resized** to 1920 wide (never upscaled) and re-encoded as WebP, so a
-  camera export leaves as a few hundred KB rather than making every page on
-  the board wait for it. Accepts PNG, JPEG or WebP, up to 24 MB in.
+- **Resized** to 3840 wide (never upscaled), to match the shipped
+  backgrounds on a 4K screen, plus a 1920 copy for everything else, both
+  re-encoded as WebP — so a camera export leaves as a few hundred KB rather
+  than making every page on the board wait for it. Anything your browser can
+  open, up to 64 MB in. A HEIC straight from an iPhone is the one common
+  format browsers will not read; re-export it as JPEG and it goes through.
 - **Measured** — three numbers, taken from the picture rather than guessed:
   where the subject sits (so a wide desktop crop and a tall phone crop both
   keep it), where the light is (so bloom and rays leave the painted source),
@@ -115,6 +118,53 @@ database. Their *words* can be edited like any other scene's.
 
 If the catalogue migration has not been applied, the twelve still work
 exactly as before and this panel simply has nothing to add to.
+
+---
+
+## 3b. A picture on any challenge's card
+
+Admin → Challenges → create or edit a challenge → **Card picture** → pick a
+file. That is the whole thing. It uploads as soon as you choose it, and the
+picture is on that challenge's card on the board within half a minute.
+
+**This is not a battle scene, and that is the point.** A battle scene is a
+shared thing with a name, a line of story and its own button wording, and
+dressing a challenge in one turns its card into an arena door. Most
+challenges just want a picture. This is a picture and nothing else, chosen
+per challenge while you are writing it.
+
+A challenge that has both keeps the scene: being an arena is the larger
+claim.
+
+**Any format your browser can open.** No extension check — it is an admin
+screen, so a file that will not decode simply says so, and says what it
+actually is. Prepared in your own browser exactly like a battle scene:
+resized to 3840 wide with a 1920 copy, re-encoded as WebP, and measured for
+its focal point and the accent its card border takes.
+
+**The whole picture shows, never a crop of it.** The band on the card takes
+the picture's own shape, so a 16:9 screenshot is drawn edge to edge with
+nothing cut off and nothing letterboxed, at every width the board uses.
+
+**A tall picture is allowed.** The band will not go taller than four fifths
+of its own width, so a portrait upload cannot push the challenge off the
+screen; the picture is shown whole inside that band, and the space either
+side is filled with a blurred copy of the picture itself, so the card reads
+as one object rather than a photograph with grey bars. Landscape is still
+the better choice, but a phone screenshot will not look broken.
+
+**The card keeps everything it had** — category, points, title, difficulty,
+tags, solve count — all exactly where they were. The picture goes above
+them, not behind them: a board of twenty is read at a glance, and a title
+printed over a painting is a worse card than no painting.
+
+**Removing it**: the same field, **Remove**. The card goes straight back to
+the ordinary one.
+
+Needs the `pinaka_challenge_card` migration
+(`20261015000000_pinaka_challenge_card.sql`). Without it the field is
+harmless — it simply has nowhere to save to, and every card is the card it
+always was.
 
 ---
 

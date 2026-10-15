@@ -137,12 +137,35 @@ export const CardArtField: React.FC<CardArtFieldProps> = ({ challengeId, onChang
 
       {value && (
         <div className="mb-2 overflow-hidden rounded-lg border border-border">
-          <img
-            src={value.halfUrl ?? value.url}
-            alt=""
-            className="block h-28 w-full object-cover"
-            style={{ objectPosition: `${Math.round(value.focalX * 100)}% ${Math.round(value.focalY * 100)}%` }}
-          />
+          {/* The band as the card will draw it, not a thumbnail of it. The
+              old preview was a fixed strip cropped to fill, which told an
+              organiser nothing about what their picture would look like on
+              the board -- and for a tall picture it showed a slice of the
+              middle and hid that the card shows the whole thing. Same
+              rules as the card: the picture's own shape, floored so a
+              portrait cannot take the card, the whole picture inside it,
+              and the blurred bed filling whatever is left. */}
+          <div
+            className="relative w-full overflow-hidden"
+            style={{ aspectRatio: String(Math.max(value.width / value.height || 1.7778, 1.25)) }}
+          >
+            <img
+              src={value.halfUrl ?? value.url}
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 h-full w-full object-cover"
+              style={{
+                transform: 'scale(1.1)',
+                filter: 'blur(16px) saturate(1.15) brightness(0.62)',
+                opacity: 0.8,
+              }}
+            />
+            <img
+              src={value.halfUrl ?? value.url}
+              alt=""
+              className="relative z-[1] block h-full w-full object-contain"
+            />
+          </div>
           <div className="flex items-center gap-3 px-3 py-2 text-small text-text-muted">
             <span>{sizeLine}</span>
             <span className="inline-flex items-center gap-1.5">

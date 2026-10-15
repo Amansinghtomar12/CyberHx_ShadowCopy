@@ -2171,13 +2171,51 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
               aria-hidden="true"
               /* The band takes the picture's own shape, so the whole thing
                  shows and the card's furniture starts underneath it rather
-                 than wherever the two happen to miss each other. */
-              style={{ ['--pk-cardart-ratio' as string]: `${art.plate.width} / ${art.plate.height}` }}
+                 than wherever the two happen to miss each other.
+
+                 A bare number, not `w / h`: the CSS floors it with max(),
+                 which takes numbers and not ratios. Guarded against a row
+                 that lost its dimensions, where 0/0 would be NaN and the
+                 band would collapse. */
+              style={{
+                ['--pk-cardart-ratio' as string]:
+                  art.plate.width > 0 && art.plate.height > 0
+                    ? String(art.plate.width / art.plate.height)
+                    : '1.7778',
+              }}
             >
+              {/* The bed: the same picture, blurred, filling whatever the
+                  drawn one does not. A portrait upload leaves about half
+                  the band empty, and empty there looks like a failed image
+                  rather than a tall one. It is the half-size file, which
+                  is the one the band itself draws at every width short of
+                  a 4K screen, so it is almost always already in hand.
+
+                  Only where there is dead ground to fill. A picture at or
+                  above the band's floor fills the band exactly, so a bed
+                  behind it would be a blur the GPU paints on every card on
+                  the board and nobody ever sees. */}
+              {art.plate.width / art.plate.height < 1.25 && (
+                <img
+                  className="pk-cardart-bed"
+                  src={art.plate.w960}
+                  alt=""
+                  aria-hidden="true"
+                  loading="lazy"
+                  decoding="async"
+                />
+              )}
               <img
                 src={art.plate.w1920}
                 srcSet={`${art.plate.w960} 960w, ${art.plate.w1920} 1920w${art.plate.w3840 ? `, ${art.plate.w3840} 3840w` : ''}`}
-                sizes="(max-width: 48rem) 92vw, 22rem"
+                /* The grid's real columns: one below 640px, two to 1279px,
+                   three to 1535px, four above, at the widths those cards
+                   were measured at (472px at the widest, 352px at three
+                   columns). The old single 22rem told the browser every
+                   card was a three-column card, so the wider two-column
+                   cards asked for fewer pixels than they paint and drew
+                   the picture softer than it needed to be. */
+                sizes="(max-width: 39.9375rem) 92vw, (max-width: 79.9375rem) 30rem, (max-width: 95.9375rem) 22rem, 17rem"
                 alt=""
                 loading="lazy"
                 decoding="async"

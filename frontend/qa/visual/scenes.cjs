@@ -82,6 +82,58 @@ const navFits = (opts) => ({
 // once from a button nobody thought of. So this lists every blurring
 // element rather than photographing the result, and fails the run when it
 // finds one: "it looks blurry" is not something a screenshot can localise.
+/**
+ * Marks the card a card-art scene is about, scrolls it into view and waits
+ * for its picture to be painted -- then says so, or fails.
+ *
+ * Both halves matter. The board puts challenge cards well below the fold
+ * and the pictures are `loading="lazy"`, so a clipped full-page shot of an
+ * un-scrolled board filed a photograph of an EMPTY band while every
+ * geometry assertion in the scene passed: the band had the right size and
+ * the picture had the right natural dimensions, because it had been
+ * decoded earlier at a different viewport width. Measuring a picture is
+ * not the same as the browser having drawn it, and the shot is the only
+ * part of this that a person actually looks at.
+ *
+ * @param pick 'landscape' | 'portrait' -- which shape this scene is about.
+ */
+const readyForShot = async (page, pick) => {
+  const found = await page.evaluate((want) => {
+    const band = [...document.querySelectorAll('.pk-cardart')].find(b => {
+      const i = b.querySelector('img:not(.pk-cardart-bed)');
+      if (!i) return false;
+      return want === 'landscape'
+        ? i.naturalWidth > i.naturalHeight
+        : i.naturalHeight > i.naturalWidth;
+    });
+    const card = band?.closest('[data-art="1"]');
+    if (card) card.classList.add('pk-qa-shot');
+    return !!card;
+  }, pick);
+  if (!found) throw new Error('no ' + pick + ' card picture to photograph');
+
+  await page.locator('.pk-qa-shot').scrollIntoViewIfNeeded();
+
+  // Both layers: the drawn picture and the blurred bed behind it. A bed
+  // that never loaded leaves the dead ground grey, which is the thing it
+  // was added to stop.
+  const state = await page.locator('.pk-qa-shot .pk-cardart').first().evaluate(async (band) => {
+    const imgs = [...band.querySelectorAll('img')];
+    await Promise.all(imgs.map(i => i.complete ? null : i.decode().catch(() => null)));
+    return imgs.map(i => ({
+      bed: i.classList.contains('pk-cardart-bed'),
+      complete: i.complete, w: i.naturalWidth,
+      src: (i.currentSrc || i.src || '').split('/').slice(-2).join('/'),
+    }));
+  });
+  const blank = state.filter(i => !i.complete || !i.w);
+  if (blank.length) {
+    throw new Error('the card would photograph blank: '
+      + blank.map(i => (i.bed ? 'bed' : 'picture') + ' ' + i.src + ' not painted').join('; '));
+  }
+  return state;
+};
+
 const blurAudit = (opts = {}) => ({
   event: { theme: 'pinaka', pinaka_story_mode: true },
   ...opts,
@@ -713,34 +765,72 @@ module.exports = [
       await page.locator('.pk-cardart img').first().waitFor({ state: 'attached' });
       await h.park();
 
-      const r = await page.evaluate(() => {
-        const band = document.querySelector('.pk-cardart');
-        const art = band?.querySelector('img');
-        const card = band?.closest('[data-art="1"]');
+      // Measured at more than one width on purpose. The band is sized from
+      // the picture's shape, so whether it letterboxes depends entirely on
+      // how wide the card is -- and the board runs ONE column below 640px,
+      // TWO to 1279px, THREE to 1535px and FOUR above. The sweep photographs
+      // 1440 and 390, which give cards of 352px and 358px; the widest card
+      // the grid ever draws is the 2-column one, measured at 472px in a
+      // 1279px window. That is where an absolute height cap on the band
+      // clamped it and left 50px of dead ground down each side, while the
+      // two photographed widths squeaked under the cap and passed.
+      const measure = () => page.evaluate(() => {
+        // The LANDSCAPE one, by shape, not by position. Taking the first
+        // band on the board made this scene vacuous the moment a portrait
+        // card joined it: every assertion below is guarded on the picture
+        // being landscape, so they all quietly stopped running and the
+        // scene went on reporting ok.
+        const bands = [...document.querySelectorAll('.pk-cardart')];
+        const band = bands.find(b => {
+          const i = b.querySelector('img:not(.pk-cardart-bed)');
+          return i && i.naturalWidth > i.naturalHeight;
+        });
+        if (!band) {
+          return { missing: bands.map(b => {
+            const i = b.querySelector('img:not(.pk-cardart-bed)');
+            return i ? i.naturalWidth + 'x' + i.naturalHeight : 'no img';
+          }) };
+        }
+        const art = band.querySelector('img:not(.pk-cardart-bed)');
+        const card = band.closest('[data-art="1"]');
         const cb = card.getBoundingClientRect();
         const bb = band.getBoundingClientRect();
         const el = (sel) => card.querySelector(sel);
         const top = (sel) => { const e = el(sel); return e ? Math.round(e.getBoundingClientRect().top - cb.top) : null; };
         const text = (sel) => (el(sel)?.textContent || '').trim();
         const cs = getComputedStyle(art);
+        const imgRatio = art.naturalWidth / art.naturalHeight;
+        // What `contain` actually paints inside the band, and therefore how
+        // much of the band is dead ground. This is the number that matters:
+        // comparing the band's ratio to the picture's says the same thing
+        // when the band is free, but says nothing about which way a clamped
+        // band failed.
+        const drawnW = Math.min(bb.width, bb.height * imgRatio);
+        const drawnH = Math.min(bb.height, bb.width / imgRatio);
         return {
           src: art?.getAttribute('src') || null,
           srcset: art?.getAttribute('srcset') || '',
+          sizes: art?.getAttribute('sizes') || '',
           fit: cs.objectFit,
+          cardW: Math.round(cb.width),
           bandTop: Math.round(bb.top - cb.top),
           bandBottom: Math.round(bb.bottom - cb.top),
-          bandRatio: bb.width / bb.height,
-          imgRatio: art.naturalWidth / art.naturalHeight,
+          bandW: bb.width, bandH: bb.height,
+          deadX: bb.width - drawnW,
+          deadY: bb.height - drawnH,
+          imgRatio,
           firstContentTop: top('.relative.flex.items-start'),
           title: text('h3'), points: text('.font-mono'), category: text('.label-micro'),
           isSceneCard: !!card.closest('.pk-scenecard'),
         };
       });
-      console.log('            band ' + r.bandTop + '→' + r.bandBottom
-        + '  ratio ' + r.bandRatio.toFixed(2) + ' vs picture ' + r.imgRatio.toFixed(2)
-        + '  content starts ' + r.firstContentTop);
-      console.log('            card kept: ' + r.title + ' · ' + r.points + ' · ' + r.category);
 
+      const r = await measure();
+
+      if (r.missing) {
+        throw new Error('no landscape card picture on the board; pictures found: '
+          + r.missing.join(', '));
+      }
       if (!r.src) throw new Error('the card has no picture');
       // A 4K candidate has to be offered, or an organiser's upload is
       // capped at the size the board used to allow.
@@ -748,19 +838,20 @@ module.exports = [
       // The whole picture, not a crop of it: `cover` fills a card far
       // squarer than the art by throwing away a third of it.
       if (r.fit !== 'contain') throw new Error('object-fit is ' + r.fit + ', not contain');
-      // The band is the picture's own shape, so nothing is letterboxed and
-      // nothing is cut.
       // Guarded against NaN on purpose: an <img> that never loaded reports
-      // 0x0, and `Math.abs(x - NaN) > 0.06` is false — so the check that
+      // 0x0, and `Math.abs(x - NaN) > 0.06` is false -- so the check that
       // matters most would pass hardest exactly when the picture is missing.
       if (!(r.imgRatio > 0)) throw new Error('the card picture never loaded');
-      if (Math.abs(r.bandRatio - r.imgRatio) > 0.06) {
-        throw new Error('band is ' + r.bandRatio.toFixed(2) + ' but the picture is ' + r.imgRatio.toFixed(2));
+      // `sizes` has to describe the grid it is in. A single width told the
+      // browser every card was a 3-column card and the two wide columns
+      // drew a soft picture.
+      if (!/92vw/.test(r.sizes) || (r.sizes.match(/,/g) || []).length < 3) {
+        throw new Error('sizes does not describe the four column counts: ' + r.sizes);
       }
-      // And the card's furniture starts below the picture rather than
-      // wherever the two happen to miss each other — which is what a
-      // full-card backdrop left to chance, and a taller picture would
-      // have printed the title over the art.
+
+      // The card's furniture starts below the picture rather than wherever
+      // the two happen to miss each other -- a taller picture would
+      // otherwise print the title over the art.
       if (!(r.firstContentTop >= r.bandBottom)) {
         throw new Error('content starts at ' + r.firstContentTop + ', inside a band ending at ' + r.bandBottom);
       }
@@ -768,8 +859,164 @@ module.exports = [
       if (!r.title) throw new Error('the card lost its title');
       if (!r.points) throw new Error('the card lost its points');
       if (!r.category) throw new Error('the card lost its category');
+
+      // 1180px is the 2-column worst case: wide enough for sm:grid-cols-2,
+      // narrow enough that xl:grid-cols-3 has not kicked in, and past the
+      // lg padding -- so the card is the widest the board ever draws.
+      const was = page.viewportSize();
+      // Several widths across the two-column range rather than one guess at
+      // where the widest card is: the band's shape is the picture's, so the
+      // cost of another width is one resize and one read, and an arithmetic
+      // guess at the grid's breakpoints is exactly what missed this.
+      const widths = was.width < 640 ? [was.width] : [was.width, 700, 900, 1024, 1180, 1279];
+      for (const w of widths) {
+        // No park after a resize: the parking spot is the desktop corner,
+        // which is off-screen at 1180 -- and the pointer has not moved, so
+        // nothing is hovered anyway. Layout is applied before the next
+        // evaluate, and the band animates opacity, not size.
+        if (w !== was.width) await page.setViewportSize({ width: w, height: was.height });
+        const m = w === was.width ? r : await measure();
+        if (m.missing) throw new Error('the landscape card picture vanished at ' + w + 'px');
+        console.log('            ' + w + 'px: card ' + m.cardW
+          + '  band ' + Math.round(m.bandW) + 'x' + Math.round(m.bandH)
+          + '  picture ' + m.imgRatio.toFixed(2)
+          + '  dead ' + Math.round(m.deadX) + 'x' + Math.round(m.deadY));
+
+        // A landscape picture is never letterboxed, at any card width. One
+        // pixel of tolerance for sub-pixel layout, not eighty.
+        if (m.imgRatio >= 1.25 && m.deadX > 1.5) {
+          throw new Error('at ' + w + 'px the band is ' + Math.round(m.bandW)
+            + ' wide but the picture is drawn ' + Math.round(m.bandW - m.deadX)
+            + ': ' + Math.round(m.deadX) + 'px of dead ground down the sides');
+        }
+        if (m.deadY > 1.5) {
+          throw new Error('at ' + w + 'px the picture is letterboxed top and bottom by '
+            + Math.round(m.deadY) + 'px');
+        }
+        // And the floor holds: a band taller than its own width would put
+        // the challenge below the fold whatever the picture was.
+        if (m.bandH > m.bandW * 0.8 + 1) {
+          throw new Error('at ' + w + 'px the band is ' + Math.round(m.bandH)
+            + ' tall on ' + Math.round(m.bandW) + ' of width');
+        }
+      }
+      await page.setViewportSize(was);
+      await h.park();
+
+      const painted = await readyForShot(page, 'landscape');
+      console.log('            painted: ' + painted.map(i =>
+        (i.bed ? 'bed ' : 'picture ') + i.src).join(' + '));
     },
-    shots: [{ at: 400 }],
+    shots: [{ at: 400, clip: '.pk-qa-shot', pad: 18 }],
+  }),
+
+  // The other shape. Organisers photograph a whiteboard or screenshot a
+  // phone, and a 9:16 picture allowed its natural height on a 470px card
+  // would be 835px of art above a challenge nobody can see. The band floors
+  // its ratio at 1.25 for exactly this, and `contain` keeps the whole
+  // picture inside the floored band rather than cropping it to fit.
+  //
+  // Worth its own scene: every assertion next door is about a landscape
+  // picture, and the floor is the branch they all skip.
+  scene('card-picture-portrait', {
+    event: { theme: 'pinaka' },
+    before: async (page, h) => {
+      await h.boardTab('Free');
+      await page.locator('.pk-cardart img').first().waitFor({ state: 'attached' });
+      await h.park();
+
+      const read = () => page.evaluate(() => {
+        // The portrait one, found by its picture rather than its position:
+        // the board's order is the organisers' business, not this test's.
+        const bands = [...document.querySelectorAll('.pk-cardart')];
+        const band = bands.find(b => {
+          const i = b.querySelector('img:not(.pk-cardart-bed)');
+          return i && i.naturalHeight > i.naturalWidth;
+        });
+        if (!band) {
+          return { missing: bands.map(b => {
+            const i = b.querySelector('img:not(.pk-cardart-bed)');
+            return i ? i.naturalWidth + 'x' + i.naturalHeight : 'no img';
+          }) };
+        }
+        const art = band.querySelector('img:not(.pk-cardart-bed)');
+        const card = band.closest('[data-art="1"]');
+        const cb = card.getBoundingClientRect();
+        const bb = band.getBoundingClientRect();
+        const imgRatio = art.naturalWidth / art.naturalHeight;
+        const content = card.querySelector('.relative.flex.items-start');
+        return {
+          fit: getComputedStyle(art).objectFit,
+          cardW: Math.round(cb.width), cardH: Math.round(cb.height),
+          bandW: bb.width, bandH: bb.height,
+          bandBottom: Math.round(bb.bottom - cb.top),
+          imgRatio,
+          // contain fits by height here, so the picture's full height shows
+          // and the slack lands either side.
+          deadX: bb.width - Math.min(bb.width, bb.height * imgRatio),
+          deadY: bb.height - Math.min(bb.height, bb.width / imgRatio),
+          contentTop: content ? Math.round(content.getBoundingClientRect().top - cb.top) : null,
+          title: (card.querySelector('h3')?.textContent || '').trim(),
+        };
+      });
+
+      const was = page.viewportSize();
+      for (const w of (was.width < 640 ? [was.width] : [was.width, 900, 1279])) {
+        if (w !== was.width) await page.setViewportSize({ width: w, height: was.height });
+        const r = await read();
+        if (r.missing) {
+          throw new Error('no portrait card picture on the board; pictures found: ' + r.missing.join(', '));
+        }
+        console.log('            ' + w + 'px: card ' + r.cardW + 'x' + r.cardH
+          + '  band ' + Math.round(r.bandW) + 'x' + Math.round(r.bandH)
+          + '  picture ' + r.imgRatio.toFixed(2)
+          + '  dead ' + Math.round(r.deadX) + 'x' + Math.round(r.deadY));
+
+        if (!(r.imgRatio > 0 && r.imgRatio < 1)) {
+          throw new Error('this is not a portrait picture: ratio ' + r.imgRatio);
+        }
+        if (r.fit !== 'contain') throw new Error('object-fit is ' + r.fit + ', not contain');
+        // The floor: never taller than 0.8x its own width, whatever the
+        // picture's shape. Without it this band would be 1.78x its width.
+        if (r.bandH > r.bandW * 0.8 + 1) {
+          throw new Error('at ' + w + 'px the floor did not hold: band ' + Math.round(r.bandH)
+            + ' tall on ' + Math.round(r.bandW) + ' of width');
+        }
+        // And the whole picture is still there. `cover` would fill the band
+        // by throwing away the top and bottom of a portrait -- which is the
+        // crop the organisers asked us to stop doing.
+        if (r.deadY > 1.5) {
+          throw new Error('at ' + w + 'px the portrait is cut: ' + Math.round(r.deadY)
+            + 'px of its height is outside the band');
+        }
+        // The bars are the honest consequence of a portrait in a landscape
+        // band, but they should be bars either side, not the whole card.
+        if (!(r.deadX > 0)) {
+          throw new Error('at ' + w + 'px a portrait filled a floored band exactly, which cannot happen');
+        }
+        if (r.deadX > r.bandW * 0.75) {
+          throw new Error('at ' + w + 'px the picture is a sliver: ' + Math.round(r.bandW - r.deadX)
+            + ' of ' + Math.round(r.bandW));
+        }
+        // The card is still a card: a readable challenge under the art.
+        if (!(r.contentTop >= r.bandBottom)) {
+          throw new Error('at ' + w + 'px content starts at ' + r.contentTop
+            + ', inside a band ending at ' + r.bandBottom);
+        }
+        if (!r.title) throw new Error('the card lost its title');
+        if (r.cardH > was.height) {
+          throw new Error('at ' + w + 'px one card is ' + r.cardH + 'px tall, past a '
+            + was.height + 'px screen');
+        }
+      }
+      await page.setViewportSize(was);
+      await h.park();
+
+      const paintedP = await readyForShot(page, 'portrait');
+      console.log('            painted: ' + paintedP.map(i =>
+        (i.bed ? 'bed ' : 'picture ') + i.src).join(' + '));
+    },
+    shots: [{ at: 400, clip: '.pk-qa-shot', pad: 18 }],
   }),
 
   scene('blur-audit', blurAudit()),

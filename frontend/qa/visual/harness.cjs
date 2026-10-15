@@ -205,8 +205,39 @@ async function runScene(browser, def, run) {
       const file = path.join(run.outDir, shot.name ? `${def.name}-${shot.name}.png` : `${def.name}.png`);
       const o = { path: file, timeout: 60_000, fullPage: !!shot.full };
       if (shot.clip) {
-        const box = typeof shot.clip === 'string' ? await page.locator(shot.clip).first().boundingBox() : shot.clip;
-        if (box) { const pad = shot.pad ?? 24; o.clip = { x: Math.max(0, box.x - pad), y: Math.max(0, box.y - pad), width: box.width + 2 * pad, height: box.height + 2 * pad }; o.fullPage = true; }
+        const pad = shot.pad ?? 24;
+        if (typeof shot.clip === 'string') {
+          // Crop out of what the browser is ACTUALLY showing: scroll the
+          // element into view, then clip the viewport around it.
+          //
+          // Not a fullPage capture. Chromium renders a fullPage shot by
+          // expanding past the viewport, and lazy images that were never
+          // in view are dropped when it does -- so a card whose picture the
+          // page was plainly drawing was filed with an empty band, and the
+          // scene's assertions, which read the live DOM rather than the
+          // PNG, all passed. A viewport capture cannot disagree with the
+          // page it came from.
+          const loc = page.locator(shot.clip).first();
+          await loc.scrollIntoViewIfNeeded().catch(() => {});
+          const box = await loc.boundingBox();
+          if (box) {
+            const vp = page.viewportSize();
+            const x = Math.max(0, box.x - pad), y = Math.max(0, box.y - pad);
+            o.clip = {
+              x, y,
+              width: Math.min(box.width + 2 * pad, vp.width - x),
+              height: Math.min(box.height + 2 * pad, vp.height - y),
+            };
+            o.fullPage = false;
+          }
+        } else if (shot.clip) {
+          // An explicit box is page coordinates, which is the fullPage frame.
+          o.clip = {
+            x: Math.max(0, shot.clip.x - pad), y: Math.max(0, shot.clip.y - pad),
+            width: shot.clip.width + 2 * pad, height: shot.clip.height + 2 * pad,
+          };
+          o.fullPage = true;
+        }
       }
       await page.screenshot(o);
       entry.shots.push(path.relative(OUT, file));

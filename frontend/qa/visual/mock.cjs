@@ -351,6 +351,17 @@ function createMock(opts = {}) {
       art_half_url: 'https://mock.supabase.co/storage/v1/object/public/scene-art/cards/x/half.webp',
       art_width: 3840, art_height: 2160,
       focal_x: 0.55, focal_y: 0.5, accent: '#c9803f',
+    }, {
+      // A portrait upload, which is the case the band's ratio floor exists
+      // for. Organisers photograph a whiteboard or screenshot a phone, and
+      // a card that let a 9:16 picture take its natural height would push
+      // the challenge itself off the screen. On the neighbouring challenge
+      // in the same category, so one photograph shows both shapes.
+      challenge_id: ALL[3].id,
+      art_url: 'https://mock.supabase.co/storage/v1/object/public/scene-art/cards/y/full-portrait.webp',
+      art_half_url: 'https://mock.supabase.co/storage/v1/object/public/scene-art/cards/y/half-portrait.webp',
+      art_width: 900, art_height: 1600,
+      focal_x: 0.5, focal_y: 0.4, accent: '#7f9fd4',
     }],
     pinaka_series_chapter: opts.noChapterContent ? [] : PINAKA_CHAPTER_OF_SERIES,
     challenge_files: ALL.flatMap(c => c.files.map(f => ({ ...f, challenge_id: c.id, created_at: c.created_at }))),
@@ -522,8 +533,12 @@ function createMock(opts = {}) {
     // comparing it to NaN, which passes. A picture the board cannot draw
     // is the exact failure these scenes exist to catch.
     if (p.startsWith('/storage/v1/') && /\.(webp|png|jpe?g)$/i.test(p)) {
-      const file = path.join(__dirname, '..', '..',
-        'src/themes/pinaka/assets/scenes/lanka-dahan-960.webp');
+      // Real bytes, and real SHAPES: the band is sized from the picture's
+      // own ratio, so a mock that answered every path with one landscape
+      // file could never show what a portrait upload does to a card. A
+      // path saying portrait gets a 900x1600 file.
+      const file = path.join(__dirname, '..', '..', 'src/themes/pinaka/assets/scenes/',
+        /portrait/.test(p) ? 'lanka-dahan-portrait.webp' : 'lanka-dahan-960.webp');
       await route.fulfill({ status: 200, contentType: 'image/webp', body: fs.readFileSync(file) });
       return true;
     }

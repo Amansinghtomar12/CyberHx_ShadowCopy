@@ -33,11 +33,26 @@ frontend/src/themes/pinaka/components/AuthGateway.tsx
 frontend/src/themes/pinaka/components/PodiumFrame.tsx
 frontend/src/themes/pinaka/components/ProfileJourney.tsx
 frontend/src/themes/pinaka/components/ThemeSwitch.tsx
-frontend/src/themes/pinaka/components/journey/geo.ts   journey-map geography: Natural Earth coastlines (public domain), five stations, one road; pure data
 frontend/src/themes/pinaka/assets/plates/index.ts  PLATES / PLATE_CREDITS: the world plates (two official paintings, three licensed photographs), focal and sun points, credits
 frontend/src/themes/pinaka/assets/plates/sources.ts   plateSource / plateFocal / preloadPlate — the one place that picks a plate's file for an <img> or a preload
 frontend/src/themes/pinaka/assets/plates/*.webp    ten same-origin WebP files (1920 + 960 px wide per plate, 817 KB in all; see ASSETS.md)
 frontend/src/themes/pinaka/README.md               module contract
+frontend/src/themes/pinaka/chapters/config.ts       the six chapters: order, names, plates, copy
+frontend/src/themes/pinaka/chapters/progress.ts    chapter progress derived on the client (the fallback when the RPC is absent)
+frontend/src/themes/pinaka/chapters/useChapterProgress.ts   the one source the rail and the journey card both read
+frontend/src/themes/pinaka/scenes/catalogue.ts     the twelve shipped scenes merged with the ones organisers add
+frontend/src/themes/pinaka/scenes/useSceneCatalogue.ts      reads pinaka_scene; an absent table means "just the twelve"
+frontend/src/themes/pinaka/scenes/useScenes.ts     which challenge wears which scene (polled)
+frontend/src/themes/pinaka/scenes/useChallengeCards.ts      which challenge has a card picture (polled); absent table means none
+frontend/src/themes/pinaka/scenes/prepareArt.ts    browser-side resize/measure: 3840 + 1920 WebP, focal point, light, accent
+frontend/src/themes/pinaka/styles/scenes.css       battle-scene cards, arena backdrop, the card-picture band
+frontend/src/themes/pinaka/assets/scenes/*.webp    the twelve battle scenes (3840/1920/960/portrait per scene)
+frontend/src/components/admin/SceneManager.tsx     Admin → Challenges → add a battle scene during the event
+frontend/src/components/admin/CardArtField.tsx     the "Card picture" field on the challenge form
+supabase/migrations/20261010000000_pinaka_story_mode.sql    the chapter gate (story mode)
+supabase/migrations/20261012000000_pinaka_chain_skips_hidden.sql   a chain steps over a hidden challenge
+supabase/migrations/20261013000000_pinaka_scene_catalogue.sql      pinaka_scene + the scene-art bucket
+supabase/migrations/20261015000000_pinaka_challenge_card.sql       pinaka_challenge_card + admin_set_challenge_card
 frontend/src/lib/brand.ts                          tokenValue(): read a CSS token as a literal (charts)
 frontend/qa/visual/{harness,mock,scenes}.cjs, README.md   screenshot harness (dev tool, not shipped)
 supabase/migrations/20261008000000_event_theme.sql   event_settings.theme + admin_set_theme() + public_theme()
@@ -71,7 +86,9 @@ plate behind each scene, promoted only once loaded, a second veil over it),
 column's backdrop), `components/PinakaIntro.tsx` + `styles/intro.css` (the
 hero plate dim behind the city), `components/PartnerStrip.tsx` +
 `styles/partners.css` (the credit line), `components/JourneyMap.tsx` +
-`styles/journey.css` (the map from `journey/geo.ts`), `boot.ts` (one plate
+`styles/journey.css` (the map; its geography helpers `journey/geo.ts` and
+`journey/milestones.ts` were removed when the card was rewritten to read the
+same chapter progress as the rail), `boot.ts` (one plate
 preload). No platform file outside the table above changed for it except the
 `personal` prop on `JourneyMap` in `App.tsx`.
 
