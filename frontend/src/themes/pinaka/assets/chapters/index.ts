@@ -88,8 +88,8 @@ export const CHAPTER_PLATES: Record<ChapterId, ChapterPlate> = {
     w3840: kishkindha3840, w1920: kishkindha1920, w960: kishkindha960, portrait: kishkindhaPortrait,
     width: 3840, height: 2160,
     alt: 'A valley of forested crags at sunrise seen from a cliff path, rope bridges and watchtowers above the mist',
-    focal: { x: 0.55, y: 0.46 },
-    sun: { x: 0.719, y: 0.156 },
+    focal: { x: 0.485, y: 0.537 },
+    sun: { x: 0.156, y: 0.094 },
     credit: { title: 'Kishkindha — alliance and recon', ...EVENT_ART },
   },
   setu: {

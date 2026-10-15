@@ -253,8 +253,8 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     w3840: angadaEmbassy3840, w1920: angadaEmbassy1920, w960: angadaEmbassy960, portrait: angadaEmbassyPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: a lone envoy standing in a hostile court',
-    focal: { x: 0.349, y: 0.478 },
-    sun: { x: 0.219, y: 0.719 },
+    focal: { x: 0.482, y: 0.509 },
+    sun: { x: 0.219, y: 0.031 },
     credit: {
       title: 'Pinaka CTF 2026 battle scenes',
       author: 'Pinaka CTF · NFSU Chennai',
