@@ -714,34 +714,56 @@ module.exports = [
       await h.park();
 
       const r = await page.evaluate(() => {
-        const art = document.querySelector('.pk-cardart img');
-        const card = art?.closest('[data-art="1"]');
-        const text = (sel) => (card?.querySelector(sel)?.textContent || '').trim();
-        const cs = art ? getComputedStyle(art) : null;
+        const band = document.querySelector('.pk-cardart');
+        const art = band?.querySelector('img');
+        const card = band?.closest('[data-art="1"]');
+        const cb = card.getBoundingClientRect();
+        const bb = band.getBoundingClientRect();
+        const el = (sel) => card.querySelector(sel);
+        const top = (sel) => { const e = el(sel); return e ? Math.round(e.getBoundingClientRect().top - cb.top) : null; };
+        const text = (sel) => (el(sel)?.textContent || '').trim();
+        const cs = getComputedStyle(art);
         return {
           src: art?.getAttribute('src') || null,
           srcset: art?.getAttribute('srcset') || '',
-          fit: cs?.objectFit, pos: cs?.objectPosition,
-          title: text('h3'),
-          // The ordinary card's own furniture, which must survive.
-          points: text('.font-mono'),
-          category: text('.label-micro'),
-          // And it must not be an arena door.
-          isSceneCard: !!card?.closest('.pk-scenecard'),
+          fit: cs.objectFit,
+          bandTop: Math.round(bb.top - cb.top),
+          bandBottom: Math.round(bb.bottom - cb.top),
+          bandRatio: bb.width / bb.height,
+          imgRatio: art.naturalWidth / art.naturalHeight,
+          firstContentTop: top('.relative.flex.items-start'),
+          title: text('h3'), points: text('.font-mono'), category: text('.label-micro'),
+          isSceneCard: !!card.closest('.pk-scenecard'),
         };
       });
-      console.log('            art: ' + (r.src || '').replace(/^.*\//, '') + '  fit=' + r.fit + '  pos=' + r.pos);
+      console.log('            band ' + r.bandTop + '→' + r.bandBottom
+        + '  ratio ' + r.bandRatio.toFixed(2) + ' vs picture ' + r.imgRatio.toFixed(2)
+        + '  content starts ' + r.firstContentTop);
       console.log('            card kept: ' + r.title + ' · ' + r.points + ' · ' + r.category);
 
       if (!r.src) throw new Error('the card has no picture');
       // A 4K candidate has to be offered, or an organiser's upload is
       // capped at the size the board used to allow.
       if (!/3840w/.test(r.srcset)) throw new Error('no 3840 candidate offered: ' + r.srcset);
-      // Cover, not stretch: a picture squashed to the card's shape is worse
-      // than no picture.
-      if (r.fit !== 'cover') throw new Error('object-fit is ' + r.fit + ', not cover');
-      // The measured focal point, not a default centre.
-      if (r.pos === '50% 50%') throw new Error('object-position was not taken from the focal point');
+      // The whole picture, not a crop of it: `cover` fills a card far
+      // squarer than the art by throwing away a third of it.
+      if (r.fit !== 'contain') throw new Error('object-fit is ' + r.fit + ', not contain');
+      // The band is the picture's own shape, so nothing is letterboxed and
+      // nothing is cut.
+      // Guarded against NaN on purpose: an <img> that never loaded reports
+      // 0x0, and `Math.abs(x - NaN) > 0.06` is false — so the check that
+      // matters most would pass hardest exactly when the picture is missing.
+      if (!(r.imgRatio > 0)) throw new Error('the card picture never loaded');
+      if (Math.abs(r.bandRatio - r.imgRatio) > 0.06) {
+        throw new Error('band is ' + r.bandRatio.toFixed(2) + ' but the picture is ' + r.imgRatio.toFixed(2));
+      }
+      // And the card's furniture starts below the picture rather than
+      // wherever the two happen to miss each other — which is what a
+      // full-card backdrop left to chance, and a taller picture would
+      // have printed the title over the art.
+      if (!(r.firstContentTop >= r.bandBottom)) {
+        throw new Error('content starts at ' + r.firstContentTop + ', inside a band ending at ' + r.bandBottom);
+      }
       if (r.isSceneCard) throw new Error('a card picture turned the card into an arena door');
       if (!r.title) throw new Error('the card lost its title');
       if (!r.points) throw new Error('the card lost its points');

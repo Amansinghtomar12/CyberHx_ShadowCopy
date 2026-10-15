@@ -13,6 +13,8 @@
  * and both are recorded in `mock.gaps` so holes are visible, never silent.
  */
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 const HOST = 'mock.supabase.co';
 const ME_ID = '11111111-1111-4111-8111-111111111111';
@@ -512,6 +514,19 @@ function createMock(opts = {}) {
     if (p.startsWith('/auth/v1/')) return json({}).then(() => true);
     if (p.startsWith('/functions/v1/submit-flag')) { let body = {}; try { body = JSON.parse(req.postData() || '{}'); } catch {} return json(submitFlag(body)).then(() => true); }
     if (p.startsWith('/functions/v1/')) { gap('function ' + p); return json({}).then(() => true); }
+    // Scene and card art: real bytes, not an empty object.
+    //
+    // It used to answer {} for everything under /storage/, so every
+    // uploaded picture in a scene was an <img> that never loaded — and a
+    // test comparing the band's shape to the picture's was quietly
+    // comparing it to NaN, which passes. A picture the board cannot draw
+    // is the exact failure these scenes exist to catch.
+    if (p.startsWith('/storage/v1/') && /\.(webp|png|jpe?g)$/i.test(p)) {
+      const file = path.join(__dirname, '..', '..',
+        'src/themes/pinaka/assets/scenes/lanka-dahan-960.webp');
+      await route.fulfill({ status: 200, contentType: 'image/webp', body: fs.readFileSync(file) });
+      return true;
+    }
     if (p.startsWith('/storage/v1/')) return json({}).then(() => true);
     const r = p.match(/^\/rest\/v1\/rpc\/([a-zA-Z0-9_]+)/);
     if (r) {

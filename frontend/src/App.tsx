@@ -2166,7 +2166,14 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
               be read at a glance across a board of twenty, and a painting
               under unreadable text is a worse card than no painting. */}
           {art && (
-            <span className="pk-cardart" aria-hidden="true">
+            <span
+              className="pk-cardart"
+              aria-hidden="true"
+              /* The band takes the picture's own shape, so the whole thing
+                 shows and the card's furniture starts underneath it rather
+                 than wherever the two happen to miss each other. */
+              style={{ ['--pk-cardart-ratio' as string]: `${art.plate.width} / ${art.plate.height}` }}
+            >
               <img
                 src={art.plate.w1920}
                 srcSet={`${art.plate.w960} 960w, ${art.plate.w1920} 1920w${art.plate.w3840 ? `, ${art.plate.w3840} 3840w` : ''}`}
@@ -2174,7 +2181,6 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
                 alt=""
                 loading="lazy"
                 decoding="async"
-                style={{ objectPosition: `${Math.round(art.plate.focal.x * 100)}% ${Math.round(art.plate.focal.y * 100)}%` }}
               />
             </span>
           )}

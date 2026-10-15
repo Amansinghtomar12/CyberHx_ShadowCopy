@@ -427,50 +427,61 @@ html[data-theme='pinaka'] .pk-scenecard__leave {
    the rest of the skin does.
    ════════════════════════════════════════════════════════════════════════ */
 
-/* The parent's [data-art] is load-bearing, not decoration: the glass pass
-   in core.css lifts every direct child of a card out of the way of the
-   card's own backdrop —
+/* The picture gets a band of its own at the head of the card, the shape of
+   the picture itself, exactly as a chapter's chain cards do.
 
-     :is(.surface, .card-interactive) > * { position: relative; z-index: 1 }
+   It was a full-card backdrop with object-fit: cover, which filled the card
+   by throwing away whatever did not fit — and a card is far squarer than
+   the 16:9 most art arrives in, so a third of every picture was cut off the
+   sides and what was left read as a zoom rather than a view.
 
-   which is right for the card's furniture and exactly wrong for a layer
-   whose whole job is to be the backdrop. Matching the parent's attribute
-   as well outranks it, rather than reaching for !important. */
+   `contain` over the whole card fixed the cropping and bought a worse
+   problem: where the picture ended and where the card's text began were
+   two independent numbers that happened to miss each other by eighteen
+   pixels on one card. A taller picture would have printed the title over
+   the art. A band in flow, at the picture's own aspect, cannot: the card's
+   furniture starts below it because it is below it.
+
+   The negative margin bleeds the band to the card's edges through the
+   card's own padding, so the picture meets the border rather than floating
+   in a frame. */
 html[data-theme="pinaka"] .card-interactive[data-art="1"] > .pk-cardart {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
+  position: relative;
+  display: block;
+  margin: -0.875rem -0.875rem 0.625rem;   /* cancels the card's p-3.5 */
+  aspect-ratio: var(--pk-cardart-ratio, 16 / 9);
+  /* A portrait upload would otherwise take the whole card and leave the
+     challenge itself below the fold. Capped, and `contain` below keeps the
+     whole picture visible inside the cap. */
+  max-height: 13rem;
   overflow: hidden;
-  z-index: 0;
+  border-radius: var(--radius-card, 0.75rem) var(--radius-card, 0.75rem) 0 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--pk-card-accent, var(--pk-gold)) 38%, transparent);
   pointer-events: none;
 }
 
 html[data-theme="pinaka"] .pk-cardart img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  /* object-position comes from the picture's measured focal point, so a
-     subject low and right survives a card that is taller than it is wide. */
+  /* With the band at the picture's own shape this is the same as cover —
+     until the cap above bites, and then it is the difference between
+     showing the picture and cropping it. */
+  object-fit: contain;
   display: block;
-  transform: scale(1.02);
-  transition: transform var(--duration-slow, 480ms) var(--ease-out-quint, ease-out),
-              opacity var(--duration-base, 240ms) ease-out;
-  opacity: 1;
+  transition: opacity var(--duration-base, 240ms) ease-out,
+              filter var(--duration-base, 240ms) ease-out;
+  opacity: 0.94;
 }
 
-/* The scrim: darkest at the foot, where the title, the tags and the
-   solve line are, and barely there at the head, so the painting is
-   actually visible. */
+/* The band's own foot, so the picture settles into the card instead of
+   stopping at a hard line — the same gesture the chain cards make. */
 html[data-theme="pinaka"] .pk-cardart::after {
   content: "";
   position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(180deg,
-      rgb(8 10 18 / 0.20) 0%,
-      rgb(8 10 18 / 0.40) 36%,
-      rgb(8 10 18 / 0.78) 70%,
-      rgb(8 10 18 / 0.92) 100%);
+  inset: auto 0 0 0;
+  height: 38%;
+  background: linear-gradient(to top, rgb(8 10 18 / 0.62), transparent);
+  pointer-events: none;
 }
 
 /* A card with a picture takes its border from it, the way a scene card
@@ -482,21 +493,16 @@ html[data-theme="pinaka"] .card-interactive[data-art="1"]:hover {
   border-color: color-mix(in srgb, var(--pk-card-accent, var(--pk-gold)) 72%, transparent);
 }
 
+/* No zoom on hover: scaling the picture crops it again, which is the thing
+   this stopped doing. It brightens instead. */
 html[data-theme="pinaka"] .card-interactive[data-art="1"]:hover .pk-cardart img {
-  transform: scale(1.06);
   opacity: 1;
-}
-
-/* The title has a painting behind it now, so it carries its own shadow
-   rather than trusting the scrim alone on a bright patch of sky. */
-html[data-theme="pinaka"] .card-interactive[data-art="1"] h3 {
-  text-shadow: 0 1px 10px rgb(6 8 14 / 0.86), 0 1px 2px rgb(6 8 14 / 0.9);
+  filter: brightness(1.06);
 }
 
 /* Nothing moves where the player asked for nothing to move. */
 @media (prefers-reduced-motion: reduce) {
-  html[data-theme="pinaka"] .pk-cardart img { transition: none; transform: none; }
-  html[data-theme="pinaka"] .card-interactive[data-art="1"]:hover .pk-cardart img { transform: none; }
+  html[data-theme="pinaka"] .pk-cardart img { transition: none; }
 }
 html[data-theme="pinaka"] [data-tier="still"] .pk-cardart img,
-html[data-theme="pinaka"] [data-tier="low"] .pk-cardart img { transition: none; transform: none; }
+html[data-theme="pinaka"] [data-tier="low"] .pk-cardart img { transition: none; }
