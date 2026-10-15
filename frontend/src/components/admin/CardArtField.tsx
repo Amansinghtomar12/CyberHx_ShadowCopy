@@ -160,9 +160,16 @@ export const CardArtField: React.FC<CardArtFieldProps> = ({ challengeId, onChang
     if (challengeId) await write(challengeId, null);
   };
 
-  const sizeLine = prepared.current
-    ? `${prepared.current.full.width}×${prepared.current.full.height} · ${Math.round(prepared.current.full.blob.size / 1024)} KB`
+  // Separate spans, not one string: adjacent text nodes concatenate when
+  // read back, so "1600×900" beside "7 KB" scrapes as "9007".
+  const prep = prepared.current;
+  const sizeText = prep
+    ? `${prep.full.width}×${prep.full.height}`
     : value ? `${value.width}×${value.height}` : '';
+  const weightText = prep ? `${Math.round(prep.full.blob.size / 1024)} KB` : '';
+  const focalText = value
+    ? `focal ${Math.round(value.focalX * 100)}% / ${Math.round(value.focalY * 100)}%`
+    : '';
 
   return (
     <div className="min-w-0">
@@ -199,8 +206,13 @@ export const CardArtField: React.FC<CardArtFieldProps> = ({ challengeId, onChang
               className="relative z-[1] block h-full w-full object-contain"
             />
           </div>
-          <div className="flex items-center gap-3 px-3 py-2 text-small text-text-muted">
-            <span>{sizeLine}</span>
+          <div className="pk-admin-card-meta flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 text-small text-text-muted">
+            <span data-size>{sizeText}</span>
+            {weightText && <span data-weight>{weightText}</span>}
+            {/* Worth showing: it is the one measurement an organiser can
+                check by eye, and a picture whose subject sits against an
+                edge gets clamped. */}
+            {focalText && <span data-focal>{focalText}</span>}
             <span className="inline-flex items-center gap-1.5">
               <span
                 aria-hidden="true"

@@ -546,6 +546,15 @@ function createMock(opts = {}) {
     // test comparing the band's shape to the picture's was quietly
     // comparing it to NaN, which passes. A picture the board cannot draw
     // is the exact failure these scenes exist to catch.
+    // An UPLOAD, not a read. The card field uploads the moment a picture
+    // is chosen, and this path has the same .webp ending as a read -- so
+    // without the method check the client was handed image bytes where it
+    // expected {"Key": ...} and every upload failed. The scene then timed
+    // out waiting for a preview that could never appear.
+    if (p.startsWith('/storage/v1/') && /^(POST|PUT)$/i.test(req.method())) {
+      const key = p.replace(/^\/storage\/v1\/object\/(?:sign\/)?/, '');
+      return json({ Key: key, Id: 'mock-upload' }).then(() => true);
+    }
     if (p.startsWith('/storage/v1/') && /\.(webp|png|jpe?g)$/i.test(p)) {
       // Real bytes, and real SHAPES: the band is sized from the picture's
       // own ratio, so a mock that answered every path with one landscape

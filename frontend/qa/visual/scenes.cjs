@@ -633,11 +633,12 @@ module.exports = [
     before: async (page, h) => {
       await h.nav('Admin');
       await h.waitText('Challenge catalogue');
-      // Its own tab, not a fold under the challenge list: an organiser
-      // reaches for this mid-event and should not have to scroll a long
-      // board to find it.
-      await page.getByRole('button', { name: 'Scenes', exact: true }).click();
-      await h.waitText('Artwork');
+      // On the challenge itself now, not a tab of its own. The Scenes tab
+      // was removed when a picture started carrying its own words: art
+      // belongs to the challenge wearing it, and an organiser writing a
+      // challenge is already on the screen that needs it.
+      await page.getByRole('button', { name: /Add Challenge/i }).first().click();
+      await h.waitText('Card picture');
 
       // A picture with its subject and its light deliberately off centre:
       // a measurement that is really a default would land at 0.5 and pass
@@ -657,18 +658,18 @@ module.exports = [
         return Array.from(buf);
       });
 
-      await page.setInputFiles('#scene-art', {
+      await page.setInputFiles('#chal-card-art', {
         name: 'rama-returns.png', mimeType: 'image/png', buffer: Buffer.from(png),
       });
-      // Not the word "accent": the help text above the input already says
+      // Not the word "accent": the help text under the input already says
       // it, so waiting on that passes before anything has been prepared.
-      // The Clear button exists only once a picture is in hand.
-      await page.getByRole('button', { name: 'Clear' }).waitFor({ state: 'visible' });
+      // The Remove button exists only once a picture is in hand.
+      await page.getByRole('button', { name: 'Remove' }).first().waitFor({ state: 'visible' });
 
       // Read the fields, not the page: adjacent spans concatenate in
       // textContent, so "1600×900" and "7 KB" scrape as "9007".
       const read = await page.evaluate(() => {
-        const row = document.querySelector('.pk-admin-scene-meta');
+        const row = document.querySelector('.pk-admin-card-meta');
         const t = (sel) => (row?.querySelector(sel)?.textContent || '').trim();
         const size = t('[data-size]').match(/(\d+)×(\d+)/);
         const kb = t('[data-weight]').match(/(\d+)/);
@@ -698,9 +699,24 @@ module.exports = [
         throw new Error('focal did not follow the light: ' + read.fx + '%/' + read.fy + '%');
       }
 
-      // And the name becomes the id the storage path and plate key use.
-      await page.fill('#scene-label', 'Rama Returns');
-      await h.waitText('rama-returns');
+      // And the words are on the same screen as the picture, which is the
+      // whole point of folding the tab away. No slug this time: a card
+      // scene is keyed by its challenge's id, so the name is free text
+      // and two challenges may share one.
+      await page.fill('#chal-card-label', 'Rama Returns');
+      await page.fill('#chal-card-enter', 'Come Home');
+      await page.fill('#chal-card-intro', 'The city lights every lamp it owns.');
+      await page.fill('#chal-card-submit', 'Light the Lamps');
+      const words = await page.evaluate(() => ({
+        label: document.querySelector('#chal-card-label')?.value || '',
+        enter: document.querySelector('#chal-card-enter')?.value || '',
+        intro: document.querySelector('#chal-card-intro')?.value || '',
+        submit: document.querySelector('#chal-card-submit')?.value || '',
+      }));
+      console.log('            words: ' + words.label + ' / ' + words.enter + ' / ' + words.submit);
+      for (const [k, v] of Object.entries(words)) {
+        if (!v) throw new Error('the ' + k + ' field is not on the challenge form');
+      }
       await h.park();
     },
     shots: [{ at: 300 }],
