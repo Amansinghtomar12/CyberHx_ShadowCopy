@@ -6,6 +6,25 @@ losing any functional change that lands on `main` in the meantime.
 The skin is a presentation layer: it never touches Supabase, scoring, auth or
 routing. Every one of the switches below only changes what the page looks like.
 
+**Story mode is not the skin, and this is the distinction to hold on to.**
+Turning the skin off changes appearance only. Story mode is a separate
+switch with a backend half: `20261010000000` renames `submit_flag_tx` to
+`submit_flag_tx_core` and `unlock_hint` to `unlock_hint_core`, then puts a
+thin wrapper of the original name in front of each, and it redefines the
+`public_challenges` and `public_hints` views. The original bodies are
+renamed rather than rewritten, so scoring, flag comparison, attempt
+counting and hint costs are the same code they always were; and the
+wrapper's first test is `NOT pinaka_story_mode`, so with the switch off it
+returns the core's answer unchanged. But "the skin never touches the
+backend" is true of the CSS and the components, not of these migrations.
+None of the paths below removes them: to undo the wrappers, rename the
+cores back (`ALTER FUNCTION public.submit_flag_tx_core(uuid,uuid,text,text)
+RENAME TO submit_flag_tx;` and the same for `unlock_hint_core`), which is
+spelled out in full in the header of
+`supabase/migrations/20261010000000_pinaka_event_mode.sql` and in
+EVENT_MODE.md section 6. Turning story mode off is enough for an event and
+needs none of that.
+
 ## 0. How the skin is chosen (per page load, then live)
 
 | Priority | Source | Effect |
