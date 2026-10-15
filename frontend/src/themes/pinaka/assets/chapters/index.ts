@@ -59,51 +59,53 @@ export const CHAPTER_PLATES: Record<ChapterId, ChapterPlate> = {
   ayodhya: {
     w3840: ayodhya3840, w1920: ayodhya1920, w960: ayodhya960, portrait: ayodhyaPortrait,
     width: 3840, height: 2160,
-    alt: 'A city of temple spires and marble ghats along its river at sunrise, lamps lit along the steps',
-    focal: { x: 0.55, y: 0.5 },
-    sun: { x: 0.219, y: 0.344 },
+    alt: 'Rama, Sita, Lakshmana and Hanuman on a garlanded terrace at sunrise, the ghats, boats and temple spires of Ayodhya along the river below',
+    focal: { x: 0.422, y: 0.547 },
+    sun: { x: 0.531, y: 0.344 },
     credit: { title: 'Ayodhya — the beginning', ...EVENT_ART },
   },
   mithila: {
     w3840: mithila3840, w1920: mithila1920, w960: mithila960, portrait: mithilaPortrait,
     width: 3840, height: 2160,
-    alt: 'The great bow resting on its carved pedestal in a pillared court at dusk, lamps and petals across the floor',
-    focal: { x: 0.55, y: 0.48 },
-    sun: { x: 0.281, y: 0.344 },
+    alt: 'The great bow garlanded on its carved pedestal in a sunlit pillared court, King Janaka and the assembled suitors looking on',
+    focal: { x: 0.468, y: 0.54 },
+    sun: { x: 0.656, y: 0.031 },
     credit: { title: 'Mithila — the trial of Pinaka', ...EVENT_ART },
   },
   vanvaas: {
     w3840: vanvaas3840, w1920: vanvaas1920, w960: vanvaas960, portrait: vanvaasPortrait,
     width: 3840, height: 2160,
-    alt: 'Rama, Sita and Lakshmana walking a forest path beside a stream in the morning light',
-    // left of centre, and the portrait crop is taken further left again, so
-    // the three figures stay in frame instead of being cropped away
-    focal: { x: 0.42, y: 0.5 },
-    sun: { x: 0.781, y: 0.094 },
+    alt: 'Rama, Sita and Lakshmana walking a forest path beside a rushing stream, deer in the shade and a far temple above the falls',
+    // Measured from detail rather than brightness, which is what keeps all
+    // three in frame here: the waterfall is the brightest thing in the
+    // painting, and a luminance centroid put the focal at 0.61, far enough
+    // right that the phone crop cut Rama out of his own chapter.
+    focal: { x: 0.478, y: 0.541 },
+    sun: { x: 0.719, y: 0.094 },
     credit: { title: 'Vanvaas — into the forest', ...EVENT_ART },
   },
   kishkindha: {
     w3840: kishkindha3840, w1920: kishkindha1920, w960: kishkindha960, portrait: kishkindhaPortrait,
     width: 3840, height: 2160,
     alt: 'A valley of forested crags at sunrise seen from a cliff path, rope bridges and watchtowers above the mist',
-    focal: { x: 0.55, y: 0.46 },
-    sun: { x: 0.719, y: 0.156 },
+    focal: { x: 0.485, y: 0.537 },
+    sun: { x: 0.156, y: 0.094 },
     credit: { title: 'Kishkindha — alliance and recon', ...EVENT_ART },
   },
   setu: {
     w3840: setu3840, w1920: setu1920, w960: setu960, portrait: setuPortrait,
     width: 3840, height: 2160,
     alt: 'A causeway of inscribed stones laid across a breaking sea toward a far citadel at sunset',
-    focal: { x: 0.6, y: 0.46 },
-    sun: { x: 0.656, y: 0.156 },
+    focal: { x: 0.471, y: 0.549 },
+    sun: { x: 0.281, y: 0.219 },
     credit: { title: 'Setu Bandhan — the bridge', ...EVENT_ART },
   },
   lanka: {
     w3840: lanka3840, w1920: lanka1920, w960: lanka960, portrait: lankaPortrait,
     width: 3840, height: 2160,
-    alt: 'A fortress city burning behind its gate under a red sky, banners along the walls',
-    focal: { x: 0.56, y: 0.44 },
-    sun: { x: 0.594, y: 0.469 },
+    alt: 'Rama and Hanuman on the rocks above the golden gates of Lanka at sunset, the armies drawn up beneath the walls',
+    focal: { x: 0.487, y: 0.514 },
+    sun: { x: 0.219, y: 0.281 },
     credit: { title: 'Lanka — the final war', ...EVENT_ART },
   },
 };

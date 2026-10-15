@@ -584,7 +584,16 @@ html[data-theme="pinaka"] [data-offscreen="true"] *::after {
     position: relative;
     isolation: isolate;
   }
-  html[data-theme="pinaka"] :is([data-tier="high"], [data-tier="medium"]) :is(.surface, .card-interactive) > * {
+  /* Lifts a panel's own content above the glass it sits on.
+     `:not(.absolute)` is load-bearing. Without it this also caught the
+     decorations the markup had already taken out of flow — a card's
+     category hairline, its solved wash, the 192px specular that follows
+     the pointer — and planted them back in the column, where they pushed
+     every card's title and points down by the height of a blob nobody can
+     see. Every challenge card on the board carried that gap. An element
+     the author positioned absolutely is already out of the way of the
+     backdrop and needs no help from here. */
+  html[data-theme="pinaka"] :is([data-tier="high"], [data-tier="medium"]) :is(.surface, .card-interactive) > *:not(.absolute) {
     position: relative;
     z-index: 1;
   }

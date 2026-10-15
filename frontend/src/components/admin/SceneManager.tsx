@@ -142,21 +142,25 @@ export const SceneManager: React.FC<SceneManagerProps> = ({ catalogue, onChanged
     <div className="space-y-5">
       <div className="min-w-0">
         <label className="field-label" htmlFor="scene-art">Artwork</label>
+        {/* Anything the browser can paint. An organiser picking their own art
+            should not be told the file is the wrong kind before it has been
+            tried; one that cannot be decoded says so, and says what it is. */}
         <input
           id="scene-art"
           ref={fileRef}
           type="file"
           className="input"
-          accept="image/png,image/jpeg,image/webp"
+          accept="image/*"
           onChange={e => void pick(e.target.files?.[0])}
           disabled={!!busy}
         />
         <p className="mt-1.5 text-small text-text-muted leading-relaxed">
-          A landscape JPEG, PNG or WebP. It is resized to 1920 wide and re-encoded here in your
-          browser — nothing large is sent — and the focal point, the light and the card's accent
-          colour are measured from the picture itself. A HEIC from an iPhone, or an AVIF from an
-          image generator, will not open even when it is named <code>.jpeg</code>; re-export it
-          first.
+          A landscape picture, any format your browser can open. It is resized here — up to
+          3840 wide, to match the shipped backgrounds on a 4K screen, plus a half-size copy for
+          everything else — re-encoded as WebP, and measured for its focal point, its light and
+          the card's accent colour. Nothing large crosses the network: a 20 MB export leaves as
+          a few hundred KB. A HEIC straight from an iPhone is the one thing browsers cannot
+          read; re-export it and it will go through.
         </p>
       </div>
 

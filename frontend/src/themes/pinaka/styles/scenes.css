@@ -410,3 +410,161 @@ html[data-theme='pinaka'] .pk-scenecard__leave {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   The organisers' own picture on a challenge card.
+
+   Not the arena door next door: that hides the challenge's name on
+   purpose, because a battle scene is a mystery and learning what waits
+   inside is what entering buys. This is the ordinary card with a painting
+   behind it — every piece of furniture exactly where it was, because a
+   board of twenty is read at a glance and moving the points around to
+   make room for art would cost more than the art gains.
+
+   The scrim is the whole trick. A painting under the title is a worse
+   card than no painting at all, so the picture is darkened hardest where
+   the text sits and left alone at the top, and it lifts on hover the way
+   the rest of the skin does.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* The picture gets a band of its own at the head of the card, the shape of
+   the picture itself, exactly as a chapter's chain cards do.
+
+   It was a full-card backdrop with object-fit: cover, which filled the card
+   by throwing away whatever did not fit — and a card is far squarer than
+   the 16:9 most art arrives in, so a third of every picture was cut off the
+   sides and what was left read as a zoom rather than a view.
+
+   `contain` over the whole card fixed the cropping and bought a worse
+   problem: where the picture ended and where the card's text began were
+   two independent numbers that happened to miss each other by eighteen
+   pixels on one card. A taller picture would have printed the title over
+   the art. A band in flow, at the picture's own aspect, cannot: the card's
+   furniture starts below it because it is below it.
+
+   The negative margin bleeds the band to the card's edges through the
+   card's own padding, so the picture meets the border rather than floating
+   in a frame. */
+html[data-theme="pinaka"] .card-interactive[data-art="1"] > .pk-cardart {
+  position: relative;
+  display: block;
+  margin: -0.875rem -0.875rem 0.625rem;   /* cancels the card's p-3.5 */
+  /* The picture's own shape, floored so it can never be taller than 0.8x
+     its width. The floor is what stops a portrait upload taking the whole
+     card and leaving the challenge below the fold.
+
+     Floored by RATIO rather than capped in rem on purpose. An absolute cap
+     bites whenever the card is wider than the cap allows, and the widest
+     cards the board draws are the two-column ones below 1280px -- measured
+     at 472px wide in a 1279px window, where a 16:9 band is 264px tall. The
+     13rem (208px) cap clamped that band while leaving it full width, so
+     `contain` drew the picture 370px wide with 50px of dead ground down
+     each side: letterboxing, on every window between about 700px and
+     1280px, which is the one thing this band exists not to do. The sweep
+     photographs 1440 and 390, where a card is 352px and 358px and the cap
+     just missed biting, so it called that green. A ratio floor cannot fail
+     this way: a landscape band simply is the picture's shape, at every
+     card width. */
+  /* Plain first, floored second: a browser that will not parse max() in a
+     ratio drops that declaration and keeps this one, which gives a tall
+     band for a tall picture -- still bounded by the backstop below, and
+     still showing the whole picture, just taller than we would choose. */
+  aspect-ratio: var(--pk-cardart-ratio, 1.7778);
+  aspect-ratio: max(var(--pk-cardart-ratio, 1.7778), 1.25);
+  /* A backstop against a card taller than the screen, measured against the
+     viewport so it cannot bite a landscape picture: the tallest landscape
+     band measured is 264px, well inside 60vh on any window the board is
+     read on. Where it does bite -- a tall picture on a short window -- the
+     floor above has already put bars down the sides, so it widens them
+     rather than introducing them. */
+  max-height: 60vh;
+  overflow: hidden;
+  border-radius: var(--radius-card, 0.75rem) var(--radius-card, 0.75rem) 0 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--pk-card-accent, var(--pk-gold)) 38%, transparent);
+  pointer-events: none;
+  /* Under everything: the ground the dead space falls back to if the bed
+     is not drawn -- a weak device, or a bed that failed to load. Tinted
+     from the picture's own accent, so it is never flat grey. */
+  background: color-mix(in srgb, var(--pk-card-accent, var(--pk-gold)) 12%, rgb(8 10 18));
+}
+
+/* The dead ground either side of a picture that is not the band's shape.
+   A portrait upload in a 1.25 band leaves about half the band empty, and
+   empty there reads as a broken image rather than a tall one. The same
+   picture, blurred and dimmed, fills it: the bars take the art's own
+   colours, so the card reads as one object and the whole picture still
+   shows at its true shape on top. It draws the half-size file, which is
+   what the band itself uses at every width short of a 4K screen.
+
+   Invisible whenever the picture does fill the band, which is every
+   landscape upload, so this is the portrait case paying for itself. */
+html[data-theme="pinaka"] .pk-cardart-bed {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Scaled past the edges so the blur's own soft border never shows. */
+  transform: scale(1.1);
+  filter: blur(16px) saturate(1.15) brightness(0.62);
+  opacity: 0.8;
+}
+
+html[data-theme="pinaka"] .pk-cardart img:not(.pk-cardart-bed) {
+  /* Above the bed. An absolutely positioned sibling paints over static
+     content otherwise, however the two are ordered. */
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  /* The whole picture, never a crop of it. With the band at the picture's
+     own shape this does exactly what cover would; where the ratio floor
+     has widened the band -- a portrait upload -- it is the difference
+     between showing the picture and cutting its top and bottom off. */
+  object-fit: contain;
+  display: block;
+  transition: opacity var(--duration-base, 240ms) ease-out,
+              filter var(--duration-base, 240ms) ease-out;
+  opacity: 0.94;
+}
+
+/* The band's own foot, so the picture settles into the card instead of
+   stopping at a hard line — the same gesture the chain cards make. */
+html[data-theme="pinaka"] .pk-cardart::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  z-index: 2;
+  height: 38%;
+  background: linear-gradient(to top, rgb(8 10 18 / 0.62), transparent);
+  pointer-events: none;
+}
+
+/* A card with a picture takes its border from it, the way a scene card
+   does, so the board reads as one system rather than two. */
+html[data-theme="pinaka"] .card-interactive[data-art="1"] {
+  border-color: color-mix(in srgb, var(--pk-card-accent, var(--pk-gold)) 42%, transparent);
+}
+html[data-theme="pinaka"] .card-interactive[data-art="1"]:hover {
+  border-color: color-mix(in srgb, var(--pk-card-accent, var(--pk-gold)) 72%, transparent);
+}
+
+/* No zoom on hover: scaling the picture crops it again, which is the thing
+   this stopped doing. It brightens instead. */
+html[data-theme="pinaka"] .card-interactive[data-art="1"]:hover .pk-cardart img:not(.pk-cardart-bed) {
+  opacity: 1;
+  filter: brightness(1.06);
+}
+
+/* Nothing moves where the player asked for nothing to move. */
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme="pinaka"] .pk-cardart img { transition: none; }
+}
+html[data-theme="pinaka"] [data-tier="still"] .pk-cardart img,
+html[data-theme="pinaka"] [data-tier="low"] .pk-cardart img { transition: none; }
+
+/* A blur is the most expensive thing on a board of twenty cards, and the
+   tiers exist to stop asking weak devices for it. The accent ground above
+   stands in: dimmer than the bed, but coloured from the same picture. */
+html[data-theme="pinaka"] [data-tier="still"] .pk-cardart-bed,
+html[data-theme="pinaka"] [data-tier="low"] .pk-cardart-bed { display: none; }

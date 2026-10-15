@@ -93,6 +93,7 @@ import { SceneCard } from './themes/pinaka/components/SceneCard';
 import { scenePlateKey } from './themes/pinaka/assets/plates';
 import type { CatalogueScene as Scene } from './themes/pinaka/scenes/catalogue';
 import { useSceneCatalogue } from './themes/pinaka/scenes/useSceneCatalogue';
+import { useChallengeCards, type ChallengeCard as ChallengeCardArt } from './themes/pinaka/scenes/useChallengeCards';
 import { shouldShowIntro } from './themes/pinaka/intro-gate';
 import {
   PinakaEnvironment, PinakaIntro, JourneyMap, ArrowSolveLight,
@@ -532,6 +533,8 @@ export default function App() {
   // The battle scenes an organiser may pick from: the twelve that ship,
   // plus any they have added during the event.
   const { catalogue: scenes, refresh: refreshScenes } = useSceneCatalogue(pinaka);
+  // The picture an organiser gave a challenge, where they gave it one.
+  const challengeCards = useChallengeCards(pinaka);
   const sceneOf = scenes.lookup;
   const serverJourney = useChapterProgress(pinaka);
   const journey = useJourney(journeyInput, serverJourney.journey);
@@ -1831,6 +1834,7 @@ export default function App() {
                             return (
                             <ChallengeCard
                               scene={null}
+                              art={challengeCards.get(challenge.id) ?? null}
                               key={challenge.id}
                               index={i}
                               challenge={challenge}
@@ -2086,9 +2090,12 @@ interface ChallengeCardProps {
   /** The battle scene this challenge wears, if any. Label only; the card
       otherwise stays exactly as it is, category and points included. */
   scene?: Scene | null;
+  /** The picture the organisers gave this challenge, if any. Behind the
+      card's own furniture, which all stays exactly where it was. */
+  art?: ChallengeCardArt | null;
 }
 
-const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, points, isSolved, solvedBy, firstBlood, onClick, scene = null }) => {
+const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, points, isSolved, solvedBy, firstBlood, onClick, scene = null, art = null }) => {
   const reduce = useReducedMotion();
   const tiltRef = useRef<HTMLDivElement>(null);
   const CategoryIcon = CATEGORY_ICON[challenge.category] ?? Boxes;
@@ -2148,10 +2155,73 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
           data-selflit=""
           /* The tier's frame, idle behaviour and hue all key off this. */
           data-diff={challenge.difficulty}
+          data-art={art ? '1' : undefined}
+          style={art ? { ['--pk-card-accent' as string]: art.accent } : undefined}
           className={`card-interactive group relative flex h-full w-full flex-col overflow-hidden p-3.5 text-left ${
             isSolved ? 'border-border-neon shadow-[0_0_14px_color-mix(in_srgb,var(--color-neon)_18%,transparent)]' : ''
           }`}
         >
+          {/* The organisers' own picture for this challenge.
+              Behind everything, with a scrim over it: the card's job is to
+              be read at a glance across a board of twenty, and a painting
+              under unreadable text is a worse card than no painting. */}
+          {art && (
+            <span
+              className="pk-cardart"
+              aria-hidden="true"
+              /* The band takes the picture's own shape, so the whole thing
+                 shows and the card's furniture starts underneath it rather
+                 than wherever the two happen to miss each other.
+
+                 A bare number, not `w / h`: the CSS floors it with max(),
+                 which takes numbers and not ratios. Guarded against a row
+                 that lost its dimensions, where 0/0 would be NaN and the
+                 band would collapse. */
+              style={{
+                ['--pk-cardart-ratio' as string]:
+                  art.plate.width > 0 && art.plate.height > 0
+                    ? String(art.plate.width / art.plate.height)
+                    : '1.7778',
+              }}
+            >
+              {/* The bed: the same picture, blurred, filling whatever the
+                  drawn one does not. A portrait upload leaves about half
+                  the band empty, and empty there looks like a failed image
+                  rather than a tall one. It is the half-size file, which
+                  is the one the band itself draws at every width short of
+                  a 4K screen, so it is almost always already in hand.
+
+                  Only where there is dead ground to fill. A picture at or
+                  above the band's floor fills the band exactly, so a bed
+                  behind it would be a blur the GPU paints on every card on
+                  the board and nobody ever sees. */}
+              {art.plate.width / art.plate.height < 1.25 && (
+                <img
+                  className="pk-cardart-bed"
+                  src={art.plate.w960}
+                  alt=""
+                  aria-hidden="true"
+                  loading="lazy"
+                  decoding="async"
+                />
+              )}
+              <img
+                src={art.plate.w1920}
+                srcSet={`${art.plate.w960} 960w, ${art.plate.w1920} 1920w${art.plate.w3840 ? `, ${art.plate.w3840} 3840w` : ''}`}
+                /* The grid's real columns: one below 640px, two to 1279px,
+                   three to 1535px, four above, at the widths those cards
+                   were measured at (472px at the widest, 352px at three
+                   columns). The old single 22rem told the browser every
+                   card was a three-column card, so the wider two-column
+                   cards asked for fewer pixels than they paint and drew
+                   the picture softer than it needed to be. */
+                sizes="(max-width: 39.9375rem) 92vw, (max-width: 79.9375rem) 30rem, (max-width: 95.9375rem) 22rem, 17rem"
+                alt=""
+                loading="lazy"
+                decoding="async"
+              />
+            </span>
+          )}
           {/* category hairline */}
           <span
             aria-hidden="true"

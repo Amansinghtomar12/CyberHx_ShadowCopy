@@ -7,6 +7,7 @@ import { exportScoreboardCsv } from '../../lib/scoreboardExport';
 import { safeHttpUrl } from '../../lib/url';
 import { useSceneCatalogue } from '../../themes/pinaka/scenes/useSceneCatalogue';
 import SceneManager from './SceneManager';
+import CardArtField, { write as writeCardArt, type CardArtValue } from './CardArtField';
 import {
   Plus, Eye, EyeOff, Trash2, Edit3, Shield, Users, Flag, Activity, RotateCcw, KeyRound,
   X, AlertTriangle, Megaphone, Zap, Lightbulb, Link2, Save, Inbox, Lock,
@@ -228,6 +229,9 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
     })();
     return () => { live = false; };
   }, [initial?.id]);
+  // Held only for a challenge that had no id when its picture was chosen:
+  // the field writes its own row whenever there is already an id to key on.
+  const [cardArt, setCardArt] = useState<CardArtValue | null>(null);
   const [b2rSeriesId, setB2rSeriesId] = useState('');
   const [chainSeriesList, setChainSeriesList] = useState<{ id: string; title: string; members: { challenge_id: string }[] }[]>([]);
   const [b2rSeriesList, setB2rSeriesList] = useState<{ id: string; title: string; members: { box_id: string }[] }[]>([]);
@@ -485,6 +489,20 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
           + '. If the Pinaka event migration has not been applied yet, this is expected.');
         return;
       }
+
+      // A challenge written from scratch has no id while its picture is
+      // being chosen, so the row is written here, once it has one. Same
+      // shape as the scene above: its own table, and a failure costs the
+      // picture rather than the challenge.
+      if (!initial?.id && cardArt) {
+        const cardErr = await writeCardArt(challengeId, cardArt);
+        if (cardErr) {
+          setSaving(false);
+          setError('Challenge saved, but its card picture could not be set: ' + cardErr
+            + '. If the Pinaka event migration has not been applied yet, this is expected.');
+          return;
+        }
+      }
     }
 
     // Save hints in place. Deleting and re-inserting them gave every hint a
@@ -645,6 +663,18 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
             </>
           )}
         </FormSection>
+
+        {!isB2R && (
+          <FormSection
+            icon={<ImagePlus className="w-4 h-4" />}
+            title="Card picture"
+            description="The artwork this challenge's card wears on the board. Optional, and removable at any time."
+          >
+            <div className="min-w-0 md:max-w-md">
+              <CardArtField challengeId={initial?.id} onChange={setCardArt} />
+            </div>
+          </FormSection>
+        )}
 
         {!isB2R && (
           <FormSection
