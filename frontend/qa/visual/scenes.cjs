@@ -694,6 +694,62 @@ module.exports = [
     shots: [{ at: 400 }],
   }),
 
+  // ── A picture on an ordinary challenge card ─────────────────────────────
+  // Not a picture: a measurement that fails the run.
+  //
+  // Most challenges will never be an arena. They want art on the card and
+  // none of a battle scene's furniture — no second name, no line of story,
+  // no reveal. So the picture goes behind the card the board already has,
+  // and every piece of that card stays exactly where it was: a board of
+  // twenty is read at a glance, and moving the points to make room for art
+  // would cost more than the art gains.
+  //
+  // This checks both halves: the picture is there, and the furniture did
+  // not move to make room for it.
+  scene('card-picture', {
+    event: { theme: 'pinaka' },
+    before: async (page, h) => {
+      await h.boardTab('Free');
+      await page.locator('.pk-cardart img').first().waitFor({ state: 'attached' });
+      await h.park();
+
+      const r = await page.evaluate(() => {
+        const art = document.querySelector('.pk-cardart img');
+        const card = art?.closest('[data-art="1"]');
+        const text = (sel) => (card?.querySelector(sel)?.textContent || '').trim();
+        const cs = art ? getComputedStyle(art) : null;
+        return {
+          src: art?.getAttribute('src') || null,
+          srcset: art?.getAttribute('srcset') || '',
+          fit: cs?.objectFit, pos: cs?.objectPosition,
+          title: text('h3'),
+          // The ordinary card's own furniture, which must survive.
+          points: text('.font-mono'),
+          category: text('.label-micro'),
+          // And it must not be an arena door.
+          isSceneCard: !!card?.closest('.pk-scenecard'),
+        };
+      });
+      console.log('            art: ' + (r.src || '').replace(/^.*\//, '') + '  fit=' + r.fit + '  pos=' + r.pos);
+      console.log('            card kept: ' + r.title + ' · ' + r.points + ' · ' + r.category);
+
+      if (!r.src) throw new Error('the card has no picture');
+      // A 4K candidate has to be offered, or an organiser's upload is
+      // capped at the size the board used to allow.
+      if (!/3840w/.test(r.srcset)) throw new Error('no 3840 candidate offered: ' + r.srcset);
+      // Cover, not stretch: a picture squashed to the card's shape is worse
+      // than no picture.
+      if (r.fit !== 'cover') throw new Error('object-fit is ' + r.fit + ', not cover');
+      // The measured focal point, not a default centre.
+      if (r.pos === '50% 50%') throw new Error('object-position was not taken from the focal point');
+      if (r.isSceneCard) throw new Error('a card picture turned the card into an arena door');
+      if (!r.title) throw new Error('the card lost its title');
+      if (!r.points) throw new Error('the card lost its points');
+      if (!r.category) throw new Error('the card lost its category');
+    },
+    shots: [{ at: 400 }],
+  }),
+
   scene('blur-audit', blurAudit()),
   // And with a challenge open: the dialog and its scrim are the other two
   // places a blur has historically lived.

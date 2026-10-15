@@ -11,10 +11,33 @@
  * one. `sun` is the brightest cell of a 16x16 grid, measured rather than
  * guessed, so the environment's bloom and rays leave the painted light.
  *
- * The source art is 1672 px wide, so 1920 is a 1.15x lift with a light
- * unsharp pass rather than a real upscale. All twelve are the organisers'
- * own artwork and add nothing to the photographers' credit line.
+ * The source art is 1672 px wide. 1920 is a 1.15x lift with a light
+ * unsharp pass; 3840 is a real upscale, and worth being plain about — no
+ * process puts back detail a 1672 px painting never had.
+ *
+ * It still earns its place. On a 4K screen the browser was stretching the
+ * 1920 file with its own filter, which is softer than a Lanczos lift with
+ * a measured unsharp, and every chapter plate beside these already carried
+ * a 3840 — so an arena looked worse than the chapter it opened from, which
+ * reads as the arena being broken rather than as a shared ceiling. Only a
+ * screen that asks for 3840 fetches one, so nobody else pays for it.
+ *
+ * A genuinely sharper set needs the art re-exported above 3840 at source.
+ * All twelve are the organisers' own artwork and add nothing to the
+ * photographers' credit line.
  */
+import goldenDeer3840 from './golden-deer-3840.webp';
+import jatayu3840 from './jatayus-last-stand-3840.webp';
+import shabari3840 from './shabaris-offering-3840.webp';
+import hanumanLeap3840 from './hanumans-leap-3840.webp';
+import ashokaVatika3840 from './ashoka-vatika-3840.webp';
+import lankaDahan3840 from './lanka-dahan-3840.webp';
+import sanjeevani3840 from './sanjeevani-hunt-3840.webp';
+import setuStones3840 from './setu-stones-3840.webp';
+import meghnadTrap3840 from './meghnads-trap-3840.webp';
+import kumbhakarna3840 from './kumbhakarna-awakens-3840.webp';
+import angadaEmbassy3840 from './angadas-embassy-3840.webp';
+import ravanaHeads3840 from './ravanas-ten-heads-3840.webp';
 import type { Plate } from '../plates';
 
 export type SceneId =
@@ -71,7 +94,7 @@ import ravanaHeadsPortrait from './ravanas-ten-heads-portrait.webp';
 
 export const SCENE_PLATES: Record<SceneId, Plate> = {
   'golden-deer': {
-    w1920: goldenDeer1920, w960: goldenDeer960, portrait: goldenDeerPortrait,
+    w3840: goldenDeer3840, w1920: goldenDeer1920, w960: goldenDeer960, portrait: goldenDeerPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: a golden deer glowing on a forest path at sunrise',
     focal: { x: 0.33, y: 0.423 },
@@ -86,7 +109,7 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     },
   },
   'jatayus-last-stand': {
-    w1920: jatayu1920, w960: jatayu960, portrait: jatayuPortrait,
+    w3840: jatayu3840, w1920: jatayu1920, w960: jatayu960, portrait: jatayuPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: a great bird fallen among rocks at dusk',
     focal: { x: 0.464, y: 0.406 },
@@ -101,7 +124,7 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     },
   },
   'shabaris-offering': {
-    w1920: shabari1920, w960: shabari960, portrait: shabariPortrait,
+    w3840: shabari3840, w1920: shabari1920, w960: shabari960, portrait: shabariPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: Shabari offering berries to two travellers outside her hut',
     focal: { x: 0.675, y: 0.398 },
@@ -116,7 +139,7 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     },
   },
   'hanumans-leap': {
-    w1920: hanumanLeap1920, w960: hanumanLeap960, portrait: hanumanLeapPortrait,
+    w3840: hanumanLeap3840, w1920: hanumanLeap1920, w960: hanumanLeap960, portrait: hanumanLeapPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: a vast leap across open sea from a cliff',
     focal: { x: 0.428, y: 0.441 },
@@ -131,7 +154,7 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     },
   },
   'ashoka-vatika': {
-    w1920: ashokaVatika1920, w960: ashokaVatika960, portrait: ashokaVatikaPortrait,
+    w3840: ashokaVatika3840, w1920: ashokaVatika1920, w960: ashokaVatika960, portrait: ashokaVatikaPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: a woman seated beneath a tree in a guarded palace garden',
     focal: { x: 0.636, y: 0.324 },
@@ -146,7 +169,7 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     },
   },
   'lanka-dahan': {
-    w1920: lankaDahan1920, w960: lankaDahan960, portrait: lankaDahanPortrait,
+    w3840: lankaDahan3840, w1920: lankaDahan1920, w960: lankaDahan960, portrait: lankaDahanPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: a city skyline taken by fire',
     focal: { x: 0.421, y: 0.522 },
@@ -161,7 +184,7 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     },
   },
   'sanjeevani-hunt': {
-    w1920: sanjeevani1920, w960: sanjeevani960, portrait: sanjeevaniPortrait,
+    w3840: sanjeevani3840, w1920: sanjeevani1920, w960: sanjeevani960, portrait: sanjeevaniPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: a mountain carried under moonlight',
     focal: { x: 0.478, y: 0.492 },
@@ -176,7 +199,7 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     },
   },
   'setu-stones': {
-    w1920: setuStones1920, w960: setuStones960, portrait: setuStonesPortrait,
+    w3840: setuStones3840, w1920: setuStones1920, w960: setuStones960, portrait: setuStonesPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: an army carrying stones into the sea to build a causeway',
     focal: { x: 0.496, y: 0.3 },
@@ -191,7 +214,7 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     },
   },
   'meghnads-trap': {
-    w1920: meghnadTrap1920, w960: meghnadTrap960, portrait: meghnadTrapPortrait,
+    w3840: meghnadTrap3840, w1920: meghnadTrap1920, w960: meghnadTrap960, portrait: meghnadTrapPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: a shimmering illusion closing over a forest',
     focal: { x: 0.35, y: 0.475 },
@@ -206,7 +229,7 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     },
   },
   'kumbhakarna-awakens': {
-    w1920: kumbhakarna1920, w960: kumbhakarna960, portrait: kumbhakarnaPortrait,
+    w3840: kumbhakarna3840, w1920: kumbhakarna1920, w960: kumbhakarna960, portrait: kumbhakarnaPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: an enormous sleeper stirring underground',
     focal: { x: 0.386, y: 0.447 },
@@ -221,7 +244,7 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     },
   },
   'angadas-embassy': {
-    w1920: angadaEmbassy1920, w960: angadaEmbassy960, portrait: angadaEmbassyPortrait,
+    w3840: angadaEmbassy3840, w1920: angadaEmbassy1920, w960: angadaEmbassy960, portrait: angadaEmbassyPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: a lone envoy standing in a hostile court',
     focal: { x: 0.349, y: 0.478 },
@@ -236,7 +259,7 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     },
   },
   'ravanas-ten-heads': {
-    w1920: ravanaHeads1920, w960: ravanaHeads960, portrait: ravanaHeadsPortrait,
+    w3840: ravanaHeads3840, w1920: ravanaHeads1920, w960: ravanaHeads960, portrait: ravanaHeadsPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: ten crowned silhouettes against a storm',
     focal: { x: 0.295, y: 0.444 },

@@ -37,8 +37,27 @@ export interface ArtMeasurements {
   accent: string;
 }
 
+/** One encoded size of a prepared picture. */
+export interface ArtSize {
+  blob: Blob;
+  width: number;
+  height: number;
+}
+
 export interface PreparedArt extends ArtMeasurements {
-  /** The re-encoded file, ready to upload. */
+  /**
+   * The full-size file: up to 3840 wide, because these are painted
+   * full-bleed behind the whole page and a 4K screen asks for 3840. Capped
+   * at 1920 before, which made the organisers' own art the blurriest thing
+   * on a board whose shipped plates all carry a 3840.
+   */
+  full: ArtSize;
+  /**
+   * Half of it, for phones, laptops and the card thumbnails — so a card
+   * does not pull a 4K painting to draw it 320 px wide.
+   */
+  half: ArtSize;
+  /** Kept for the preview and for callers that want one file. */
   blob: Blob;
   width: number;
   height: number;
@@ -46,12 +65,27 @@ export interface PreparedArt extends ArtMeasurements {
   previewUrl: string;
 }
 
-/** The widest the board ever paints a plate. */
-const MAX_WIDTH = 1920;
+/**
+ * The widest the board ever paints a plate. The shipped chapter and world
+ * plates all carry a 3840, and the environment's srcset asks for one on a
+ * 4K screen, so art the organisers upload is prepared to match.
+ */
+const MAX_WIDTH = 3840;
+/** The second size, which is what most screens and every card thumbnail take. */
+const HALF_WIDTH = 1920;
 /** Keeps a 1920-wide painting around a quarter of a megabyte. */
 const QUALITY = 0.82;
-/** Refuse early rather than after a long decode. */
-const MAX_INPUT_BYTES = 24 * 1024 * 1024;
+/** A little lower at 3840: four times the pixels at the same quality is a
+    file nobody wants to wait for, and the extra pixels hide the difference. */
+const QUALITY_4K = 0.76;
+/**
+ * Refuse early rather than after a long decode.
+ *
+ * Generous, because this is an organiser's own machine picking their own
+ * art: the file is decoded, resized and re-encoded here, so what crosses
+ * the network is the few hundred KB that come out, not what went in.
+ */
+const MAX_INPUT_BYTES = 64 * 1024 * 1024;
 
 /**
  * What a file actually is, from its first bytes.
@@ -253,16 +287,26 @@ function hslHex(h: number, s: number, l: number): string {
   return `#${to(r)}${to(g)}${to(b)}`;
 }
 
-function encode(canvas: HTMLCanvasElement): Promise<Blob> {
+function encode(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob(
       blob => blob
         ? resolve(blob)
         : reject(new Error('The picture could not be re-encoded in this browser.')),
       'image/webp',
-      QUALITY,
+      quality,
     );
   });
+}
+
+/** One size of the picture, drawn and encoded. */
+async function size(img: Decoded, target: number, quality: number): Promise<ArtSize> {
+  // Never upscale: a 900 px painting blown up is a bigger file and a softer
+  // picture, and the browser can stretch it just as badly for free.
+  const scale = Math.min(1, target / img.width);
+  const width = Math.round(img.width * scale);
+  const height = Math.round(img.height * scale);
+  return { blob: await encode(draw(img, width, height), quality), width, height };
 }
 
 /**
@@ -271,25 +315,26 @@ function encode(canvas: HTMLCanvasElement): Promise<Blob> {
  */
 export async function prepareArt(file: File): Promise<PreparedArt> {
   if (file.size > MAX_INPUT_BYTES) {
-    throw new Error('That picture is over 24 MB. Export it smaller and try again.');
+    throw new Error('That picture is over 64 MB. Export it smaller and try again.');
   }
   const img = await decode(file);
 
   const measurements = measure(img);
 
-  // Never upscale: a 900 px painting blown up to 1920 is a bigger file and
-  // a softer picture.
-  const scale = Math.min(1, MAX_WIDTH / img.width);
-  const width = Math.round(img.width * scale);
-  const height = Math.round(img.height * scale);
-  const blob = await encode(draw(img, width, height));
+  const full = await size(img, MAX_WIDTH, img.width > HALF_WIDTH ? QUALITY_4K : QUALITY);
+  // Only a second file when there is a real difference between them.
+  const half = img.width > HALF_WIDTH * 1.2
+    ? await size(img, HALF_WIDTH, QUALITY)
+    : full;
 
   return {
     ...measurements,
-    blob,
-    width,
-    height,
-    previewUrl: URL.createObjectURL(blob),
+    full,
+    half,
+    blob: full.blob,
+    width: full.width,
+    height: full.height,
+    previewUrl: URL.createObjectURL(half.blob),
   };
 }
 

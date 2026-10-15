@@ -341,6 +341,15 @@ function createMock(opts = {}) {
     // A scene may empty the journey: no chain is filed under any chapter,
     // which is where an organiser starts and where they are again if they
     // clear the test content out before writing the real event.
+    // A picture an organiser gave one challenge's card, with no scene and
+    // no story attached — which is what most challenges will have.
+    pinaka_challenge_card: [{
+      challenge_id: ALL[4].id,
+      art_url: 'https://mock.supabase.co/storage/v1/object/public/scene-art/cards/x/full.webp',
+      art_half_url: 'https://mock.supabase.co/storage/v1/object/public/scene-art/cards/x/half.webp',
+      art_width: 3840, art_height: 2160,
+      focal_x: 0.55, focal_y: 0.5, accent: '#c9803f',
+    }],
     pinaka_series_chapter: opts.noChapterContent ? [] : PINAKA_CHAPTER_OF_SERIES,
     challenge_files: ALL.flatMap(c => c.files.map(f => ({ ...f, challenge_id: c.id, created_at: c.created_at }))),
     hints: ALL.flatMap(c => c.hints.map(h => ({ id: h.id, challenge_id: c.id, cost: h.cost, content: h.content }))),

@@ -93,6 +93,7 @@ import { SceneCard } from './themes/pinaka/components/SceneCard';
 import { scenePlateKey } from './themes/pinaka/assets/plates';
 import type { CatalogueScene as Scene } from './themes/pinaka/scenes/catalogue';
 import { useSceneCatalogue } from './themes/pinaka/scenes/useSceneCatalogue';
+import { useChallengeCards, type ChallengeCard as ChallengeCardArt } from './themes/pinaka/scenes/useChallengeCards';
 import { shouldShowIntro } from './themes/pinaka/intro-gate';
 import {
   PinakaEnvironment, PinakaIntro, JourneyMap, ArrowSolveLight,
@@ -532,6 +533,8 @@ export default function App() {
   // The battle scenes an organiser may pick from: the twelve that ship,
   // plus any they have added during the event.
   const { catalogue: scenes, refresh: refreshScenes } = useSceneCatalogue(pinaka);
+  // The picture an organiser gave a challenge, where they gave it one.
+  const challengeCards = useChallengeCards(pinaka);
   const sceneOf = scenes.lookup;
   const serverJourney = useChapterProgress(pinaka);
   const journey = useJourney(journeyInput, serverJourney.journey);
@@ -1831,6 +1834,7 @@ export default function App() {
                             return (
                             <ChallengeCard
                               scene={null}
+                              art={challengeCards.get(challenge.id) ?? null}
                               key={challenge.id}
                               index={i}
                               challenge={challenge}
@@ -2086,9 +2090,12 @@ interface ChallengeCardProps {
   /** The battle scene this challenge wears, if any. Label only; the card
       otherwise stays exactly as it is, category and points included. */
   scene?: Scene | null;
+  /** The picture the organisers gave this challenge, if any. Behind the
+      card's own furniture, which all stays exactly where it was. */
+  art?: ChallengeCardArt | null;
 }
 
-const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, points, isSolved, solvedBy, firstBlood, onClick, scene = null }) => {
+const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, points, isSolved, solvedBy, firstBlood, onClick, scene = null, art = null }) => {
   const reduce = useReducedMotion();
   const tiltRef = useRef<HTMLDivElement>(null);
   const CategoryIcon = CATEGORY_ICON[challenge.category] ?? Boxes;
@@ -2148,10 +2155,29 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
           data-selflit=""
           /* The tier's frame, idle behaviour and hue all key off this. */
           data-diff={challenge.difficulty}
+          data-art={art ? '1' : undefined}
+          style={art ? { ['--pk-card-accent' as string]: art.accent } : undefined}
           className={`card-interactive group relative flex h-full w-full flex-col overflow-hidden p-3.5 text-left ${
             isSolved ? 'border-border-neon shadow-[0_0_14px_color-mix(in_srgb,var(--color-neon)_18%,transparent)]' : ''
           }`}
         >
+          {/* The organisers' own picture for this challenge.
+              Behind everything, with a scrim over it: the card's job is to
+              be read at a glance across a board of twenty, and a painting
+              under unreadable text is a worse card than no painting. */}
+          {art && (
+            <span className="pk-cardart" aria-hidden="true">
+              <img
+                src={art.plate.w1920}
+                srcSet={`${art.plate.w960} 960w, ${art.plate.w1920} 1920w${art.plate.w3840 ? `, ${art.plate.w3840} 3840w` : ''}`}
+                sizes="(max-width: 48rem) 92vw, 22rem"
+                alt=""
+                loading="lazy"
+                decoding="async"
+                style={{ objectPosition: `${Math.round(art.plate.focal.x * 100)}% ${Math.round(art.plate.focal.y * 100)}%` }}
+              />
+            </span>
+          )}
           {/* category hairline */}
           <span
             aria-hidden="true"

@@ -410,3 +410,93 @@ html[data-theme='pinaka'] .pk-scenecard__leave {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   The organisers' own picture on a challenge card.
+
+   Not the arena door next door: that hides the challenge's name on
+   purpose, because a battle scene is a mystery and learning what waits
+   inside is what entering buys. This is the ordinary card with a painting
+   behind it — every piece of furniture exactly where it was, because a
+   board of twenty is read at a glance and moving the points around to
+   make room for art would cost more than the art gains.
+
+   The scrim is the whole trick. A painting under the title is a worse
+   card than no painting at all, so the picture is darkened hardest where
+   the text sits and left alone at the top, and it lifts on hover the way
+   the rest of the skin does.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* The parent's [data-art] is load-bearing, not decoration: the glass pass
+   in core.css lifts every direct child of a card out of the way of the
+   card's own backdrop —
+
+     :is(.surface, .card-interactive) > * { position: relative; z-index: 1 }
+
+   which is right for the card's furniture and exactly wrong for a layer
+   whose whole job is to be the backdrop. Matching the parent's attribute
+   as well outranks it, rather than reaching for !important. */
+html[data-theme="pinaka"] .card-interactive[data-art="1"] > .pk-cardart {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  z-index: 0;
+  pointer-events: none;
+}
+
+html[data-theme="pinaka"] .pk-cardart img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* object-position comes from the picture's measured focal point, so a
+     subject low and right survives a card that is taller than it is wide. */
+  display: block;
+  transform: scale(1.02);
+  transition: transform var(--duration-slow, 480ms) var(--ease-out-quint, ease-out),
+              opacity var(--duration-base, 240ms) ease-out;
+  opacity: 1;
+}
+
+/* The scrim: darkest at the foot, where the title, the tags and the
+   solve line are, and barely there at the head, so the painting is
+   actually visible. */
+html[data-theme="pinaka"] .pk-cardart::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg,
+      rgb(8 10 18 / 0.20) 0%,
+      rgb(8 10 18 / 0.40) 36%,
+      rgb(8 10 18 / 0.78) 70%,
+      rgb(8 10 18 / 0.92) 100%);
+}
+
+/* A card with a picture takes its border from it, the way a scene card
+   does, so the board reads as one system rather than two. */
+html[data-theme="pinaka"] .card-interactive[data-art="1"] {
+  border-color: color-mix(in srgb, var(--pk-card-accent, var(--pk-gold)) 42%, transparent);
+}
+html[data-theme="pinaka"] .card-interactive[data-art="1"]:hover {
+  border-color: color-mix(in srgb, var(--pk-card-accent, var(--pk-gold)) 72%, transparent);
+}
+
+html[data-theme="pinaka"] .card-interactive[data-art="1"]:hover .pk-cardart img {
+  transform: scale(1.06);
+  opacity: 1;
+}
+
+/* The title has a painting behind it now, so it carries its own shadow
+   rather than trusting the scrim alone on a bright patch of sky. */
+html[data-theme="pinaka"] .card-interactive[data-art="1"] h3 {
+  text-shadow: 0 1px 10px rgb(6 8 14 / 0.86), 0 1px 2px rgb(6 8 14 / 0.9);
+}
+
+/* Nothing moves where the player asked for nothing to move. */
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme="pinaka"] .pk-cardart img { transition: none; transform: none; }
+  html[data-theme="pinaka"] .card-interactive[data-art="1"]:hover .pk-cardart img { transform: none; }
+}
+html[data-theme="pinaka"] [data-tier="still"] .pk-cardart img,
+html[data-theme="pinaka"] [data-tier="low"] .pk-cardart img { transition: none; transform: none; }
