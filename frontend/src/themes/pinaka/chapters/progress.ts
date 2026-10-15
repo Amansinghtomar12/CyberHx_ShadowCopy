@@ -143,11 +143,15 @@ export function deriveJourney(input: JourneyInput): Journey {
   // on an empty fifth with the journey never reading as over. Same rule as
   // useChapterProgress, so this fallback and the server agree.
   const firstOpen = rows.findIndex(r => !r.complete && r.total > 0);
-  const finished = firstOpen === -1;
   const lastWritten = rows.map(r => r.total > 0).lastIndexOf(true);
-  const currentIndex = !finished
-    ? firstOpen + 1
-    : lastWritten >= 0 ? lastWritten + 1 : CHAPTER_ORDER.length;
+  const written = lastWritten >= 0;
+  // Nothing written anywhere is a journey nobody has written, not one that
+  // is over: an empty board must open at the beginning, not the last war.
+  const finished = written && firstOpen === -1;
+  const currentIndex =
+    firstOpen >= 0 ? firstOpen + 1
+    : written ? lastWritten + 1
+    : 1;
   const current = CHAPTER_ORDER[currentIndex - 1];
 
   const chapters: ChapterProgress[] = rows.map((r, i) => ({
