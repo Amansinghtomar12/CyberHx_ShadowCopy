@@ -47,12 +47,13 @@ frontend/src/themes/pinaka/scenes/useChallengeCards.ts      which challenge has 
 frontend/src/themes/pinaka/scenes/prepareArt.ts    browser-side resize/measure: 3840 + 1920 WebP, focal point, light, accent
 frontend/src/themes/pinaka/styles/scenes.css       battle-scene cards, arena backdrop, the card-picture band
 frontend/src/themes/pinaka/assets/scenes/*.webp    the twelve battle scenes (3840/1920/960/portrait per scene)
-frontend/src/components/admin/SceneManager.tsx     Admin → Challenges → add a battle scene during the event
+frontend/src/components/admin/SceneManager.tsx     the old battle-scene tab. No longer rendered: art is authored on the challenge that wears it. Kept for the delete path only
 frontend/src/components/admin/CardArtField.tsx     the "Card picture" field on the challenge form
 supabase/migrations/20261010000000_pinaka_story_mode.sql    the chapter gate (story mode)
 supabase/migrations/20261012000000_pinaka_chain_skips_hidden.sql   a chain steps over a hidden challenge
 supabase/migrations/20261013000000_pinaka_scene_catalogue.sql      pinaka_scene + the scene-art bucket
 supabase/migrations/20261015000000_pinaka_challenge_card.sql       pinaka_challenge_card + admin_set_challenge_card
+supabase/migrations/20261016000000_pinaka_card_is_a_scene.sql      that card carries a scene's words; one upload replaces the catalogue
 frontend/src/lib/brand.ts                          tokenValue(): read a CSS token as a literal (charts)
 frontend/qa/visual/{harness,mock,scenes}.cjs, README.md   screenshot harness (dev tool, not shipped)
 supabase/migrations/20261008000000_event_theme.sql   event_settings.theme + admin_set_theme() + public_theme()

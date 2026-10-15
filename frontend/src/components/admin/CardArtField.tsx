@@ -34,6 +34,20 @@ export interface CardArtValue {
   focalX: number;
   focalY: number;
   accent: string;
+  sunX: number;
+  sunY: number;
+}
+
+/**
+ * The wording that turns a picture into an arena door. Edited on the
+ * challenge form beside the upload, not in here: they are the organiser's
+ * words about the challenge, and this component's job is the file.
+ */
+export interface CardArtWords {
+  label: string;
+  intro: string;
+  enterLabel: string;
+  buttonLabel: string;
 }
 
 interface CardArtFieldProps {
@@ -59,14 +73,23 @@ export const CardArtField: React.FC<CardArtFieldProps> = ({ challengeId, onChang
     if (!challengeId) { setValue(null); return; }
     let live = true;
     void (async () => {
-      const { data, error: err } = await supabase
+      let res = await supabase
         .from('pinaka_challenge_card')
-        .select('art_url,art_half_url,art_width,art_height,focal_x,focal_y,accent')
+        .select('art_url,art_half_url,art_width,art_height,focal_x,focal_y,accent,sun_x,sun_y')
         .eq('challenge_id', challengeId).maybeSingle();
+      // sun_x/sun_y arrived with 20261016000000; without them the select
+      // fails whole, so ask again for what has always been there.
+      if (res.error) {
+        res = await supabase
+          .from('pinaka_challenge_card')
+          .select('art_url,art_half_url,art_width,art_height,focal_x,focal_y,accent')
+          .eq('challenge_id', challengeId).maybeSingle();
+      }
+      const { data, error: err } = res;
       // An un-migrated database is not an error worth showing mid-edit.
       if (!live || err || !data) return;
       const r = data as Record<string, unknown>;
-      setValue({
+      const loaded: CardArtValue = {
         url: String(r.art_url),
         halfUrl: (r.art_half_url as string) ?? null,
         width: Number(r.art_width ?? 1920),
@@ -74,7 +97,14 @@ export const CardArtField: React.FC<CardArtFieldProps> = ({ challengeId, onChang
         focalX: Number(r.focal_x ?? 0.5),
         focalY: Number(r.focal_y ?? 0.5),
         accent: String(r.accent ?? '#e3bb66'),
-      });
+        sunX: Number(r.sun_x ?? 0.5),
+        sunY: Number(r.sun_y ?? 0.35),
+      };
+      setValue(loaded);
+      // Handed up as well as held: the form saves the words beside this
+      // picture, and the writer needs the picture's URL to do it without
+      // clearing the row.
+      onChange(loaded);
     })();
     return () => { live = false; };
   }, [challengeId]);
@@ -107,6 +137,9 @@ export const CardArtField: React.FC<CardArtFieldProps> = ({ challengeId, onChang
         width: art.full.width, height: art.full.height,
         focalX: art.focal.x, focalY: art.focal.y,
         accent: art.accent,
+        // Measured on the way in, because this picture can now be a
+        // full-bleed arena backdrop and the bloom follows its own light.
+        sunX: art.sun.x, sunY: art.sun.y,
       };
       setValue(next);
       onChange(next);
@@ -127,9 +160,16 @@ export const CardArtField: React.FC<CardArtFieldProps> = ({ challengeId, onChang
     if (challengeId) await write(challengeId, null);
   };
 
-  const sizeLine = prepared.current
-    ? `${prepared.current.full.width}×${prepared.current.full.height} · ${Math.round(prepared.current.full.blob.size / 1024)} KB`
+  // Separate spans, not one string: adjacent text nodes concatenate when
+  // read back, so "1600×900" beside "7 KB" scrapes as "9007".
+  const prep = prepared.current;
+  const sizeText = prep
+    ? `${prep.full.width}×${prep.full.height}`
     : value ? `${value.width}×${value.height}` : '';
+  const weightText = prep ? `${Math.round(prep.full.blob.size / 1024)} KB` : '';
+  const focalText = value
+    ? `focal ${Math.round(value.focalX * 100)}% / ${Math.round(value.focalY * 100)}%`
+    : '';
 
   return (
     <div className="min-w-0">
@@ -166,8 +206,13 @@ export const CardArtField: React.FC<CardArtFieldProps> = ({ challengeId, onChang
               className="relative z-[1] block h-full w-full object-contain"
             />
           </div>
-          <div className="flex items-center gap-3 px-3 py-2 text-small text-text-muted">
-            <span>{sizeLine}</span>
+          <div className="pk-admin-card-meta flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 text-small text-text-muted">
+            <span data-size>{sizeText}</span>
+            {weightText && <span data-weight>{weightText}</span>}
+            {/* Worth showing: it is the one measurement an organiser can
+                check by eye, and a picture whose subject sits against an
+                edge gets clamped. */}
+            {focalText && <span data-focal>{focalText}</span>}
             <span className="inline-flex items-center gap-1.5">
               <span
                 aria-hidden="true"
@@ -214,7 +259,11 @@ export const CardArtField: React.FC<CardArtFieldProps> = ({ challengeId, onChang
 
 /** Writes (or clears) the row. Exported so the form can call it after it
     saves a challenge that had no id when its picture was chosen. */
-export async function write(challengeId: string, value: CardArtValue | null): Promise<string | null> {
+export async function write(
+  challengeId: string,
+  value: CardArtValue | null,
+  words?: CardArtWords,
+): Promise<string | null> {
   const { data, error } = await supabase.rpc('admin_set_challenge_card', {
     p_challenge_id: challengeId,
     p_art_url: value?.url ?? null,
@@ -224,6 +273,12 @@ export async function write(challengeId: string, value: CardArtValue | null): Pr
     p_focal_x: value?.focalX ?? 0.5,
     p_focal_y: value?.focalY ?? 0.5,
     p_accent: value?.accent ?? '#e3bb66',
+    p_sun_x: value?.sunX ?? 0.5,
+    p_sun_y: value?.sunY ?? 0.35,
+    p_label: words?.label ?? '',
+    p_intro: words?.intro ?? '',
+    p_enter_label: words?.enterLabel ?? '',
+    p_button_label: words?.buttonLabel ?? '',
   });
   if (error) return error.message;
   if (data && typeof data === 'object' && 'error' in data) return String((data as { error: unknown }).error);

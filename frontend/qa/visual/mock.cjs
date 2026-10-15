@@ -346,11 +346,20 @@ function createMock(opts = {}) {
     // A picture an organiser gave one challenge's card, with no scene and
     // no story attached — which is what most challenges will have.
     pinaka_challenge_card: [{
-      challenge_id: ALL[4].id,
+      // Template of Doom: a Free challenge the fixture leaves unsolved, so
+      // its door can actually be entered. A solved door reads "Return to
+      // the field" and opens the brief instead, which would have made the
+      // backdrop check below untestable.
+      challenge_id: ALL[2].id,
       art_url: 'https://mock.supabase.co/storage/v1/object/public/scene-art/cards/x/full.webp',
       art_half_url: 'https://mock.supabase.co/storage/v1/object/public/scene-art/cards/x/half.webp',
       art_width: 3840, art_height: 2160,
       focal_x: 0.55, focal_y: 0.5, accent: '#c9803f',
+      // An upload carries its own wording now, and that is what makes a
+      // Free challenge's card an arena door rather than a picture.
+      label: 'The Oracle Gate', intro: 'The padding speaks, one byte at a time.',
+      enter_label: 'Approach the Gate', button_label: 'Speak the Word',
+      sun_x: 0.7, sun_y: 0.2,
     }, {
       // A portrait upload, which is the case the band's ratio floor exists
       // for. Organisers photograph a whiteboard or screenshot a phone, and
@@ -362,6 +371,11 @@ function createMock(opts = {}) {
       art_half_url: 'https://mock.supabase.co/storage/v1/object/public/scene-art/cards/y/half-portrait.webp',
       art_width: 900, art_height: 1600,
       focal_x: 0.5, focal_y: 0.4, accent: '#7f9fd4',
+      // Deliberately wordless: an organiser who uploads a picture and
+      // types nothing should still get a working door, named after the
+      // challenge itself.
+      label: '', intro: '', enter_label: '', button_label: '',
+      sun_x: 0.5, sun_y: 0.35,
     }],
     pinaka_series_chapter: opts.noChapterContent ? [] : PINAKA_CHAPTER_OF_SERIES,
     challenge_files: ALL.flatMap(c => c.files.map(f => ({ ...f, challenge_id: c.id, created_at: c.created_at }))),
@@ -532,6 +546,15 @@ function createMock(opts = {}) {
     // test comparing the band's shape to the picture's was quietly
     // comparing it to NaN, which passes. A picture the board cannot draw
     // is the exact failure these scenes exist to catch.
+    // An UPLOAD, not a read. The card field uploads the moment a picture
+    // is chosen, and this path has the same .webp ending as a read -- so
+    // without the method check the client was handed image bytes where it
+    // expected {"Key": ...} and every upload failed. The scene then timed
+    // out waiting for a preview that could never appear.
+    if (p.startsWith('/storage/v1/') && /^(POST|PUT)$/i.test(req.method())) {
+      const key = p.replace(/^\/storage\/v1\/object\/(?:sign\/)?/, '');
+      return json({ Key: key, Id: 'mock-upload' }).then(() => true);
+    }
     if (p.startsWith('/storage/v1/') && /\.(webp|png|jpe?g)$/i.test(p)) {
       // Real bytes, and real SHAPES: the band is sized from the picture's
       // own ratio, so a mock that answered every path with one landscape

@@ -6,8 +6,7 @@ import OwnerFlagVault from './OwnerFlagVault';
 import { exportScoreboardCsv } from '../../lib/scoreboardExport';
 import { safeHttpUrl } from '../../lib/url';
 import { useSceneCatalogue } from '../../themes/pinaka/scenes/useSceneCatalogue';
-import SceneManager from './SceneManager';
-import CardArtField, { write as writeCardArt, type CardArtValue } from './CardArtField';
+import CardArtField, { write as writeCardArt, type CardArtValue, type CardArtWords } from './CardArtField';
 import {
   Plus, Eye, EyeOff, Trash2, Edit3, Shield, Users, Flag, Activity, RotateCcw, KeyRound,
   X, AlertTriangle, Megaphone, Zap, Lightbulb, Link2, Save, Inbox, Lock,
@@ -232,6 +231,35 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
   // Held only for a challenge that had no id when its picture was chosen:
   // the field writes its own row whenever there is already an id to key on.
   const [cardArt, setCardArt] = useState<CardArtValue | null>(null);
+  // The words beside the picture. They live on the same row, but they are
+  // edited here rather than in the upload field, and they are saved with
+  // the challenge rather than the moment a file is chosen -- an organiser
+  // types a prologue over several seconds and should not have each
+  // keystroke reach the board.
+  const [cardLabel, setCardLabel] = useState('');
+  const [cardIntro, setCardIntro] = useState('');
+  const [cardEnter, setCardEnter] = useState('');
+  const [cardSubmit, setCardSubmit] = useState('');
+  useEffect(() => {
+    const id = initial?.id;
+    if (!id) { setCardLabel(''); setCardIntro(''); setCardEnter(''); setCardSubmit(''); return; }
+    let live = true;
+    void (async () => {
+      const { data, error } = await supabase
+        .from('pinaka_challenge_card')
+        .select('label,intro,enter_label,button_label')
+        .eq('challenge_id', id).maybeSingle();
+      // Absent table or absent columns: no words to show, which is what a
+      // database without 20261016000000 should look like here.
+      if (!live || error || !data) return;
+      const r = data as Record<string, unknown>;
+      setCardLabel(String(r.label ?? ''));
+      setCardIntro(String(r.intro ?? ''));
+      setCardEnter(String(r.enter_label ?? ''));
+      setCardSubmit(String(r.button_label ?? ''));
+    })();
+    return () => { live = false; };
+  }, [initial?.id]);
   const [b2rSeriesId, setB2rSeriesId] = useState('');
   const [chainSeriesList, setChainSeriesList] = useState<{ id: string; title: string; members: { challenge_id: string }[] }[]>([]);
   const [b2rSeriesList, setB2rSeriesList] = useState<{ id: string; title: string; members: { box_id: string }[] }[]>([]);
@@ -494,8 +522,19 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
       // being chosen, so the row is written here, once it has one. Same
       // shape as the scene above: its own table, and a failure costs the
       // picture rather than the challenge.
-      if (!initial?.id && cardArt) {
-        const cardErr = await writeCardArt(challengeId, cardArt);
+      // Written on every save, not only for a brand-new challenge: the
+      // words can change without the picture changing, and the row holds
+      // both. Skipped entirely when there is no picture, because the RPC
+      // reads a null url as "remove this card" and an organiser editing a
+      // challenge that never had art has not asked for anything removed.
+      if (cardArt) {
+        const words: CardArtWords = {
+          label: cardLabel.trim(),
+          intro: cardIntro.trim(),
+          enterLabel: cardEnter.trim(),
+          buttonLabel: cardSubmit.trim(),
+        };
+        const cardErr = await writeCardArt(challengeId, cardArt, words);
         if (cardErr) {
           setSaving(false);
           setError('Challenge saved, but its card picture could not be set: ' + cardErr
@@ -664,39 +703,96 @@ function ChallengeForm({ initial, onSave, onCancel }: ChallengeFormProps) {
           )}
         </FormSection>
 
+        {/* One section, not two. A picture and a battle scene were separate
+            things an organiser had to choose between before they started —
+            and the only real difference was that one carried words. Now the
+            upload carries them, and WHERE the challenge sits decides how it
+            is drawn. */}
         {!isB2R && (
           <FormSection
             icon={<ImagePlus className="w-4 h-4" />}
             title="Card picture"
-            description="The artwork this challenge's card wears on the board. Optional, and removable at any time."
+            description="The artwork this challenge wears on the board, and the words that go with it. Optional, and removable at any time."
           >
-            <div className="min-w-0 md:max-w-md">
-              <CardArtField challengeId={initial?.id} onChange={setCardArt} />
-            </div>
-          </FormSection>
-        )}
+            <div className="min-w-0 space-y-5">
+              <div className="md:max-w-md">
+                <CardArtField challengeId={initial?.id} onChange={setCardArt} />
+              </div>
 
-        {!isB2R && (
-          <FormSection
-            icon={<ListChecks className="w-4 h-4" />}
-            title="Pinaka battle scene"
-            description="Event dressing for a Free challenge. Optional, and reversible at any time."
-          >
-            <div className="min-w-0 md:max-w-md">
-              <label className="field-label" htmlFor="chal-scene">Ramayana Battle Scene</label>
-              <select id="chal-scene" className="select" value={sceneId} onChange={e => setSceneId(e.target.value)}>
-                <option value="">— None / Default —</option>
-                {sceneCatalogue.order.map(id => (
-                  <option key={id} value={id}>{sceneCatalogue.byId.get(id)?.label ?? id}</option>
-                ))}
-              </select>
-              <p className="mt-1.5 text-small text-text-muted leading-relaxed">
-                Turns this challenge's card into that scene's arena while the Pinaka skin is open:
-                the card leads with the scene, turns over when entered, and hands its painting to
-                the whole page. Scoring, flags, hints, files and the category are unaffected, and
-                “None / Default” restores the ordinary card. Chained challenges ignore this — the
-                journey is dressed by chapter instead.
-              </p>
+              <div className="rounded-lg border border-border bg-surface-sunken/40 p-3">
+                <p className="text-small text-text-muted leading-relaxed">
+                  <strong className="text-cyber-text">Free</strong> — the card leads with the
+                  picture, turns over when a player enters, and hands the painting to the whole
+                  page.{' '}
+                  <strong className="text-cyber-text">In a chain</strong> — the picture sits on
+                  the step's card instead, and the chapter keeps the background. The same upload
+                  does both; you do not choose.
+                </p>
+              </div>
+
+              {/* The words only matter while the card is an arena door, so
+                  they sit under the picture rather than above it, and each
+                  says what it falls back to when left empty. */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="min-w-0">
+                  <label className="field-label" htmlFor="chal-card-label">Name</label>
+                  <input
+                    id="chal-card-label" className="input" maxLength={60}
+                    value={cardLabel} onChange={e => setCardLabel(e.target.value)}
+                    placeholder="The challenge's own title"
+                  />
+                  <p className="mt-1.5 text-small text-text-muted">Shown on the closed card. Blank uses the title above.</p>
+                </div>
+                <div className="min-w-0">
+                  <label className="field-label" htmlFor="chal-card-enter">Card button</label>
+                  <input
+                    id="chal-card-enter" className="input" maxLength={40}
+                    value={cardEnter} onChange={e => setCardEnter(e.target.value)}
+                    placeholder="Open"
+                  />
+                  <p className="mt-1.5 text-small text-text-muted">What a player clicks to go in.</p>
+                </div>
+                <div className="min-w-0 md:col-span-2">
+                  <label className="field-label" htmlFor="chal-card-intro">Prologue</label>
+                  <textarea
+                    id="chal-card-intro" className="input" rows={2} maxLength={400}
+                    value={cardIntro} onChange={e => setCardIntro(e.target.value)}
+                    placeholder="One or two sentences, shown above the brief. Leave blank for none."
+                  />
+                </div>
+                <div className="min-w-0">
+                  <label className="field-label" htmlFor="chal-card-submit">Submit button</label>
+                  <input
+                    id="chal-card-submit" className="input" maxLength={40}
+                    value={cardSubmit} onChange={e => setCardSubmit(e.target.value)}
+                    placeholder="Ordinary submit wording"
+                  />
+                  <p className="mt-1.5 text-small text-text-muted">Replaces “Submit” on the flag field.</p>
+                </div>
+              </div>
+
+              {/* The twelve shipped paintings stay pickable: challenges are
+                  wearing them today, and an upload must not silently take
+                  their place. A scene chosen here wins over the picture. */}
+              <details className="rounded-lg border border-border p-3">
+                <summary className="cursor-pointer text-small text-text-muted">
+                  Or use one of the twelve shipped Ramayana paintings
+                </summary>
+                <div className="mt-3 md:max-w-md">
+                  <label className="field-label" htmlFor="chal-scene">Shipped painting</label>
+                  <select id="chal-scene" className="select" value={sceneId} onChange={e => setSceneId(e.target.value)}>
+                    <option value="">— None, use the picture above —</option>
+                    {sceneCatalogue.order.map(id => (
+                      <option key={id} value={id}>{sceneCatalogue.byId.get(id)?.label ?? id}</option>
+                    ))}
+                  </select>
+                  <p className="mt-1.5 text-small text-text-muted leading-relaxed">
+                    Brings its own name, prologue and button wording with it, and takes precedence
+                    over the picture above. Scoring, flags, hints, files and the category are
+                    unaffected either way.
+                  </p>
+                </div>
+              </details>
             </div>
           </FormSection>
         )}
@@ -1075,10 +1171,10 @@ function AdminDashboardInner() {
   const [challenges, setChallenges] = useState<DBChallenge[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editChallenge, setEditChallenge] = useState<DBChallenge | null>(null);
-  const [activeTab, setActiveTab] = useState<'challenges' | 'chains' | 'scenes' | 'b2r' | 'users' | 'teams' | 'submissions' | 'notifications' | 'event'>('challenges');
+  const [activeTab, setActiveTab] = useState<'challenges' | 'chains' | 'b2r' | 'users' | 'teams' | 'submissions' | 'notifications' | 'event'>('challenges');
   // Shared by the scene manager below and refreshed after it writes, so a
   // scene added here is in the challenge dropdown without a reload.
-  const { catalogue: sceneCatalogue, refresh: refreshScenes } = useSceneCatalogue(true);
+  const { catalogue: sceneCatalogue } = useSceneCatalogue(true);
   const [resetting, setResetting] = useState(false);
 
   const loadChallenges = async () => {
@@ -1163,7 +1259,6 @@ function AdminDashboardInner() {
   const tabs = [
     { id: 'challenges', label: 'Challenges', icon: <Flag className="w-3.5 h-3.5" /> },
     { id: 'chains', label: 'Chains', icon: <Link2 className="w-3.5 h-3.5" /> },
-    { id: 'scenes', label: 'Scenes', icon: <ImagePlus className="w-3.5 h-3.5" /> },
     { id: 'b2r', label: 'B2R', icon: <Server className="w-3.5 h-3.5" /> },
     { id: 'users', label: 'Users', icon: <Users className="w-3.5 h-3.5" /> },
     { id: 'teams', label: 'Teams', icon: <Shield className="w-3.5 h-3.5" /> },
@@ -1377,24 +1472,19 @@ function AdminDashboardInner() {
         </div>
       )}
 
-      {/* Battle scenes. Its own tab rather than a fold at the foot of the
+      {/* The battle-scene tab used to sit here. Art is authored on the
+          challenge that wears it now, so there is nothing left for a
+          separate tab to hold: one upload, its own words, and the
+          challenge's placement decides how the board draws it.
+          useSceneCatalogue stays -- the twelve shipped paintings are still
+          pickable on the challenge form, and challenges are wearing them
+          today. SceneManager no longer has a caller: adding a scene is what
+          the challenge form's upload does now. A custom scene added before
+          this change stays in the dropdown and keeps working; it just has
+          no UI to remove it, which admin_delete_pinaka_scene still does.
           challenge list: an organiser reaches for this while writing a
           challenge mid-event, and the list by then is long enough that
           anything under it is effectively hidden. */}
-      {activeTab === 'scenes' && (
-        <div className="surface">
-          <header className="mb-4">
-            <h2 className="label-micro">Pinaka battle scenes</h2>
-            <p className="mt-1 text-small text-text-muted leading-relaxed">
-              Artwork a Free challenge can be dressed in. Add your own and it is in the
-              <strong> Ramayana Battle Scene </strong> dropdown on every challenge straight away —
-              no deploy, nothing rebuilt. The picture is resized and measured here in your browser
-              before anything is uploaded.
-            </p>
-          </header>
-          <SceneManager catalogue={sceneCatalogue} onChanged={refreshScenes} />
-        </div>
-      )}
 
       {/* Users Tab */}
       {activeTab === 'chains' && <ChainManager challenges={challenges} />}

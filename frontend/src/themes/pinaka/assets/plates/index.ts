@@ -190,13 +190,38 @@ export function registerScenePlates(entries: readonly (readonly [string, Plate])
 }
 
 /**
+ * The same overlay again, for a picture uploaded on a challenge's own
+ * form. Keyed `scene-<challenge id>`, because a card row is a scene now
+ * and the environment asks for it by the same kind of key.
+ *
+ * A SECOND map rather than more entries in the one above, and that is the
+ * whole reason this exists: both writers replace their map wholesale, so
+ * sharing one meant whichever of the two polls answered last wiped the
+ * other's plates. The symptom was precise and easy to miss -- an uploaded
+ * picture made a perfectly good arena door, and entering it left the
+ * background on the chapter's painting, because the only thing missing was
+ * the plate the backdrop needed.
+ */
+let cardPlates: ReadonlyMap<string, Plate> = new Map();
+
+export function registerCardPlates(entries: readonly (readonly [string, Plate])[]): void {
+  cardPlates = new Map(entries.map(([id, plate]) => [`scene-${id}`, plate]));
+}
+
+/**
  * The plate for a key: the bundle first, then anything the organisers
  * added. `null` for a key neither knows, which is what a caller gets for a
  * scene that was deleted while someone had its challenge open.
  */
 export function plateFor(key: PlateKey | AddedScenePlateKey | null | undefined): Plate | null {
   if (!key) return null;
-  return (PLATES as Record<string, Plate | undefined>)[key] ?? addedPlates.get(key) ?? null;
+  // Bundle, then the catalogue's additions, then a challenge's own upload.
+  // Same order the board resolves a scene in, so a challenge wearing both
+  // is painted with the one its card is showing.
+  return (PLATES as Record<string, Plate | undefined>)[key]
+    ?? addedPlates.get(key)
+    ?? cardPlates.get(key)
+    ?? null;
 }
 
 /** The plate a battle scene is painted with. */

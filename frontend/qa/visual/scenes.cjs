@@ -633,11 +633,12 @@ module.exports = [
     before: async (page, h) => {
       await h.nav('Admin');
       await h.waitText('Challenge catalogue');
-      // Its own tab, not a fold under the challenge list: an organiser
-      // reaches for this mid-event and should not have to scroll a long
-      // board to find it.
-      await page.getByRole('button', { name: 'Scenes', exact: true }).click();
-      await h.waitText('Artwork');
+      // On the challenge itself now, not a tab of its own. The Scenes tab
+      // was removed when a picture started carrying its own words: art
+      // belongs to the challenge wearing it, and an organiser writing a
+      // challenge is already on the screen that needs it.
+      await page.getByRole('button', { name: /Add Challenge/i }).first().click();
+      await h.waitText('Card picture');
 
       // A picture with its subject and its light deliberately off centre:
       // a measurement that is really a default would land at 0.5 and pass
@@ -657,18 +658,18 @@ module.exports = [
         return Array.from(buf);
       });
 
-      await page.setInputFiles('#scene-art', {
+      await page.setInputFiles('#chal-card-art', {
         name: 'rama-returns.png', mimeType: 'image/png', buffer: Buffer.from(png),
       });
-      // Not the word "accent": the help text above the input already says
+      // Not the word "accent": the help text under the input already says
       // it, so waiting on that passes before anything has been prepared.
-      // The Clear button exists only once a picture is in hand.
-      await page.getByRole('button', { name: 'Clear' }).waitFor({ state: 'visible' });
+      // The Remove button exists only once a picture is in hand.
+      await page.getByRole('button', { name: 'Remove' }).first().waitFor({ state: 'visible' });
 
       // Read the fields, not the page: adjacent spans concatenate in
       // textContent, so "1600×900" and "7 KB" scrape as "9007".
       const read = await page.evaluate(() => {
-        const row = document.querySelector('.pk-admin-scene-meta');
+        const row = document.querySelector('.pk-admin-card-meta');
         const t = (sel) => (row?.querySelector(sel)?.textContent || '').trim();
         const size = t('[data-size]').match(/(\d+)×(\d+)/);
         const kb = t('[data-weight]').match(/(\d+)/);
@@ -698,9 +699,24 @@ module.exports = [
         throw new Error('focal did not follow the light: ' + read.fx + '%/' + read.fy + '%');
       }
 
-      // And the name becomes the id the storage path and plate key use.
-      await page.fill('#scene-label', 'Rama Returns');
-      await h.waitText('rama-returns');
+      // And the words are on the same screen as the picture, which is the
+      // whole point of folding the tab away. No slug this time: a card
+      // scene is keyed by its challenge's id, so the name is free text
+      // and two challenges may share one.
+      await page.fill('#chal-card-label', 'Rama Returns');
+      await page.fill('#chal-card-enter', 'Come Home');
+      await page.fill('#chal-card-intro', 'The city lights every lamp it owns.');
+      await page.fill('#chal-card-submit', 'Light the Lamps');
+      const words = await page.evaluate(() => ({
+        label: document.querySelector('#chal-card-label')?.value || '',
+        enter: document.querySelector('#chal-card-enter')?.value || '',
+        intro: document.querySelector('#chal-card-intro')?.value || '',
+        submit: document.querySelector('#chal-card-submit')?.value || '',
+      }));
+      console.log('            words: ' + words.label + ' / ' + words.enter + ' / ' + words.submit);
+      for (const [k, v] of Object.entries(words)) {
+        if (!v) throw new Error('the ' + k + ' field is not on the challenge form');
+      }
       await h.park();
     },
     shots: [{ at: 300 }],
@@ -758,265 +774,138 @@ module.exports = [
   //
   // This checks both halves: the picture is there, and the furniture did
   // not move to make room for it.
+  // ── A picture is a scene now ────────────────────────────────────────────
+  // There used to be two kinds of art on a challenge and an organiser had
+  // to choose between them: a catalogue SCENE, which turned the card into
+  // an arena door, and a card PICTURE, which drew a band across an
+  // ordinary card. The organisers asked for one upload whose PLACEMENT
+  // decides how it is drawn, so these two scenes check the two halves of
+  // that rule against the same uploaded picture.
+  //
+  // Half one: a FREE challenge with an uploaded picture is an arena door.
+  // The card turns, the painting goes behind the whole site, and the words
+  // the organiser typed beside the upload are the ones on it.
   scene('card-picture', {
     event: { theme: 'pinaka' },
     before: async (page, h) => {
       await h.boardTab('Free');
-      await page.locator('.pk-cardart img').first().waitFor({ state: 'attached' });
+      await page.locator('.pk-scenecard').first().waitFor({ state: 'attached' });
       await h.park();
 
-      // Measured at more than one width on purpose. The band is sized from
-      // the picture's shape, so whether it letterboxes depends entirely on
-      // how wide the card is -- and the board runs ONE column below 640px,
-      // TWO to 1279px, THREE to 1535px and FOUR above. The sweep photographs
-      // 1440 and 390, which give cards of 352px and 358px; the widest card
-      // the grid ever draws is the 2-column one, measured at 472px in a
-      // 1279px window. That is where an absolute height cap on the band
-      // clamped it and left 50px of dead ground down each side, while the
-      // two photographed widths squeaked under the cap and passed.
-      const measure = () => page.evaluate(() => {
-        // The LANDSCAPE one, by shape, not by position. Taking the first
-        // band on the board made this scene vacuous the moment a portrait
-        // card joined it: every assertion below is guarded on the picture
-        // being landscape, so they all quietly stopped running and the
-        // scene went on reporting ok.
-        const bands = [...document.querySelectorAll('.pk-cardart')];
-        const band = bands.find(b => {
-          const i = b.querySelector('img:not(.pk-cardart-bed)');
-          return i && i.naturalWidth > i.naturalHeight;
-        });
-        if (!band) {
-          return { missing: bands.map(b => {
-            const i = b.querySelector('img:not(.pk-cardart-bed)');
-            return i ? i.naturalWidth + 'x' + i.naturalHeight : 'no img';
-          }) };
+      const r = await page.evaluate(() => {
+        // The uploaded one, not one of the twelve: its door is the only
+        // one wearing the words the mock gave the card row.
+        const cards = [...document.querySelectorAll('.pk-scenecard')];
+        // By the organiser's NAME, not the button: this challenge is
+        // already solved in the fixture, and a solved door reads "Return
+        // to the field" instead of its enter label.
+        const hit = cards.find(c => /The Oracle Gate/i.test(c.textContent || ''));
+        if (!hit) {
+          return { missing: cards.map(c => (c.textContent || '').slice(0, 40)) };
         }
-        const art = band.querySelector('img:not(.pk-cardart-bed)');
-        const card = band.closest('[data-art="1"]');
-        const cb = card.getBoundingClientRect();
-        const bb = band.getBoundingClientRect();
-        const el = (sel) => card.querySelector(sel);
-        const top = (sel) => { const e = el(sel); return e ? Math.round(e.getBoundingClientRect().top - cb.top) : null; };
-        const text = (sel) => (el(sel)?.textContent || '').trim();
-        const cs = getComputedStyle(art);
-        const imgRatio = art.naturalWidth / art.naturalHeight;
-        // What `contain` actually paints inside the band, and therefore how
-        // much of the band is dead ground. This is the number that matters:
-        // comparing the band's ratio to the picture's says the same thing
-        // when the band is free, but says nothing about which way a clamped
-        // band failed.
-        const drawnW = Math.min(bb.width, bb.height * imgRatio);
-        const drawnH = Math.min(bb.height, bb.width / imgRatio);
+        const img = hit.querySelector('img');
+        const front = hit.querySelector('.pk-scenecard__front');
         return {
-          src: art?.getAttribute('src') || null,
-          srcset: art?.getAttribute('srcset') || '',
-          sizes: art?.getAttribute('sizes') || '',
-          fit: cs.objectFit,
-          cardW: Math.round(cb.width),
-          bandTop: Math.round(bb.top - cb.top),
-          bandBottom: Math.round(bb.bottom - cb.top),
-          bandW: bb.width, bandH: bb.height,
-          deadX: bb.width - drawnW,
-          deadY: bb.height - drawnH,
-          imgRatio,
-          firstContentTop: top('.relative.flex.items-start'),
-          title: text('h3'), points: text('.font-mono'), category: text('.label-micro'),
-          isSceneCard: !!card.closest('.pk-scenecard'),
+          text: (hit.textContent || '').replace(/\s+/g, ' ').trim(),
+          // The front is the closed door. The back carries the challenge's
+          // real title on purpose -- that is the reveal -- so the two
+          // faces have to be read apart.
+          frontText: ((front && front.textContent) || '').replace(/\s+/g, ' ').trim(),
+          src: img?.getAttribute('src') || '',
+          srcset: img?.getAttribute('srcset') || '',
+          imgRatio: img && img.naturalWidth ? img.naturalWidth / img.naturalHeight : 0,
+          // An arena door, not an ordinary card with a band on it.
+          hasBand: !!hit.querySelector('.pk-cardart'),
+          isSceneCard: hit.classList.contains('pk-scenecard'),
         };
       });
-
-      const r = await measure();
 
       if (r.missing) {
-        throw new Error('no landscape card picture on the board; pictures found: '
-          + r.missing.join(', '));
+        throw new Error('the uploaded picture did not become an arena door; doors on the board: '
+          + (r.missing.join(' / ') || 'none'));
       }
-      if (!r.src) throw new Error('the card has no picture');
-      // A 4K candidate has to be offered, or an organiser's upload is
-      // capped at the size the board used to allow.
-      if (!/3840w/.test(r.srcset)) throw new Error('no 3840 candidate offered: ' + r.srcset);
-      // The whole picture, not a crop of it: `cover` fills a card far
-      // squarer than the art by throwing away a third of it.
-      if (r.fit !== 'contain') throw new Error('object-fit is ' + r.fit + ', not contain');
-      // Guarded against NaN on purpose: an <img> that never loaded reports
-      // 0x0, and `Math.abs(x - NaN) > 0.06` is false -- so the check that
-      // matters most would pass hardest exactly when the picture is missing.
-      if (!(r.imgRatio > 0)) throw new Error('the card picture never loaded');
-      // `sizes` has to describe the grid it is in. A single width told the
-      // browser every card was a 3-column card and the two wide columns
-      // drew a soft picture.
-      if (!/92vw/.test(r.sizes) || (r.sizes.match(/,/g) || []).length < 3) {
-        throw new Error('sizes does not describe the four column counts: ' + r.sizes);
+      await page.evaluate(() => {
+        [...document.querySelectorAll('.pk-scenecard')]
+          .find(c => /The Oracle Gate/i.test(c.textContent || ''))?.classList.add('pk-qa-door');
+      });
+      console.log('            door: ' + r.text.slice(0, 80));
+      if (!r.isSceneCard) throw new Error('not a scene card');
+      if (r.hasBand) throw new Error('drew the old card band as well as the door');
+      // The organiser's own words, not the challenge's title and not the
+      // ordinary wording: these are what the upload carries now.
+      if (!/The Oracle Gate/.test(r.text)) throw new Error('the card does not use the uploaded name: ' + r.text);
+      // The door is in its solved state here, so the enter label is
+      // replaced by "Return to the field". What matters is whose name is
+      // on the closed face: the upload's, not the challenge's own.
+      console.log('            front: ' + r.frontText.slice(0, 70));
+      if (!/The Oracle Gate/.test(r.frontText)) {
+        throw new Error('the closed door does not carry the uploaded name: ' + r.frontText);
       }
-
-      // The card's furniture starts below the picture rather than wherever
-      // the two happen to miss each other -- a taller picture would
-      // otherwise print the title over the art.
-      if (!(r.firstContentTop >= r.bandBottom)) {
-        throw new Error('content starts at ' + r.firstContentTop + ', inside a band ending at ' + r.bandBottom);
+      if (/Padding Oracle Lite/.test(r.frontText)) {
+        throw new Error('the closed door leaks the challenge title: ' + r.frontText);
       }
-      if (r.isSceneCard) throw new Error('a card picture turned the card into an arena door');
-      if (!r.title) throw new Error('the card lost its title');
-      if (!r.points) throw new Error('the card lost its points');
-      if (!r.category) throw new Error('the card lost its category');
+      // The closed door carries no picture of its own, by design: it takes
+      // the painting's accent, and the painting itself arrives behind the
+      // WHOLE SITE when the door is entered. That backdrop is the half of
+      // this the organisers actually asked for, so it is what gets checked
+      // -- asserting on an <img> inside the card would have passed happily
+      // while the background never changed.
+      await page.locator('.pk-qa-door button, .pk-qa-door [role="button"]').first().click()
+        .catch(async () => { await page.locator('.pk-qa-door').first().click(); });
+      await page.waitForTimeout(900);
 
-      // 1180px is the 2-column worst case: wide enough for sm:grid-cols-2,
-      // narrow enough that xl:grid-cols-3 has not kicked in, and past the
-      // lg padding -- so the card is the widest the board ever draws.
-      const was = page.viewportSize();
-      // Several widths across the two-column range rather than one guess at
-      // where the widest card is: the band's shape is the picture's, so the
-      // cost of another width is one resize and one read, and an arithmetic
-      // guess at the grid's breakpoints is exactly what missed this.
-      const widths = was.width < 640 ? [was.width] : [was.width, 700, 900, 1024, 1180, 1279];
-      for (const w of widths) {
-        // No park after a resize: the parking spot is the desktop corner,
-        // which is off-screen at 1180 -- and the pointer has not moved, so
-        // nothing is hovered anyway. Layout is applied before the next
-        // evaluate, and the band animates opacity, not size.
-        if (w !== was.width) await page.setViewportSize({ width: w, height: was.height });
-        const m = w === was.width ? r : await measure();
-        if (m.missing) throw new Error('the landscape card picture vanished at ' + w + 'px');
-        console.log('            ' + w + 'px: card ' + m.cardW
-          + '  band ' + Math.round(m.bandW) + 'x' + Math.round(m.bandH)
-          + '  picture ' + m.imgRatio.toFixed(2)
-          + '  dead ' + Math.round(m.deadX) + 'x' + Math.round(m.deadY));
-
-        // A landscape picture is never letterboxed, at any card width. One
-        // pixel of tolerance for sub-pixel layout, not eighty.
-        if (m.imgRatio >= 1.25 && m.deadX > 1.5) {
-          throw new Error('at ' + w + 'px the band is ' + Math.round(m.bandW)
-            + ' wide but the picture is drawn ' + Math.round(m.bandW - m.deadX)
-            + ': ' + Math.round(m.deadX) + 'px of dead ground down the sides');
-        }
-        if (m.deadY > 1.5) {
-          throw new Error('at ' + w + 'px the picture is letterboxed top and bottom by '
-            + Math.round(m.deadY) + 'px');
-        }
-        // And the floor holds: a band taller than its own width would put
-        // the challenge below the fold whatever the picture was.
-        if (m.bandH > m.bandW * 0.8 + 1) {
-          throw new Error('at ' + w + 'px the band is ' + Math.round(m.bandH)
-            + ' tall on ' + Math.round(m.bandW) + ' of width');
-        }
-      }
-      await page.setViewportSize(was);
-      await h.park();
-
-      const painted = await readyForShot(page, 'landscape');
-      console.log('            painted: ' + painted.map(i =>
-        (i.bed ? 'bed ' : 'picture ') + i.src).join(' + '));
-    },
-    shots: [{ at: 400, clip: '.pk-qa-shot', pad: 18 }],
-  }),
-
-  // The other shape. Organisers photograph a whiteboard or screenshot a
-  // phone, and a 9:16 picture allowed its natural height on a 470px card
-  // would be 835px of art above a challenge nobody can see. The band floors
-  // its ratio at 1.25 for exactly this, and `contain` keeps the whole
-  // picture inside the floored band rather than cropping it to fit.
-  //
-  // Worth its own scene: every assertion next door is about a landscape
-  // picture, and the floor is the branch they all skip.
-  scene('card-picture-portrait', {
-    event: { theme: 'pinaka' },
-    before: async (page, h) => {
-      await h.boardTab('Free');
-      await page.locator('.pk-cardart img').first().waitFor({ state: 'attached' });
-      await h.park();
-
-      const read = () => page.evaluate(() => {
-        // The portrait one, found by its picture rather than its position:
-        // the board's order is the organisers' business, not this test's.
-        const bands = [...document.querySelectorAll('.pk-cardart')];
-        const band = bands.find(b => {
-          const i = b.querySelector('img:not(.pk-cardart-bed)');
-          return i && i.naturalHeight > i.naturalWidth;
-        });
-        if (!band) {
-          return { missing: bands.map(b => {
-            const i = b.querySelector('img:not(.pk-cardart-bed)');
-            return i ? i.naturalWidth + 'x' + i.naturalHeight : 'no img';
-          }) };
-        }
-        const art = band.querySelector('img:not(.pk-cardart-bed)');
-        const card = band.closest('[data-art="1"]');
-        const cb = card.getBoundingClientRect();
-        const bb = band.getBoundingClientRect();
-        const imgRatio = art.naturalWidth / art.naturalHeight;
-        const content = card.querySelector('.relative.flex.items-start');
+      const back = await page.evaluate(() => {
+        const srcs = [...document.querySelectorAll('img')]
+          .map(i => i.currentSrc || i.getAttribute('src') || '')
+          .filter(Boolean);
         return {
-          fit: getComputedStyle(art).objectFit,
-          cardW: Math.round(cb.width), cardH: Math.round(cb.height),
-          bandW: bb.width, bandH: bb.height,
-          bandBottom: Math.round(bb.bottom - cb.top),
-          imgRatio,
-          // contain fits by height here, so the picture's full height shows
-          // and the slack lands either side.
-          deadX: bb.width - Math.min(bb.width, bb.height * imgRatio),
-          deadY: bb.height - Math.min(bb.height, bb.width / imgRatio),
-          contentTop: content ? Math.round(content.getBoundingClientRect().top - cb.top) : null,
-          title: (card.querySelector('h3')?.textContent || '').trim(),
+          // The uploaded file lives under cards/<challenge>/ in the bucket;
+          // the twelve shipped paintings never do.
+          uploaded: srcs.filter(u => /\/cards\//.test(u)),
+          anyPlate: srcs.filter(u => /\.webp(\?|$)/.test(u)).length,
         };
       });
-
-      const was = page.viewportSize();
-      for (const w of (was.width < 640 ? [was.width] : [was.width, 900, 1279])) {
-        if (w !== was.width) await page.setViewportSize({ width: w, height: was.height });
-        const r = await read();
-        if (r.missing) {
-          throw new Error('no portrait card picture on the board; pictures found: ' + r.missing.join(', '));
-        }
-        console.log('            ' + w + 'px: card ' + r.cardW + 'x' + r.cardH
-          + '  band ' + Math.round(r.bandW) + 'x' + Math.round(r.bandH)
-          + '  picture ' + r.imgRatio.toFixed(2)
-          + '  dead ' + Math.round(r.deadX) + 'x' + Math.round(r.deadY));
-
-        if (!(r.imgRatio > 0 && r.imgRatio < 1)) {
-          throw new Error('this is not a portrait picture: ratio ' + r.imgRatio);
-        }
-        if (r.fit !== 'contain') throw new Error('object-fit is ' + r.fit + ', not contain');
-        // The floor: never taller than 0.8x its own width, whatever the
-        // picture's shape. Without it this band would be 1.78x its width.
-        if (r.bandH > r.bandW * 0.8 + 1) {
-          throw new Error('at ' + w + 'px the floor did not hold: band ' + Math.round(r.bandH)
-            + ' tall on ' + Math.round(r.bandW) + ' of width');
-        }
-        // And the whole picture is still there. `cover` would fill the band
-        // by throwing away the top and bottom of a portrait -- which is the
-        // crop the organisers asked us to stop doing.
-        if (r.deadY > 1.5) {
-          throw new Error('at ' + w + 'px the portrait is cut: ' + Math.round(r.deadY)
-            + 'px of its height is outside the band');
-        }
-        // The bars are the honest consequence of a portrait in a landscape
-        // band, but they should be bars either side, not the whole card.
-        if (!(r.deadX > 0)) {
-          throw new Error('at ' + w + 'px a portrait filled a floored band exactly, which cannot happen');
-        }
-        if (r.deadX > r.bandW * 0.75) {
-          throw new Error('at ' + w + 'px the picture is a sliver: ' + Math.round(r.bandW - r.deadX)
-            + ' of ' + Math.round(r.bandW));
-        }
-        // The card is still a card: a readable challenge under the art.
-        if (!(r.contentTop >= r.bandBottom)) {
-          throw new Error('at ' + w + 'px content starts at ' + r.contentTop
-            + ', inside a band ending at ' + r.bandBottom);
-        }
-        if (!r.title) throw new Error('the card lost its title');
-        if (r.cardH > was.height) {
-          throw new Error('at ' + w + 'px one card is ' + r.cardH + 'px tall, past a '
-            + was.height + 'px screen');
-        }
+      console.log('            backdrop: ' + (back.uploaded[0] || '(none)')
+        + '  (' + back.anyPlate + ' plate image(s) on the page)');
+      if (!back.uploaded.length) {
+        throw new Error('entering the door did not put the uploaded painting behind the site');
       }
-      await page.setViewportSize(was);
+
+    },
+    // The whole page: the point of this scene is that the painting is
+    // behind the site, which no crop of one card could show.
+    shots: [{ at: 400 }],
+  }),
+
+  // Half two: the same kind of upload on a challenge that sits INSIDE a
+  // chain shows its picture on the step's card instead, and the chapter
+  // keeps the background. A chained challenge must never become an arena
+  // door -- the journey is what the chapter dresses, and two backdrops
+  // fighting over one screen is the bug this rule exists to prevent.
+  scene('card-picture-in-chain', {
+    event: { theme: 'pinaka', pinaka_story_mode: true },
+    before: async (page, h) => {
+      await h.boardTab('Chained');
+      await page.locator('.pk-chapcard, .pk-scenecard, .card-interactive').first()
+        .waitFor({ state: 'attached' });
       await h.park();
 
-      const paintedP = await readyForShot(page, 'portrait');
-      console.log('            painted: ' + paintedP.map(i =>
-        (i.bed ? 'bed ' : 'picture ') + i.src).join(' + '));
+      const r = await page.evaluate(() => ({
+        // Chain steps draw their art as a picture on the card.
+        stepImages: document.querySelectorAll('.pk-chapcard__art img').length,
+        // And nothing on the chained board turned into an arena door.
+        doors: document.querySelectorAll('.pk-scenecard').length,
+        chapters: [...document.querySelectorAll('.pk-chapcard')].length,
+      }));
+      console.log('            chain: ' + r.chapters + ' step card(s), '
+        + r.stepImages + ' step picture(s), ' + r.doors + ' arena door(s)');
+      if (r.chapters === 0) throw new Error('no chapter chain on the chained board to check');
+
+      if (r.doors > 0) {
+        throw new Error('a chained challenge became an arena door; the chapter already owns the background');
+      }
     },
-    shots: [{ at: 400, clip: '.pk-qa-shot', pad: 18 }],
+    shots: [{ at: 400 }],
   }),
 
   scene('blur-audit', blurAudit()),
