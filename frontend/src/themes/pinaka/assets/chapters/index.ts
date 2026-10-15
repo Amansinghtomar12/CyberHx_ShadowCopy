@@ -59,9 +59,9 @@ export const CHAPTER_PLATES: Record<ChapterId, ChapterPlate> = {
   ayodhya: {
     w3840: ayodhya3840, w1920: ayodhya1920, w960: ayodhya960, portrait: ayodhyaPortrait,
     width: 3840, height: 2160,
-    alt: 'A city of temple spires and marble ghats along its river at sunrise, lamps lit along the steps',
-    focal: { x: 0.55, y: 0.5 },
-    sun: { x: 0.219, y: 0.344 },
+    alt: 'Rama, Sita, Lakshmana and Hanuman on a garlanded terrace at sunrise, the ghats, boats and temple spires of Ayodhya along the river below',
+    focal: { x: 0.53, y: 0.401 },
+    sun: { x: 0.531, y: 0.344 },
     credit: { title: 'Ayodhya — the beginning', ...EVENT_ART },
   },
   mithila: {
@@ -101,9 +101,9 @@ export const CHAPTER_PLATES: Record<ChapterId, ChapterPlate> = {
   lanka: {
     w3840: lanka3840, w1920: lanka1920, w960: lanka960, portrait: lankaPortrait,
     width: 3840, height: 2160,
-    alt: 'A fortress city burning behind its gate under a red sky, banners along the walls',
-    focal: { x: 0.56, y: 0.44 },
-    sun: { x: 0.594, y: 0.469 },
+    alt: 'Rama and Hanuman on the rocks above the golden gates of Lanka at sunset, the armies drawn up beneath the walls',
+    focal: { x: 0.443, y: 0.399 },
+    sun: { x: 0.219, y: 0.281 },
     credit: { title: 'Lanka — the final war', ...EVENT_ART },
   },
 };
