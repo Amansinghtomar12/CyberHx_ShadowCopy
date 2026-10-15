@@ -103,7 +103,7 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     w3840: goldenDeer3840, w1920: goldenDeer1920, w960: goldenDeer960, portrait: goldenDeerPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: a golden deer in a sunlit forest glade, a hermitage and waterfall beyond',
-    focal: { x: 0.519, y: 0.43 },
+    focal: { x: 0.476, y: 0.528 },
     sun: { x: 0.594, y: 0.031 },
     credit: {
       title: 'Pinaka CTF 2026 battle scenes',
@@ -118,7 +118,7 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     w3840: jatayu3840, w1920: jatayu1920, w960: jatayu960, portrait: jatayuPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: a great bird fallen among rocks at dusk',
-    focal: { x: 0.47, y: 0.474 },
+    focal: { x: 0.49, y: 0.491 },
     sun: { x: 0.406, y: 0.594 },
     credit: {
       title: 'Pinaka CTF 2026 battle scenes',
@@ -133,8 +133,8 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     w3840: shabari3840, w1920: shabari1920, w960: shabari960, portrait: shabariPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: Shabari offering berries to two travellers outside her hut',
-    focal: { x: 0.675, y: 0.398 },
-    sun: { x: 0.969, y: 0.156 },
+    focal: { x: 0.494, y: 0.53 },
+    sun: { x: 0.156, y: 0.156 },
     credit: {
       title: 'Pinaka CTF 2026 battle scenes',
       author: 'Pinaka CTF · NFSU Chennai',
@@ -148,7 +148,7 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     w3840: hanumanLeap3840, w1920: hanumanLeap1920, w960: hanumanLeap960, portrait: hanumanLeapPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: a vast leap across open sea from a cliff',
-    focal: { x: 0.509, y: 0.443 },
+    focal: { x: 0.447, y: 0.53 },
     sun: { x: 0.656, y: 0.406 },
     credit: {
       title: 'Pinaka CTF 2026 battle scenes',
@@ -163,7 +163,7 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     w3840: ashokaVatika3840, w1920: ashokaVatika1920, w960: ashokaVatika960, portrait: ashokaVatikaPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: a woman seated beneath a tree in a guarded palace garden',
-    focal: { x: 0.575, y: 0.532 },
+    focal: { x: 0.483, y: 0.541 },
     sun: { x: 0.906, y: 0.094 },
     credit: {
       title: 'Pinaka CTF 2026 battle scenes',
@@ -178,7 +178,7 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     w3840: lankaDahan3840, w1920: lankaDahan1920, w960: lankaDahan960, portrait: lankaDahanPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: a city skyline taken by fire',
-    focal: { x: 0.509, y: 0.462 },
+    focal: { x: 0.486, y: 0.509 },
     sun: { x: 0.719, y: 0.094 },
     credit: {
       title: 'Pinaka CTF 2026 battle scenes',
@@ -193,7 +193,7 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     w3840: sanjeevani3840, w1920: sanjeevani1920, w960: sanjeevani960, portrait: sanjeevaniPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: a mountain carried under moonlight',
-    focal: { x: 0.56, y: 0.55 },
+    focal: { x: 0.485, y: 0.574 },
     sun: { x: 0.844, y: 0.281 },
     credit: {
       title: 'Pinaka CTF 2026 battle scenes',
@@ -268,7 +268,7 @@ export const SCENE_PLATES: Record<SceneId, Plate> = {
     w3840: ravanaHeads3840, w1920: ravanaHeads1920, w960: ravanaHeads960, portrait: ravanaHeadsPortrait,
     width: 1920, height: 1080,
     alt: 'Pinaka CTF battle scene: Ravana crowned and armoured above his citadel, his ten heads against a red sky',
-    focal: { x: 0.533, y: 0.455 },
+    focal: { x: 0.511, y: 0.507 },
     sun: { x: 0.969, y: 0.281 },
     credit: {
       title: 'Pinaka CTF 2026 battle scenes',

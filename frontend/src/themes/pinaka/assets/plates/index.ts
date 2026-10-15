@@ -2,10 +2,11 @@
  * Pinaka theme — world plates.
  *
  * One picture per world plus the hero behind the sign-in page and the intro:
- * the official event paintings — the temple-city key art for Ayodhya, the
- * bridge to the far shore (Setu), the return (Vijaya) and the hero, Lanka
- * ablaze for Lanka — and one colour-graded photograph, the forest of
- * Vanavasa.
+ * every one of them an official event painting now — the temple-city key
+ * art for Ayodhya, the forest years for Vanavasa, and Lanka ablaze for
+ * Lanka. Vanavasa was the last photograph in the set (a CC0 frame of the
+ * Western Ghats at Agumbe) until the organisers painted that world for
+ * the final pack, so the set carries no third-party picture at all.
  * Every file is a same-origin asset bundled by Vite (a 1920 px and a 960 px
  * WebP, cover-cropped around `focal`). Licences and
  * sources are recorded here and in docs/pinaka/ASSETS.md; the untouched
@@ -43,7 +44,7 @@ const TEMPLE_ART: Plate = {
   width: 1920,
   height: 1080,
   alt: "Pinaka CTF key art: Rama, Sita and Lakshmana on the lamplit steps above the water, the temple-city of Ayodhya across the lake at sunset",
-  focal: { x: 0.5, y: 0.456 },
+  focal: { x: 0.475, y: 0.526 },
   sun: { x: 0.406, y: 0.281 },
   credit: {
     title: "Pinaka CTF 2026 key art",
@@ -122,17 +123,20 @@ export const PLATES: Record<PlateKey, Plate> = {
     portrait: vanavasaPortrait,
     width: 1920,
     height: 1080,
-    alt: "Mist rolling over layered forested hills of the Western Ghats at Agumbe, seen through foreground foliage",
-    focal: { x: 0.55, y: 0.45 },
-    // The light falls from the bright haze above the far ridge.
-    sun: { x: 0.5, y: -0.22 },
+    alt: "Rama, Lakshmana and Sita walking a forest trail at sunrise above a valley of waterfalls, a deer in the undergrowth",
+    focal: { x: 0.465, y: 0.53 },
+    sun: { x: 0.906, y: 0.156 },
+    // No longer the Agumbe photograph. The organisers painted this world
+    // themselves in the final pack, so the credit follows the picture: a
+    // CC0 photographer's name left on artwork they did not make would be
+    // a false record, which is what this field exists to prevent.
     credit: {
-      title: "Mystic Layers of Agumbe",
-      author: "Pradyumnakp",
-      license: "CC0",
-      licenseUrl: "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
-      sourceUrl: "https://commons.wikimedia.org/wiki/File:Mystic_Layers_of_Agumbe.jpg",
-      photo: true,
+      title: "Vanavasa — the forest years",
+      author: "Pinaka CTF · NFSU Chennai",
+      license: "Official event artwork",
+      licenseUrl: "https://pinakactf.com/",
+      sourceUrl: "https://pinakactf.com/",
+      photo: false,
     },
   },
   setu: TEMPLE_ART,
@@ -145,8 +149,8 @@ export const PLATES: Record<PlateKey, Plate> = {
     height: 1080,
     alt: "Pinaka CTF artwork: the fortress of Lanka ablaze above a smoking battlefield",
     // keeps the fortress and the fire on wide screens, the burning gate on phones
-    focal: { x: 0.42, y: 0.4 },
-    sun: { x: 0.8, y: 0.48 },
+    focal: { x: 0.483, y: 0.517 },
+    sun: { x: 0.719, y: 0.156 },
     credit: {
       title: "Lanka ablaze — Pinaka CTF 2026 artwork",
       author: "Pinaka CTF · NFSU Chennai",
@@ -205,7 +209,8 @@ export function chapterPlateKey(id: ChapterId): ChapterPlateKey {
   return `chapter-${id}`;
 }
 
-/* The on-screen credit line is gone — the one photograph in the set is
-   CC0, a public-domain dedication, which asks for no attribution. Every
-   plate still carries its own `credit`, and docs/pinaka/ASSETS.md remains
-   the record of where each picture came from. */
+/* The on-screen credit line is gone, and now there is nothing it could
+   have said: every plate in the set is the organisers' own artwork. The
+   last third-party picture was Vanavasa's CC0 photograph, which asked for
+   no attribution either. Every plate still carries its own `credit`, and
+   docs/pinaka/ASSETS.md remains the record of where each came from. */
