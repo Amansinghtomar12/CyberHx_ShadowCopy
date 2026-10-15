@@ -338,7 +338,10 @@ function createMock(opts = {}) {
       focal_x: 0.6, focal_y: 0.55, sun_x: 0.7, sun_y: 0.3,
       position: 1000, is_builtin: false,
     }]),
-    pinaka_series_chapter: PINAKA_CHAPTER_OF_SERIES,
+    // A scene may empty the journey: no chain is filed under any chapter,
+    // which is where an organiser starts and where they are again if they
+    // clear the test content out before writing the real event.
+    pinaka_series_chapter: opts.noChapterContent ? [] : PINAKA_CHAPTER_OF_SERIES,
     challenge_files: ALL.flatMap(c => c.files.map(f => ({ ...f, challenge_id: c.id, created_at: c.created_at }))),
     hints: ALL.flatMap(c => c.hints.map(h => ({ id: h.id, challenge_id: c.id, cost: h.cost, content: h.content }))),
     hint_unlocks: [],
@@ -364,7 +367,8 @@ function createMock(opts = {}) {
   // 20261011000000_pinaka_chapter_gate.sql so a change there shows up as a
   // difference here rather than as a silent agreement.
   const storyMode = !!event.pinaka_story_mode;
-  const chapterOfSeries = new Map(PINAKA_CHAPTER_OF_SERIES.map(r => [r.series_id, r.chapter]));
+  const chapterOfSeries = new Map(
+    (opts.noChapterContent ? [] : PINAKA_CHAPTER_OF_SERIES).map(r => [r.series_id, r.chapter]));
   const chainRows = CHAIN_SERIES.flatMap(s =>
     s.members.map((c, i) => ({ series_id: s.id, challenge_id: c.id, position: i + 1 })));
   const mineSolved = new Set(teamSolves(MY_TEAM_ID).map(e => e.challenge_id));

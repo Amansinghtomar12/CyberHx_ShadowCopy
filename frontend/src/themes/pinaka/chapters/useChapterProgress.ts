@@ -97,13 +97,23 @@ function toJourney(rows: readonly Row[]): Journey {
   // because two chapters nobody wrote were still not ticked. Finishing
   // everything that exists is finishing.
   const firstOpen = done.findIndex((d, i) => !d && has[i]);
-  const finished = firstOpen === -1;
   const lastWritten = has.lastIndexOf(true);
-  const currentIndex = !finished
-    ? firstOpen + 1
+  const written = lastWritten >= 0;
+
+  // Nothing written anywhere is not a finished journey — it is one nobody
+  // has written yet. Said the other way round, a board with no chapters
+  // filled reported the journey over and rested the team at the last
+  // chapter, so a fresh event opened on Lanka: the war's painting behind
+  // the board, five chapters locked, and a head reading "the road starts
+  // at Ayodhya" under the title LANKA.
+  const finished = written && firstOpen === -1;
+  const currentIndex =
+    firstOpen >= 0 ? firstOpen + 1
     // Finished: rest at the last chapter the organisers actually wrote, so
     // the backdrop and the head name a place the team has been.
-    : lastWritten >= 0 ? lastWritten + 1 : CHAPTER_ORDER.length;
+    : written ? lastWritten + 1
+    // Nothing written: the beginning, which is where a journey starts.
+    : 1;
 
   const chapters: ChapterProgress[] = ordered.map(({ chapter, row }, i) => {
     const state: ChapterState =

@@ -493,6 +493,62 @@ module.exports = [
     before: async (_p, h) => { await h.boardTab('Chained'); },
     shots: [{ waitText: 'Enter chain', at: 1200 }],
   }),
+  // ── A journey nobody has written yet ────────────────────────────────────
+  // Not a picture: a measurement that fails the run.
+  //
+  // Where every organiser starts, and where they are again the moment they
+  // clear test content out to write the real event: story mode on, six
+  // chapters, nothing filed under any of them.
+  //
+  // "Rest at the last chapter written" had no answer for "none were", and
+  // fell through to the last chapter of six — so a fresh event opened on
+  // Lanka. The war's painting behind the board, five chapters locked, the
+  // journey reporting itself finished, and a head reading "the road starts
+  // at Ayodhya" under the title LANKA.
+  scene('chapters-unwritten', {
+    event: { theme: 'pinaka', pinaka_story_mode: true },
+    noChapterContent: true,
+    before: async (page, h) => {
+      await h.boardTab('Chained');
+      await page.locator('.pk-journeybar > .pk-journeybar-step').nth(5).waitFor({ state: 'attached' });
+      await h.park();
+      const r = await page.evaluate(() => {
+        const word = (el) => (el?.textContent || '').replace(/\s+/g, ' ').trim();
+        return {
+          rail: [...document.querySelectorAll('.pk-journeybar > .pk-journeybar-step')].map(el => ({
+            name: word(el.querySelector('.pk-journeybar-name')).toUpperCase(),
+            state: el.getAttribute('data-state'),
+          })),
+          title: word(document.querySelector('.pk-journey-title')).toUpperCase(),
+          line: word(document.querySelector('.pk-journey-line')),
+          chapter: document.documentElement.getAttribute('data-chapter'),
+        };
+      });
+      console.log('            head: ' + r.title + ' — ' + r.line);
+      console.log('            backdrop chapter: ' + r.chapter);
+      console.log('            rail: ' + r.rail.map(c => c.name + '=' + c.state).join(' '));
+
+      if (r.title !== 'AYODHYA') {
+        throw new Error('an unwritten journey opens on ' + r.title + ', not Ayodhya');
+      }
+      if (r.chapter && r.chapter !== 'ayodhya') {
+        throw new Error('the backdrop is ' + r.chapter + ', not Ayodhya');
+      }
+      // Nothing is finished, because nothing was written to finish.
+      if (/every chapter closed/i.test(r.line)) {
+        throw new Error('an empty journey reports itself finished: ' + r.line);
+      }
+      const current = r.rail.filter(c => c.state === 'current').map(c => c.name);
+      if (current.join(',') !== 'AYODHYA') {
+        throw new Error('expected Ayodhya current, got ' + (current.join(',') || '(none)'));
+      }
+      if (r.rail.some(c => c.state === 'completed')) {
+        throw new Error('a chapter reads completed on a board with no chapters written');
+      }
+    },
+    shots: [{ at: 400 }],
+  }),
+
   // The organisers' side: chapters first, chains filed under them.
   scene('admin-chapters', {
     me: { isAdmin: true },
