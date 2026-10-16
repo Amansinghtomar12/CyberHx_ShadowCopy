@@ -528,7 +528,7 @@ html[data-theme="pinaka"] .pk-env[data-world="vanavasa"] .pk-env-veil {
   --pk-veil-world: linear-gradient(to bottom, rgba(4, 9, 8, 0.2) 0%, rgba(4, 9, 8, 0.42) 30%, rgba(4, 9, 8, 0.42) 55%,
     rgba(4, 9, 8, 0.24) 70%, rgba(4, 9, 8, 0) 85%);
 }
-html[data-theme="pinaka"] .pk-env[data-intensity="normal"] .pk-env-veil { opacity: 0.6; }
+html[data-theme="pinaka"] .pk-env[data-intensity="normal"] .pk-env-veil { opacity: 0.72; }
 
 /* ── Reduced motion: no transitions, no parallax, a complete still picture ── */
 @media (prefers-reduced-motion: reduce) {
