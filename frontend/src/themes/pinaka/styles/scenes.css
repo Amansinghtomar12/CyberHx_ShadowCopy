@@ -19,6 +19,10 @@ html[data-theme='pinaka'] .pk-scenecard {
   height: 100%;
   min-height: 13.5rem;
   perspective: 1100px;
+  transition: transform 200ms var(--ease-out-quint, cubic-bezier(0.22, 1, 0.36, 1));
+}
+html[data-theme='pinaka'] .pk-scenecard:not([data-open='1']):hover {
+  transform: translateY(-3px);
 }
 
 html[data-theme='pinaka'] .pk-scenecard__inner {
@@ -63,6 +67,15 @@ html[data-theme='pinaka'] .pk-scenecard__face {
   box-shadow:
     0 0 0 1px rgb(0 0 0 / 0.35),
     0 18px 44px -24px rgb(0 0 0 / 0.8);
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+html[data-theme='pinaka'] .pk-scenecard:not([data-open='1']):hover .pk-scenecard__front {
+  border-color: color-mix(in srgb, var(--pk-scene-accent, #dfa049) 72%, transparent);
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.35),
+    0 18px 44px -24px rgb(0 0 0 / 0.8),
+    0 0 24px -8px color-mix(in srgb, var(--pk-scene-accent, #dfa049) 40%, transparent),
+    0 8px 24px -6px rgba(0, 0, 0, 0.5);
 }
 
 html[data-theme='pinaka'] .pk-scenecard__back {
@@ -320,6 +333,8 @@ html[data-theme='pinaka'] .pk-scene-intro__line {
 
 @media (prefers-reduced-motion: reduce) {
   html[data-theme='pinaka'] .pk-scenecard__inner { transition: none; }
+  html[data-theme='pinaka'] .pk-scenecard { transition: none; }
+  html[data-theme='pinaka'] .pk-scenecard:not([data-open='1']):hover { transform: none; }
 }
 
 /* A still device gets the faces without the turn, and without a blur to
