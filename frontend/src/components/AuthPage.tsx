@@ -414,7 +414,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
        never got the treatment the rest of the site did. */
     <div className="min-h-screen bg-cyber-bg overflow-x-hidden relative" data-tier={getCapability().tier}>
       {pinaka
-        ? <React.Suspense fallback={null}><PinakaEnvironment world="ayodhya" phase="before" intensity="normal" /></React.Suspense>
+        ? <React.Suspense fallback={null}><PinakaEnvironment world="ayodhya" plate="hero" phase="before" intensity="normal" /></React.Suspense>
         : <AmbientBackground intensity="normal" />}
       <SurfaceLight />
       <CursorRing />
