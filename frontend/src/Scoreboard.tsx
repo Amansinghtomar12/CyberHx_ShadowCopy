@@ -14,6 +14,7 @@ import { supabase } from './lib/supabase';
 import { isPinaka } from './themes';
 import { accent, accentBright } from './lib/brand';
 import { PodiumFrame } from './themes/pinaka/lazy';
+import { RANK_ICONS } from './themes/pinaka/assets/ranks';
 
 /* Literal token values — recharts SVG attributes are the one place a raw hex is
    safer than var(). These mirror the category and neon ramps in src/index.css
@@ -280,23 +281,18 @@ function WreathSvg({ rank }: { rank: number }) {
 }
 
 function TeamEmblem({ rank }: { rank: number }) {
-  if (rank === 1) return (
-    <svg className="pk-sb-emblem" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <path d="M16 4c2 4 4 8 4 14-2-3-5-5-8-5s-6 2-8 5c0-6 2-10 4-14 2-1 6-1 8 0z" fill="currentColor" opacity="0.7" />
-      <path d="M12 22c-2 2-3 5-3 8h14c0-3-1-6-3-8-2 1-6 1-8 0z" fill="currentColor" opacity="0.5" />
-    </svg>
-  );
-  if (rank === 2) return (
-    <svg className="pk-sb-emblem" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <circle cx="16" cy="14" r="8" stroke="currentColor" strokeWidth="1.5" opacity="0.6" />
-      <path d="M12 14c0-2 1.8-4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.8" />
-      <path d="M10 24h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
-    </svg>
-  );
+  const src = RANK_ICONS[rank];
+  if (!src) return null;
   return (
-    <svg className="pk-sb-emblem" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <path d="M16 6c-1 3-3 6-7 8 3 0 6 2 7 5 1-3 4-5 7-5-4-2-6-5-7-8z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" opacity="0.6" />
-    </svg>
+    <img
+      className="pk-sb-emblem"
+      src={src}
+      alt=""
+      aria-hidden="true"
+      draggable={false}
+      width={48}
+      height={48}
+    />
   );
 }
 
@@ -370,12 +366,24 @@ function PinakaStandingsRows({ teams, reduced, meId, scored }: { teams: TeamScor
           >
             <td className="px-5 py-4 align-middle">
               <div className="flex items-center gap-2">
-                <span
-                  className="pk-sb-rank-circle"
-                  data-rank={rank <= 3 ? rank : 'other'}
-                >
-                  {rank}
-                </span>
+                {rank <= 3 ? (
+                  <img
+                    className="pk-sb-rank-icon"
+                    src={RANK_ICONS[rank]}
+                    alt=""
+                    aria-hidden="true"
+                    draggable={false}
+                    width={28}
+                    height={28}
+                  />
+                ) : (
+                  <span
+                    className="pk-sb-rank-circle"
+                    data-rank="other"
+                  >
+                    {rank}
+                  </span>
+                )}
                 <RankDelta delta={deltas[team.id]} />
               </div>
             </td>
