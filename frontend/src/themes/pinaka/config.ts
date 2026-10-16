@@ -58,7 +58,6 @@ export interface Partner {
 export const PINAKA_PARTNERS: readonly Partner[] = [
   { name: 'INE Security', role: 'In association with', logo: SPONSOR_LOGOS['INE Security'] },
   { name: 'Altered Security', logo: SPONSOR_LOGOS['Altered Security'] },
-  { name: 'Red Team Hacker Academy', logo: SPONSOR_LOGOS['Red Team Hacker Academy'] },
   { name: 'CWL · CyberWarFare Labs', logo: SPONSOR_LOGOS['CWL · CyberWarFare Labs'] },
   { name: 'BlackPerl DFIR', logo: SPONSOR_LOGOS['BlackPerl DFIR'] },
   { name: 'Stellar Data Recovery', logo: SPONSOR_LOGOS['Stellar Data Recovery'] },
