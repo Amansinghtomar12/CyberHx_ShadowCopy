@@ -1,0 +1,378 @@
+/* ============================================================================
+   PINAKA — SCOREBOARD
+   The epic hall of honour: a cinematic header, illuminated podium tiles,
+   a charted progression, and a ranked table of warriors.
+
+   Scoped to html[data-theme="pinaka"]. Layers over the existing .pk-lanka-hall
+   vignette and .pk-podium frames from lanka.css; this file adds the grand
+   header treatment, the podium tile layout, and the table's rank ornaments.
+   ========================================================================== */
+
+/* ── Grand header ─────────────────────────────────────────────────────── */
+html[data-theme="pinaka"] .pk-sb-header {
+  text-align: center;
+  padding-top: 2rem;
+  padding-bottom: 1.5rem;
+  position: relative;
+}
+
+html[data-theme="pinaka"] .pk-sb-eyebrow {
+  font-family: var(--pk-font-display);
+  font-weight: 700;
+  font-size: clamp(1.375rem, 3.5vw, 2rem);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--pk-gold);
+  text-shadow: 0 0 24px var(--pk-gold-glow), 0 2px 8px rgba(0, 0, 0, 0.6);
+  margin: 0;
+  line-height: 1.2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+html[data-theme="pinaka"] .pk-sb-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+  background: #c93030;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  vertical-align: middle;
+  line-height: 1;
+  box-shadow: 0 0 12px rgba(201, 48, 48, 0.6);
+}
+
+html[data-theme="pinaka"] .pk-sb-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  animation: pk-sb-pulse 2s ease-in-out infinite;
+}
+
+@keyframes pk-sb-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.3; }
+}
+
+html[data-theme="pinaka"] .pk-sb-title {
+  font-family: var(--pk-font-display);
+  font-weight: 700;
+  font-size: clamp(2.25rem, 6.5vw, 4.5rem);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-primary);
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.5), 0 0 40px var(--pk-gold-glow);
+  margin: 0.125rem 0 0;
+  line-height: 1.05;
+}
+
+html[data-theme="pinaka"] .pk-sb-tagline {
+  font-family: var(--pk-font-prose);
+  font-style: italic;
+  font-size: clamp(0.8125rem, 2vw, 1rem);
+  color: var(--color-text-muted);
+  letter-spacing: 0.08em;
+  margin-top: 0.5rem;
+}
+
+html[data-theme="pinaka"] .pk-sb-rule {
+  display: block;
+  width: min(14rem, 60%);
+  height: 1px;
+  margin: 0.75rem auto 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--pk-gold-line) 20%,
+    var(--pk-gold) 50%,
+    var(--pk-gold-line) 80%,
+    transparent
+  );
+  box-shadow: 0 0 8px var(--pk-gold-glow);
+}
+
+/* ── Status strip (below header) ──────────────────────────────────────── */
+html[data-theme="pinaka"] .pk-sb-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+/* ── Podium tiles (horizontal cards) ──────────────────────────────────── */
+html[data-theme="pinaka"] .pk-sb-podium-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 639.98px) {
+  html[data-theme="pinaka"] .pk-sb-podium-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+}
+
+html[data-theme="pinaka"] .pk-sb-tile {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-card, 14px);
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s;
+}
+
+/* Rank-specific accent borders */
+html[data-theme="pinaka"] .pk-sb-tile[data-rank="1"] {
+  border-color: var(--pk-gold);
+  box-shadow: 0 0 20px -8px rgba(227, 187, 102, 0.5), var(--shadow-e2);
+  background: linear-gradient(135deg, rgba(196, 154, 69, 0.12), var(--color-surface-card) 60%);
+}
+html[data-theme="pinaka"] .pk-sb-tile[data-rank="2"] {
+  border-color: rgba(180, 180, 190, 0.45);
+  box-shadow: var(--shadow-e2);
+  background: linear-gradient(135deg, rgba(180, 180, 190, 0.08), var(--color-surface-card) 60%);
+}
+html[data-theme="pinaka"] .pk-sb-tile[data-rank="3"] {
+  border-color: rgba(180, 130, 79, 0.45);
+  box-shadow: var(--shadow-e2);
+  background: linear-gradient(135deg, rgba(180, 130, 79, 0.08), var(--color-surface-card) 60%);
+}
+
+/* Top edge glow */
+html[data-theme="pinaka"] .pk-sb-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--pk-tile-glow, var(--pk-gold-line)), transparent);
+}
+html[data-theme="pinaka"] .pk-sb-tile[data-rank="1"]::before {
+  --pk-tile-glow: rgba(227, 187, 102, 0.7);
+}
+html[data-theme="pinaka"] .pk-sb-tile[data-rank="2"]::before {
+  --pk-tile-glow: rgba(180, 180, 190, 0.5);
+}
+html[data-theme="pinaka"] .pk-sb-tile[data-rank="3"]::before {
+  --pk-tile-glow: rgba(180, 130, 79, 0.5);
+}
+
+/* Rank circle badge */
+html[data-theme="pinaka"] .pk-sb-rank-badge {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--pk-font-display);
+  font-weight: 700;
+  font-size: 0.875rem;
+  border: 2px solid;
+  flex-shrink: 0;
+  position: relative;
+}
+
+html[data-theme="pinaka"] .pk-sb-rank-badge[data-rank="1"] {
+  border-color: var(--pk-gold);
+  color: var(--pk-gold);
+  background: rgba(227, 187, 102, 0.12);
+  box-shadow: 0 0 10px rgba(227, 187, 102, 0.3);
+}
+html[data-theme="pinaka"] .pk-sb-rank-badge[data-rank="2"] {
+  border-color: #b4b4be;
+  color: #d9d2bb;
+  background: rgba(180, 180, 190, 0.1);
+}
+html[data-theme="pinaka"] .pk-sb-rank-badge[data-rank="3"] {
+  border-color: #b4824f;
+  color: #b4824f;
+  background: rgba(180, 130, 79, 0.1);
+}
+
+/* Laurel wreath around the rank badge (for top 3) */
+html[data-theme="pinaka"] .pk-sb-rank-badge .pk-sb-wreath {
+  position: absolute;
+  inset: -5px;
+  opacity: 0.4;
+}
+
+/* Team emblem (the themed icon for each team) */
+html[data-theme="pinaka"] .pk-sb-emblem {
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+/* Info block (team name + solves) */
+html[data-theme="pinaka"] .pk-sb-tile-info {
+  flex: 1;
+  min-width: 0;
+}
+
+html[data-theme="pinaka"] .pk-sb-tile-name {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+html[data-theme="pinaka"] .pk-sb-tile-solves {
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.125rem;
+}
+
+/* Score block (large number on the right) */
+html[data-theme="pinaka"] .pk-sb-tile-score {
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+  line-height: 1;
+  flex-shrink: 0;
+  text-align: right;
+}
+html[data-theme="pinaka"] .pk-sb-tile[data-rank="1"] .pk-sb-tile-score {
+  color: var(--pk-gold);
+  text-shadow: 0 0 12px var(--pk-gold-glow);
+}
+html[data-theme="pinaka"] .pk-sb-tile[data-rank="2"] .pk-sb-tile-score {
+  color: var(--color-text-primary);
+}
+html[data-theme="pinaka"] .pk-sb-tile[data-rank="3"] .pk-sb-tile-score {
+  color: var(--pk-gold-deep);
+}
+
+html[data-theme="pinaka"] .pk-sb-tile-unit {
+  font-family: var(--font-sans);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  display: block;
+  margin-top: 0.125rem;
+}
+
+/* ── Chart panel override ─────────────────────────────────────────────── */
+html[data-theme="pinaka"] .pk-sb-chart .surface {
+  border-color: var(--pk-gold-line);
+}
+
+html[data-theme="pinaka"] .pk-sb-chart .text-h3 {
+  font-family: var(--pk-font-display);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+/* ── Standings table — rank circles and gold points ───────────────────── */
+html[data-theme="pinaka"] .pk-sb-table .standings-row td:first-child {
+  font-family: var(--pk-font-display);
+}
+
+html[data-theme="pinaka"] .pk-sb-rank-circle {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--pk-font-display);
+  font-weight: 700;
+  font-size: 0.75rem;
+  border: 1.5px solid;
+}
+
+html[data-theme="pinaka"] .pk-sb-rank-circle[data-rank="1"] {
+  border-color: var(--pk-gold);
+  color: var(--pk-gold);
+  background: rgba(227, 187, 102, 0.12);
+}
+html[data-theme="pinaka"] .pk-sb-rank-circle[data-rank="2"] {
+  border-color: #b4b4be;
+  color: #d9d2bb;
+  background: rgba(180, 180, 190, 0.08);
+}
+html[data-theme="pinaka"] .pk-sb-rank-circle[data-rank="3"] {
+  border-color: #b4824f;
+  color: #b4824f;
+  background: rgba(180, 130, 79, 0.08);
+}
+html[data-theme="pinaka"] .pk-sb-rank-circle[data-rank="other"] {
+  border-color: var(--color-border-strong);
+  color: var(--pk-gold-deep);
+  background: transparent;
+}
+
+/* Gold-tinted points for ranked teams in the table */
+html[data-theme="pinaka"] .pk-sb-table .standings-row .pk-sb-pts-gold {
+  color: var(--pk-gold);
+}
+
+/* Team emblem icons in the standings table */
+html[data-theme="pinaka"] .pk-sb-team-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+/* ── Standings header (the "Standings" title) ─────────────────────────── */
+html[data-theme="pinaka"] .pk-sb-table .text-h3 {
+  font-family: var(--pk-font-display);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+/* Table header row */
+html[data-theme="pinaka"] .pk-sb-table thead tr {
+  border-bottom-color: var(--pk-gold-line);
+}
+
+html[data-theme="pinaka"] .pk-sb-table .label-micro {
+  font-family: var(--font-sans);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* ── The "You" strip ──────────────────────────────────────────────────── */
+html[data-theme="pinaka"] .pk-sb-you {
+  border-left: 3px solid var(--pk-gold);
+  box-shadow: inset 3px 0 0 var(--pk-gold), var(--shadow-e2);
+}
+
+/* ── Frozen / ended banner ────────────────────────────────────────────── */
+html[data-theme="pinaka"] .pk-sb-frozen {
+  font-family: var(--pk-font-display);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme="pinaka"] .pk-sb-live-dot { animation: none; opacity: 0.7; }
+}

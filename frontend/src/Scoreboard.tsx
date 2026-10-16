@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend
+  Tooltip, ResponsiveContainer, Legend,
+  LineChart, Line,
 } from 'recharts';
 import { motion, useReducedMotion } from 'motion/react';
 import AnimatedNumber from './components/AnimatedNumber';
@@ -168,6 +169,244 @@ function ChartTooltip({ active, payload, label }: any) {
         ))}
       </ul>
     </div>
+  );
+}
+
+/* ───────────────────── Pinaka scoreboard colours ─────────────────────── */
+
+const PK_SERIES = [
+  '#e3bb66', '#d9d2bb', '#e07a63', '#5fb8a8', '#a195e0',
+  '#9dbf7c', '#e39560', '#7aa6d9', '#d08db0', '#b4824f',
+];
+
+const pkSeriesColor = (i: number) => PK_SERIES[i % PK_SERIES.length];
+
+/* ───────────────── Pinaka grand header ───────────────────────────────── */
+
+function PinakaHeader({
+  eventStatus, frozen, ended, hidden, freezeAt, waiting, inactive, opensAt,
+  lastRefresh, refreshing, refreshNow, teams,
+}: {
+  eventStatus: EventStatus; frozen: boolean; ended: boolean; hidden: boolean;
+  freezeAt: string | null; waiting: boolean; inactive: boolean; opensAt: string | null;
+  lastRefresh: Date | null; refreshing: boolean; refreshNow: () => void; teams: TeamScore[];
+}) {
+  return (
+    <header className="pk-sb-header mb-8 sm:mb-section">
+      <p className="pk-sb-eyebrow" aria-label="Pinaka CTF">
+        PINAKA CTF
+        {!hidden && !waiting && !inactive && !ended && (
+          <span className="pk-sb-live" aria-label="Live">
+            <span className="pk-sb-live-dot" aria-hidden="true" />
+            LIVE
+          </span>
+        )}
+        {ended && (
+          <span className="pk-sb-live" style={{ background: '#6b6b6b', boxShadow: 'none' }} aria-label="Ended">
+            FINAL
+          </span>
+        )}
+      </p>
+      <h2 className="pk-sb-title">Scoreboard</h2>
+      <p className="pk-sb-tagline">The battle for the summit</p>
+      <span className="pk-sb-rule" aria-hidden="true" />
+
+      <div className="pk-sb-status">
+        {frozen && (
+          <span className="badge badge-medium inline-flex items-center gap-1.5 pk-sb-frozen">
+            <Lock className="w-3 h-3" aria-hidden="true" />
+            {ended ? 'Final standings' : 'Frozen'}
+          </span>
+        )}
+        {!hidden && (
+          <span className="badge badge-neon font-mono tabular-nums">
+            {teams.length} {teams.length === 1 ? 'team' : 'teams'}
+          </span>
+        )}
+        <span className="text-small text-text-muted">
+          {hidden ? 'Hidden by the organisers'
+            : frozen
+              ? ended
+                ? `As of ${freezeAt ? formatClock(freezeAt) : 'the close'}`
+                : `Frozen${freezeAt ? ` at ${formatClock(freezeAt)}` : ''}`
+              : waiting
+                ? (opensAt ? `Opens ${opensAt}` : 'Opens when the event starts')
+                : inactive ? 'No event running'
+                  : <>Updated <RelativeTime at={lastRefresh} /></>}
+        </span>
+        {!hidden && (
+          <button
+            type="button"
+            onClick={refreshNow}
+            disabled={refreshing}
+            aria-label="Refresh the scoreboard now"
+            title="Refresh now"
+            className="btn btn-ghost btn-sm btn-icon"
+          >
+            <RefreshCw
+              className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`}
+              aria-hidden="true"
+            />
+          </button>
+        )}
+      </div>
+    </header>
+  );
+}
+
+/* ───────────────── Pinaka podium tiles ────────────────────────────────── */
+
+function WreathSvg({ rank }: { rank: number }) {
+  if (rank === 1) return (
+    <svg className="pk-sb-wreath" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+      <path d="M12 38c-4-6-6-14-4-22 2 6 6 11 12 14" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.5" />
+      <path d="M36 38c4-6 6-14 4-22-2 6-6 11-12 14" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.5" />
+      <path d="M10 36c-2-5-2-12 1-18 1 5 4 10 9 13" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.35" />
+      <path d="M38 36c2-5 2-12-1-18-1 5-4 10-9 13" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.35" />
+    </svg>
+  );
+  if (rank === 2) return (
+    <svg className="pk-sb-wreath" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+      <path d="M14 36c-3-5-4-12-2-18 1 5 5 10 10 13" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.4" />
+      <path d="M34 36c3-5 4-12 2-18-1 5-5 10-10 13" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.4" />
+    </svg>
+  );
+  return (
+    <svg className="pk-sb-wreath" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+      <path d="M16 34c-2-4-3-10-1-15 1 4 4 8 8 11" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.3" />
+      <path d="M32 34c2-4 3-10 1-15-1 4-4 8-8 11" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.3" />
+    </svg>
+  );
+}
+
+function TeamEmblem({ rank }: { rank: number }) {
+  if (rank === 1) return (
+    <svg className="pk-sb-emblem" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <path d="M16 4c2 4 4 8 4 14-2-3-5-5-8-5s-6 2-8 5c0-6 2-10 4-14 2-1 6-1 8 0z" fill="currentColor" opacity="0.7" />
+      <path d="M12 22c-2 2-3 5-3 8h14c0-3-1-6-3-8-2 1-6 1-8 0z" fill="currentColor" opacity="0.5" />
+    </svg>
+  );
+  if (rank === 2) return (
+    <svg className="pk-sb-emblem" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <circle cx="16" cy="14" r="8" stroke="currentColor" strokeWidth="1.5" opacity="0.6" />
+      <path d="M12 14c0-2 1.8-4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.8" />
+      <path d="M10 24h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
+    </svg>
+  );
+  return (
+    <svg className="pk-sb-emblem" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <path d="M16 6c-1 3-3 6-7 8 3 0 6 2 7 5 1-3 4-5 7-5-4-2-6-5-7-8z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" opacity="0.6" />
+    </svg>
+  );
+}
+
+function PinakaPodiumTile({
+  team, rank, reduced,
+}: { team: TeamScore; rank: number; reduced: boolean }) {
+  return (
+    <motion.div
+      className="pk-sb-tile"
+      data-rank={rank}
+      initial={reduced ? false : { opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay: reduced ? 0 : rank * 0.06, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <span className="pk-sb-rank-badge" data-rank={rank} aria-label={`Rank ${rank}`}>
+        <WreathSvg rank={rank} />
+        {rank}
+      </span>
+      <TeamEmblem rank={rank} />
+      <div className="pk-sb-tile-info">
+        <div className="pk-sb-tile-name" title={team.name}>{team.name}</div>
+        <div className="pk-sb-tile-solves">
+          <Flag className="w-3 h-3" aria-hidden="true" />
+          {team.solved_count ?? 0} solves
+        </div>
+      </div>
+      <div>
+        <div className="pk-sb-tile-score">{team.total_points.toLocaleString()}</div>
+        <span className="pk-sb-tile-unit">points</span>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ───────────────── Pinaka standings rows ──────────────────────────────── */
+
+function PinakaStandingsRows({ teams, reduced, meId, scored }: { teams: TeamScore[]; reduced: boolean; meId: string | null; scored: boolean }) {
+  const prevRanks = useRef<Record<string, number>>({});
+  const [deltas, setDeltas] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const next: Record<string, number> = {};
+    const changed: Record<string, number> = {};
+    teams.forEach((t, i) => {
+      next[t.id] = i;
+      const before = prevRanks.current[t.id];
+      if (before !== undefined && before !== i) changed[t.id] = before - i;
+    });
+    prevRanks.current = next;
+    setDeltas(changed);
+  }, [teams]);
+
+  return (
+    <>
+      {teams.map((team, i) => {
+        const rank = i + 1;
+        return (
+          <motion.tr
+            key={team.id}
+            layout={reduced ? false : 'position'}
+            initial={reduced ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{
+              duration: 0.24,
+              delay: reduced ? 0 : Math.min(i, 9) * 0.02,
+              layout: { type: 'spring', stiffness: 380, damping: 34, mass: 0.9 },
+            }}
+            data-moved={deltas[team.id] === undefined ? undefined : (deltas[team.id] > 0 ? 'up' : 'down')}
+            data-me={team.id === meId ? '' : undefined}
+            className="standings-row group transition-colors duration-[var(--duration-fast)] hover:bg-surface-raised"
+          >
+            <td className="px-5 py-4 align-middle">
+              <div className="flex items-center gap-2">
+                <span
+                  className="pk-sb-rank-circle"
+                  data-rank={rank <= 3 ? rank : 'other'}
+                >
+                  {rank}
+                </span>
+                <RankDelta delta={deltas[team.id]} />
+              </div>
+            </td>
+
+            <td className="px-5 py-4 align-middle min-w-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span
+                  className={`truncate text-small ${rank === 1 ? 'text-cyber-neon font-semibold' : 'text-cyber-text'}`}
+                  title={team.name}
+                >
+                  {team.name}
+                  {team.id === meId && <span className="badge badge-neon ml-2 align-middle">You</span>}
+                </span>
+              </div>
+            </td>
+
+            <td className="px-5 py-4 align-middle text-center">
+              <span className="font-mono text-small tabular-nums text-text-secondary">
+                {team.solved_count ?? 0}
+              </span>
+            </td>
+
+            <td className="px-5 py-4 align-middle text-right">
+              <span className={`font-mono text-small font-bold tabular-nums ${rank <= 5 ? 'pk-sb-pts-gold' : 'text-cyber-text'}`}>
+                {team.total_points.toLocaleString()}
+              </span>
+            </td>
+          </motion.tr>
+        );
+      })}
+    </>
   );
 }
 
@@ -719,73 +958,81 @@ export default function Scoreboard({ myTeamId = null, eventStatus = 'live', star
   return (
     <div className={`flex-1 w-full min-w-0 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 sm:py-12${pinaka ? ' pk-lanka-hall' : ''}`}>
       {/* ── header ───────────────────────────────────────────────── */}
-      <header className="mb-8 sm:mb-section flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <p className="label-micro flex items-center gap-1.5 mb-2">
-            <Radio className="w-3 h-3 text-cyber-neon" aria-hidden="true" />
-            {waiting ? 'Pre-event' : inactive ? 'Standby' : pinaka ? 'The hall of honour' : 'Live telemetry'}
-          </p>
-          <h2 className="text-h1 text-cyber-text">Scoreboard</h2>
-          <div
-            className="mt-3 h-px w-24 rounded-pill"
-            style={{ background: 'linear-gradient(90deg, var(--color-neon), transparent)' }}
-            aria-hidden="true"
-          />
-        </div>
+      {pinaka ? (
+        <PinakaHeader
+          eventStatus={eventStatus} frozen={frozen} ended={ended} hidden={hidden}
+          freezeAt={freezeAt} waiting={waiting} inactive={inactive} opensAt={opensAt}
+          lastRefresh={lastRefresh} refreshing={refreshing} refreshNow={refreshNow} teams={teams}
+        />
+      ) : (
+        <header className="mb-8 sm:mb-section flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <p className="label-micro flex items-center gap-1.5 mb-2">
+              <Radio className="w-3 h-3 text-cyber-neon" aria-hidden="true" />
+              {waiting ? 'Pre-event' : inactive ? 'Standby' : 'Live telemetry'}
+            </p>
+            <h2 className="text-h1 text-cyber-text">Scoreboard</h2>
+            <div
+              className="mt-3 h-px w-24 rounded-pill"
+              style={{ background: 'linear-gradient(90deg, var(--color-neon), transparent)' }}
+              aria-hidden="true"
+            />
+          </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {hidden ? (
-            <span className="badge badge-hard inline-flex items-center gap-1.5">
-              <EyeOff className="w-3 h-3" aria-hidden="true" /> Hidden
+          <div className="flex flex-wrap items-center gap-2">
+            {hidden ? (
+              <span className="badge badge-hard inline-flex items-center gap-1.5">
+                <EyeOff className="w-3 h-3" aria-hidden="true" /> Hidden
+              </span>
+            ) : frozen ? (
+              <span className="badge badge-medium inline-flex items-center gap-1.5">
+                <Lock className="w-3 h-3" aria-hidden="true" /> {ended ? 'Final' : 'Frozen'}
+              </span>
+            ) : waiting ? (
+              <span className="badge badge-medium inline-flex items-center gap-1.5">
+                <Clock className="w-3 h-3" aria-hidden="true" /> Starts soon
+              </span>
+            ) : inactive ? (
+              <span className="badge badge-locked">Inactive</span>
+            ) : (
+              <span className="badge badge-live">Live</span>
+            )}
+            {!hidden && (
+              <span className="badge badge-neon font-mono tabular-nums">
+                {teams.length} {teams.length === 1 ? 'team' : 'teams'}
+              </span>
+            )}
+            <span className="text-small text-text-muted">
+              {hidden
+                ? 'Hidden by the organisers'
+                : frozen
+                  ? ended
+                    ? `Final standings as of ${freezeAt ? formatClock(freezeAt) : 'the close'}`
+                    : `Frozen${freezeAt ? ` at ${formatClock(freezeAt)}` : ''} — final standings hidden until the reveal`
+                  : waiting
+                    ? (opensAt ? `Opens ${opensAt}` : 'Opens when the organisers start the event')
+                    : inactive
+                      ? 'No event running'
+                      : <>Updated <RelativeTime at={lastRefresh} /></>}
             </span>
-          ) : frozen ? (
-            <span className="badge badge-medium inline-flex items-center gap-1.5">
-              <Lock className="w-3 h-3" aria-hidden="true" /> {ended ? 'Final' : 'Frozen'}
-            </span>
-          ) : waiting ? (
-            <span className="badge badge-medium inline-flex items-center gap-1.5">
-              <Clock className="w-3 h-3" aria-hidden="true" /> Starts soon
-            </span>
-          ) : inactive ? (
-            <span className="badge badge-locked">Inactive</span>
-          ) : (
-            <span className="badge badge-live">Live</span>
-          )}
-          {!hidden && (
-            <span className="badge badge-neon font-mono tabular-nums">
-              {teams.length} {teams.length === 1 ? 'team' : 'teams'}
-            </span>
-          )}
-          <span className="text-small text-text-muted">
-            {hidden
-              ? 'Hidden by the organisers'
-              : frozen
-                ? ended
-                  ? `Final standings as of ${freezeAt ? formatClock(freezeAt) : 'the close'}`
-                  : `Frozen${freezeAt ? ` at ${formatClock(freezeAt)}` : ''} — final standings hidden until the reveal`
-                : waiting
-                  ? (opensAt ? `Opens ${opensAt}` : 'Opens when the organisers start the event')
-                  : inactive
-                    ? 'No event running'
-                    : <>Updated <RelativeTime at={lastRefresh} /></>}
-          </span>
-          {!hidden && (
-            <button
-              type="button"
-              onClick={refreshNow}
-              disabled={refreshing}
-              aria-label="Refresh the scoreboard now"
-              title="Refresh now"
-              className="btn btn-ghost btn-sm btn-icon"
-            >
-              <RefreshCw
-                className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`}
-                aria-hidden="true"
-              />
-            </button>
-          )}
-        </div>
-      </header>
+            {!hidden && (
+              <button
+                type="button"
+                onClick={refreshNow}
+                disabled={refreshing}
+                aria-label="Refresh the scoreboard now"
+                title="Refresh now"
+                className="btn btn-ghost btn-sm btn-icon"
+              >
+                <RefreshCw
+                  className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`}
+                  aria-hidden="true"
+                />
+              </button>
+            )}
+          </div>
+        </header>
+      )}
 
       {/* ── blackout ─────────────────────────────────────────────── */}
       {hidden ? (
@@ -836,34 +1083,35 @@ export default function Scoreboard({ myTeamId = null, eventStatus = 'live', star
         </section>
       ) : podium.length > 0 ? (
         <section aria-label="Top three teams" className="mb-8 sm:mb-section">
-          <h3 className="label-micro mb-3 flex items-center gap-1.5">
-            <Trophy className="w-3 h-3" aria-hidden="true" /> Podium
-          </h3>
-          <div className="grid gap-4 sm:grid-cols-3 sm:items-end">
-            {podium.map((team, i) => {
-              const card = (
-                <PodiumCard
-                  key={team.id}
-                  team={team}
-                  rank={i + 1}
-                  leaderPoints={leaderPoints}
-                  reduced={reduced}
-                />
-              );
-              // The event skin frames the three cards; the cards themselves
-              // and their data are untouched.
-              return pinaka ? (
-                <React.Suspense key={team.id} fallback={card}>
-                  <PodiumFrame rank={(i + 1) as 1 | 2 | 3}>{card}</PodiumFrame>
-                </React.Suspense>
-              ) : card;
-            })}
-          </div>
+          {pinaka ? (
+            <div className="pk-sb-podium-row">
+              {podium.map((team, i) => (
+                <PinakaPodiumTile key={team.id} team={team} rank={i + 1} reduced={reduced} />
+              ))}
+            </div>
+          ) : (
+            <>
+              <h3 className="label-micro mb-3 flex items-center gap-1.5">
+                <Trophy className="w-3 h-3" aria-hidden="true" /> Podium
+              </h3>
+              <div className="grid gap-4 sm:grid-cols-3 sm:items-end">
+                {podium.map((team, i) => (
+                  <PodiumCard
+                    key={team.id}
+                    team={team}
+                    rank={i + 1}
+                    leaderPoints={leaderPoints}
+                    reduced={reduced}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </section>
       ) : null}
 
       {/* ── graph ────────────────────────────────────────────────── */}
-      <section className="mb-8 sm:mb-section">
+      <section className={`mb-8 sm:mb-section${pinaka ? ' pk-sb-chart' : ''}`}>
         <div className="surface overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-border-subtle">
             <div className="min-w-0">
@@ -897,74 +1145,135 @@ export default function Scoreboard({ myTeamId = null, eventStatus = 'live', star
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={graphData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                  <defs>
-                    {top10Names.map((name, i) => (
-                      <linearGradient key={name} id={`sb-grad-${i}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={seriesColor(i)} stopOpacity={i === 0 ? 0.28 : 0.16} />
-                        <stop offset="100%" stopColor={seriesColor(i)} stopOpacity={0} />
-                      </linearGradient>
-                    ))}
-                  </defs>
-                  <CartesianGrid
-                    strokeDasharray="2 6"
-                    stroke="var(--color-border-base)"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="time"
-                    stroke="var(--color-text-faint)"
-                    tick={{ fill: 'var(--color-text-muted)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace' }}
-                    tickLine={false}
-                    axisLine={{ stroke: 'var(--color-border-base)' }}
-                    minTickGap={24}
-                    dy={8}
-                  />
-                  <YAxis
-                    stroke="var(--color-text-faint)"
-                    tick={{ fill: 'var(--color-text-muted)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace' }}
-                    tickLine={false}
-                    axisLine={false}
-                    width={44}
-                    dx={-4}
-                  />
-                  <Tooltip
-                    content={<ChartTooltip />}
-                    cursor={{ stroke: 'var(--color-border-strong)', strokeDasharray: '3 3' }}
-                  />
-                  <Legend
-                    verticalAlign="bottom"
-                    height={64}
-                    iconType="circle"
-                    iconSize={7}
-                    wrapperStyle={{ paddingTop: 16 }}
-                    formatter={(value: any) => (
-                      <span className="label-micro align-middle">
-                        {String(value)}
-                      </span>
-                    )}
-                  />
-                  {top10Names.map((name, i) => (
-                    <Area
-                      key={name}
-                      type="monotone"
-                      dataKey={name}
-                      stroke={seriesColor(i)}
-                      strokeWidth={i === 0 ? 2.25 : 1.5}
-                      fill={`url(#sb-grad-${i})`}
-                      fillOpacity={1}
-                      isAnimationActive={!reduced}
-                      animationDuration={520}
-                      dot={false}
-                      activeDot={{
-                        r: 4,
-                        strokeWidth: 2,
-                        stroke: 'var(--color-surface-card)',
-                        fill: seriesColor(i),
-                      }}
+                {pinaka ? (
+                  <LineChart data={graphData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                    <CartesianGrid
+                      strokeDasharray="2 6"
+                      stroke="var(--color-border-base)"
+                      vertical={false}
                     />
-                  ))}
-                </AreaChart>
+                    <XAxis
+                      dataKey="time"
+                      stroke="var(--color-text-faint)"
+                      tick={{ fill: 'var(--color-text-muted)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace' }}
+                      tickLine={false}
+                      axisLine={{ stroke: 'var(--color-border-base)' }}
+                      minTickGap={24}
+                      dy={8}
+                    />
+                    <YAxis
+                      stroke="var(--color-text-faint)"
+                      tick={{ fill: 'var(--color-text-muted)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace' }}
+                      tickLine={false}
+                      axisLine={false}
+                      width={44}
+                      dx={-4}
+                    />
+                    <Tooltip
+                      content={<ChartTooltip />}
+                      cursor={{ stroke: 'var(--color-border-strong)', strokeDasharray: '3 3' }}
+                    />
+                    <Legend
+                      verticalAlign="bottom"
+                      height={64}
+                      iconType="circle"
+                      iconSize={7}
+                      wrapperStyle={{ paddingTop: 16 }}
+                      formatter={(value: any) => (
+                        <span className="label-micro align-middle">
+                          {String(value)}
+                        </span>
+                      )}
+                    />
+                    {top10Names.map((name, i) => (
+                      <Line
+                        key={name}
+                        type="monotone"
+                        dataKey={name}
+                        stroke={pkSeriesColor(i)}
+                        strokeWidth={i === 0 ? 2.5 : 1.5}
+                        dot={false}
+                        isAnimationActive={!reduced}
+                        animationDuration={520}
+                        activeDot={{
+                          r: 4,
+                          strokeWidth: 2,
+                          stroke: 'var(--color-surface-card)',
+                          fill: pkSeriesColor(i),
+                        }}
+                      />
+                    ))}
+                  </LineChart>
+                ) : (
+                  <AreaChart data={graphData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                    <defs>
+                      {top10Names.map((name, i) => (
+                        <linearGradient key={name} id={`sb-grad-${i}`} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={seriesColor(i)} stopOpacity={i === 0 ? 0.28 : 0.16} />
+                          <stop offset="100%" stopColor={seriesColor(i)} stopOpacity={0} />
+                        </linearGradient>
+                      ))}
+                    </defs>
+                    <CartesianGrid
+                      strokeDasharray="2 6"
+                      stroke="var(--color-border-base)"
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="time"
+                      stroke="var(--color-text-faint)"
+                      tick={{ fill: 'var(--color-text-muted)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace' }}
+                      tickLine={false}
+                      axisLine={{ stroke: 'var(--color-border-base)' }}
+                      minTickGap={24}
+                      dy={8}
+                    />
+                    <YAxis
+                      stroke="var(--color-text-faint)"
+                      tick={{ fill: 'var(--color-text-muted)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace' }}
+                      tickLine={false}
+                      axisLine={false}
+                      width={44}
+                      dx={-4}
+                    />
+                    <Tooltip
+                      content={<ChartTooltip />}
+                      cursor={{ stroke: 'var(--color-border-strong)', strokeDasharray: '3 3' }}
+                    />
+                    <Legend
+                      verticalAlign="bottom"
+                      height={64}
+                      iconType="circle"
+                      iconSize={7}
+                      wrapperStyle={{ paddingTop: 16 }}
+                      formatter={(value: any) => (
+                        <span className="label-micro align-middle">
+                          {String(value)}
+                        </span>
+                      )}
+                    />
+                    {top10Names.map((name, i) => (
+                      <Area
+                        key={name}
+                        type="monotone"
+                        dataKey={name}
+                        stroke={seriesColor(i)}
+                        strokeWidth={i === 0 ? 2.25 : 1.5}
+                        fill={`url(#sb-grad-${i})`}
+                        fillOpacity={1}
+                        isAnimationActive={!reduced}
+                        animationDuration={520}
+                        dot={false}
+                        activeDot={{
+                          r: 4,
+                          strokeWidth: 2,
+                          stroke: 'var(--color-surface-card)',
+                          fill: seriesColor(i),
+                        }}
+                      />
+                    ))}
+                  </AreaChart>
+                )}
               </ResponsiveContainer>
             )}
           </div>
@@ -983,7 +1292,7 @@ export default function Scoreboard({ myTeamId = null, eventStatus = 'live', star
         else if (r > teams.length && tenth) gap = { label: `To #${teams.length}`, value: `${Math.max(0, Number(tenth.total_points) - pts + 1).toLocaleString()} pts` };
         return (
           <section aria-label="Your team's position" className="mb-4">
-            <div className="surface flex flex-wrap items-center gap-x-6 gap-y-4 px-4 sm:px-6 py-4" style={{ boxShadow: 'inset 2px 0 0 var(--color-neon), var(--shadow-e2)' }}>
+            <div className={`surface flex flex-wrap items-center gap-x-6 gap-y-4 px-4 sm:px-6 py-4${pinaka ? ' pk-sb-you' : ''}`} style={pinaka ? undefined : { boxShadow: 'inset 2px 0 0 var(--color-neon), var(--shadow-e2)' }}>
               <div className="flex min-w-0 items-center gap-3">
                 <span className="badge badge-neon shrink-0">You</span>
                 <span className="truncate text-body font-semibold text-cyber-text" title={mine.team.name}>{mine.team.name}</span>
@@ -1065,7 +1374,7 @@ export default function Scoreboard({ myTeamId = null, eventStatus = 'live', star
       })()}
 
       {/* ── standings ────────────────────────────────────────────── */}
-      <section aria-label="Team standings">
+      <section aria-label="Team standings" className={pinaka ? 'pk-sb-table' : ''}>
         <div className="surface overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-border-subtle">
             <h3 className="text-h3 text-cyber-text flex items-center gap-2">
@@ -1075,47 +1384,86 @@ export default function Scoreboard({ myTeamId = null, eventStatus = 'live', star
             <span className="label-micro">Ties broken by earliest solve</span>
           </div>
 
-          {/* the table scrolls in its own box — the page never does */}
           <div className="max-h-[28rem] overflow-auto custom-scrollbar">
-            <table className="w-full min-w-[30rem] text-left border-collapse">
-              <caption className="sr-only">
-                Team standings, ordered by total points then earliest last solve
-              </caption>
-              <thead className="sticky top-0 z-10">
-                <tr className="bg-surface-rail border-b border-border-base">
-                  <th scope="col" className="label-micro px-5 py-3.5 w-28">Place</th>
-                  <th scope="col" className="label-micro px-5 py-3.5">Team</th>
-                  <th scope="col" className="label-micro hidden md:table-cell px-5 py-3.5 text-right">Last solve</th>
-                  <th scope="col" className="label-micro px-5 py-3.5 text-center">Solves</th>
-                  <th scope="col" className="label-micro px-5 py-3.5 text-right">Score</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border-subtle">
-                {loading ? (
-                  [0, 1, 2, 3, 4].map(i => (
-                    <tr key={i} aria-hidden="true">
-                      <td className="px-5 py-4"><div className="skeleton h-5 w-10 rounded-inset" /></td>
-                      <td className="px-5 py-4"><div className="skeleton skeleton-text w-40" /></td>
-                      <td className="hidden md:table-cell px-5 py-4"><div className="skeleton skeleton-text w-16 ml-auto" /></td>
-                      <td className="px-5 py-4"><div className="skeleton skeleton-text w-8 mx-auto" /></td>
-                      <td className="px-5 py-4"><div className="skeleton skeleton-text w-14 ml-auto" /></td>
-                    </tr>
-                  ))
-                ) : teams.length === 0 ? (
-                  <tr>
-                    <td colSpan={5}>
-                      <EmptyState
-                        icon={Trophy}
-                        title="No teams on the board yet"
-                        hint="Standings populate the moment the first flag is accepted."
-                      />
-                    </td>
+            {pinaka ? (
+              <table className="w-full min-w-[24rem] text-left border-collapse">
+                <caption className="sr-only">
+                  Team standings, ordered by total points then earliest last solve
+                </caption>
+                <thead className="sticky top-0 z-10">
+                  <tr className="bg-surface-rail border-b border-border-base">
+                    <th scope="col" className="label-micro px-5 py-3.5 w-24">Rank</th>
+                    <th scope="col" className="label-micro px-5 py-3.5">Team</th>
+                    <th scope="col" className="label-micro px-5 py-3.5 text-center">Solves</th>
+                    <th scope="col" className="label-micro px-5 py-3.5 text-right">Points</th>
                   </tr>
-                ) : (
-                  <StandingsRows teams={teams} reduced={reduced} meId={myTeamId} scored={podiumReady} />
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-border-subtle">
+                  {loading ? (
+                    [0, 1, 2, 3, 4].map(i => (
+                      <tr key={i} aria-hidden="true">
+                        <td className="px-5 py-4"><div className="skeleton h-5 w-10 rounded-inset" /></td>
+                        <td className="px-5 py-4"><div className="skeleton skeleton-text w-40" /></td>
+                        <td className="px-5 py-4"><div className="skeleton skeleton-text w-8 mx-auto" /></td>
+                        <td className="px-5 py-4"><div className="skeleton skeleton-text w-14 ml-auto" /></td>
+                      </tr>
+                    ))
+                  ) : teams.length === 0 ? (
+                    <tr>
+                      <td colSpan={4}>
+                        <EmptyState
+                          icon={Trophy}
+                          title="No teams on the board yet"
+                          hint="Standings populate the moment the first flag is accepted."
+                        />
+                      </td>
+                    </tr>
+                  ) : (
+                    <PinakaStandingsRows teams={teams} reduced={reduced} meId={myTeamId} scored={podiumReady} />
+                  )}
+                </tbody>
+              </table>
+            ) : (
+              <table className="w-full min-w-[30rem] text-left border-collapse">
+                <caption className="sr-only">
+                  Team standings, ordered by total points then earliest last solve
+                </caption>
+                <thead className="sticky top-0 z-10">
+                  <tr className="bg-surface-rail border-b border-border-base">
+                    <th scope="col" className="label-micro px-5 py-3.5 w-28">Place</th>
+                    <th scope="col" className="label-micro px-5 py-3.5">Team</th>
+                    <th scope="col" className="label-micro hidden md:table-cell px-5 py-3.5 text-right">Last solve</th>
+                    <th scope="col" className="label-micro px-5 py-3.5 text-center">Solves</th>
+                    <th scope="col" className="label-micro px-5 py-3.5 text-right">Score</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-subtle">
+                  {loading ? (
+                    [0, 1, 2, 3, 4].map(i => (
+                      <tr key={i} aria-hidden="true">
+                        <td className="px-5 py-4"><div className="skeleton h-5 w-10 rounded-inset" /></td>
+                        <td className="px-5 py-4"><div className="skeleton skeleton-text w-40" /></td>
+                        <td className="hidden md:table-cell px-5 py-4"><div className="skeleton skeleton-text w-16 ml-auto" /></td>
+                        <td className="px-5 py-4"><div className="skeleton skeleton-text w-8 mx-auto" /></td>
+                        <td className="px-5 py-4"><div className="skeleton skeleton-text w-14 ml-auto" /></td>
+                      </tr>
+                    ))
+                  ) : teams.length === 0 ? (
+                    <tr>
+                      <td colSpan={5}>
+                        <EmptyState
+                          icon={Trophy}
+                          title="No teams on the board yet"
+                          hint="Standings populate the moment the first flag is accepted."
+                        />
+                      </td>
+                    </tr>
+                  ) : (
+                    <StandingsRows teams={teams} reduced={reduced} meId={myTeamId} scored={podiumReady} />
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </section>
