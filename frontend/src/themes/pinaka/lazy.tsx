@@ -24,10 +24,11 @@ export const ThemeSwitch = React.lazy(() => import('./components/ThemeSwitch'));
 export const JourneyBar = React.lazy(() => import('./components/JourneyBar'));
 /** The moment a chapter closes and the next opens. */
 export const ChapterUnlock = React.lazy(() => import('./components/ChapterUnlock'));
+/** A chapter's operations as a row of linked cards, on the chapter's art. */
+export const ChapterChain = React.lazy(() => import('./components/ChapterChain'));
 
 /** The solve acknowledgement, from the motif family. Preloaded at boot. */
 export const ArrowSolveLight = React.lazy(() =>
   import('./components/BowMotifs').then(m => ({ default: m.ArrowSolveLight })),
 );
 /** The photographs' attribution on its own, for screens without the footer (the phone sign-in). */
-export const PlateCredits = React.lazy(() => import('./components/PartnerStrip').then(m => ({ default: m.PlateCredits })));

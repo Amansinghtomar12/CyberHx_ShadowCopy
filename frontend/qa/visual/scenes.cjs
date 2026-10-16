@@ -3,7 +3,8 @@
  * scenes.cjs — every screen of the platform, as a scene the harness can run.
  *
  * A scene is scene(name, { now, event, me, loggedOut, invite, down, only,
- * before(page, h), shots: [{ name?, before?, waitText?, waitSelector?, at, full?, clip? }] }).
+ * extraSolves, before(page, h),
+ * shots: [{ name?, before?, waitText?, waitSelector?, at, full?, clip? }] }).
  * Waits are on real text or selectors; `at` is only the settle time after
  * them (animations, count-ups, the breach showcase).
  */
@@ -29,6 +30,147 @@ const armPaidHint = async (page, h) => {
   await dialog.locator('button', { hasText: '-500 pts' }).first().click();
   await h.waitText('Confirm decryption');
 };
+
+// ── The header has to fit ───────────────────────────────────────────────
+// Not a picture: a measurement that fails the run. The row is one flex
+// line with a shrink-0 right group, so anything the left group cannot fit
+// is painted over the clock rather than clipped — which is exactly what
+// happened to an admin at every desktop width until the wordmark, the
+// event badge and the switch learned to give way. Both skins, both roles,
+// every width where the desktop row is on.
+const navFits = (opts) => ({
+  ...opts,
+  before: async (page, h) => {
+    await h.boardReady();
+    const bad = [];
+    for (const w of [1024, 1080, 1180, 1280, 1366, 1440, 1536, 1600, 1920]) {
+      await page.setViewportSize({ width: w, height: 900 });
+      await page.waitForTimeout(160);
+      const r = await page.evaluate(() => {
+        const row = document.querySelector('nav.sticky > div');
+        const [left, right] = Array.from(row.children);
+        // The painted edge, not the box: a child that overflows its group
+        // is the whole failure mode being guarded against.
+        const edge = (el) => Math.max(
+          el.getBoundingClientRect().right,
+          ...Array.from(el.querySelectorAll('*'))
+            .filter(e => e.getClientRects().length)
+            .map(e => e.getBoundingClientRect().right),
+        );
+        const strip = left.querySelector('.nav-strip');
+        return {
+          gap: Math.round(right.getBoundingClientRect().left - edge(left)),
+          // The strip scrolls rather than overlaps now, so a clear gap is
+          // only half the answer: a scrollable strip means a tab is cut off.
+          cut: strip ? strip.scrollWidth - strip.clientWidth : 0,
+        };
+      });
+      if (r.gap < 0) bad.push('overlaps the controls at ' + w + 'px by ' + -r.gap + 'px');
+      if (r.cut > 0) bad.push('cuts the tab strip at ' + w + 'px by ' + r.cut + 'px');
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.waitForTimeout(200);
+    if (bad.length) throw new Error('header ' + bad.join('; '));
+  },
+  shots: [{ at: 200 }],
+});
+
+// ── nothing under this skin blurs ───────────────────────────────────────
+// The event skin shows the painting through its panels by fill alone; a
+// backdrop-filter anywhere is the thing that makes a page look washed, and
+// it crept back twice — once from the base sheet's blur on every .surface,
+// once from a button nobody thought of. So this lists every blurring
+// element rather than photographing the result, and fails the run when it
+// finds one: "it looks blurry" is not something a screenshot can localise.
+/**
+ * Marks the card a card-art scene is about, scrolls it into view and waits
+ * for its picture to be painted -- then says so, or fails.
+ *
+ * Both halves matter. The board puts challenge cards well below the fold
+ * and the pictures are `loading="lazy"`, so a clipped full-page shot of an
+ * un-scrolled board filed a photograph of an EMPTY band while every
+ * geometry assertion in the scene passed: the band had the right size and
+ * the picture had the right natural dimensions, because it had been
+ * decoded earlier at a different viewport width. Measuring a picture is
+ * not the same as the browser having drawn it, and the shot is the only
+ * part of this that a person actually looks at.
+ *
+ * @param pick 'landscape' | 'portrait' -- which shape this scene is about.
+ */
+const readyForShot = async (page, pick) => {
+  const found = await page.evaluate((want) => {
+    const band = [...document.querySelectorAll('.pk-cardart')].find(b => {
+      const i = b.querySelector('img:not(.pk-cardart-bed)');
+      if (!i) return false;
+      return want === 'landscape'
+        ? i.naturalWidth > i.naturalHeight
+        : i.naturalHeight > i.naturalWidth;
+    });
+    const card = band?.closest('[data-art="1"]');
+    if (card) card.classList.add('pk-qa-shot');
+    return !!card;
+  }, pick);
+  if (!found) throw new Error('no ' + pick + ' card picture to photograph');
+
+  await page.locator('.pk-qa-shot').scrollIntoViewIfNeeded();
+
+  // Both layers: the drawn picture and the blurred bed behind it. A bed
+  // that never loaded leaves the dead ground grey, which is the thing it
+  // was added to stop.
+  const state = await page.locator('.pk-qa-shot .pk-cardart').first().evaluate(async (band) => {
+    const imgs = [...band.querySelectorAll('img')];
+    await Promise.all(imgs.map(i => i.complete ? null : i.decode().catch(() => null)));
+    return imgs.map(i => ({
+      bed: i.classList.contains('pk-cardart-bed'),
+      complete: i.complete, w: i.naturalWidth,
+      src: (i.currentSrc || i.src || '').split('/').slice(-2).join('/'),
+    }));
+  });
+  const blank = state.filter(i => !i.complete || !i.w);
+  if (blank.length) {
+    throw new Error('the card would photograph blank: '
+      + blank.map(i => (i.bed ? 'bed' : 'picture') + ' ' + i.src + ' not painted').join('; '));
+  }
+  return state;
+};
+
+const blurAudit = (opts = {}) => ({
+  event: { theme: 'pinaka', pinaka_story_mode: true },
+  ...opts,
+  before: async (page, h) => {
+    // The board, unless the scene says it is somewhere else — the gateway
+    // has no board to wait for and its own things to blur.
+    if (opts.ready) await opts.ready(page, h); else await h.boardReady();
+    await page.evaluate(() => document.querySelector('[data-tier]')?.setAttribute('data-tier', 'medium'));
+    if (opts.open) await opts.open(page, h);
+    await page.waitForTimeout(400);
+    const rows = await page.evaluate(() => {
+      const out = [];
+      for (const e of document.querySelectorAll('*')) {
+        const c = getComputedStyle(e);
+        const bd = c.backdropFilter && c.backdropFilter !== 'none' ? c.backdropFilter : '';
+        // filter: blur() on an element blurs its OWN pixels, which is how a
+        // soft glow is drawn and not what "the page looks blurry" means.
+        // It only counts against something a reader is meant to read.
+        const decorative = c.pointerEvents === 'none' && !(e.textContent || '').trim();
+        const f = !decorative && c.filter && c.filter !== 'none' && /blur/.test(c.filter) ? c.filter : '';
+        if (!bd && !f) continue;
+        const r = e.getBoundingClientRect();
+        if (r.width < 8 || r.height < 8) continue;
+        out.push(e.tagName.toLowerCase() + '.'
+          + String(e.className).split(/\s+/).filter(Boolean).slice(0, 3).join('.')
+          + '  ' + (bd ? 'backdrop=' + bd : 'filter=' + f));
+      }
+      return out;
+    });
+    if (rows.length) {
+      for (const r of rows.slice(0, 12)) console.log('            ' + r);
+      throw new Error(rows.length + ' element(s) still blur; first: ' + rows[0]);
+    }
+    console.log('            nothing here blurs');
+  },
+  shots: [{ at: 200 }],
+});
 
 module.exports = [
   // ── Auth ────────────────────────────────────────────────────────────────
@@ -65,6 +207,905 @@ module.exports = [
 
   // ── Challenge modal ─────────────────────────────────────────────────────
   scene('challenge-modal', { before: open(EASY), shots: [{ at: 900 }] }),
+  // Pinaka event: opening an arena hands the scene to the whole page.
+  // Assert on the plate the environment is actually painting, not on how
+  // the page looks through the dialog's scrim.
+  // Pinaka event: dismissing the brief must NOT leave the arena. Only
+  // "Take rest" folds the card and gives the chapter's sky back.
+  // What the player is left looking at once the brief is dismissed.
+  // The three beats: closed (scene only) -> entered (real name, no brief)
+  // -> brief open. And a separate way back at every point.
+  scene('arena-three-beats', {
+    // The arena card only exists under the event skin; on the classic
+    // look there is no card to press, so this is nothing to measure.
+    skip: (run) => run.theme !== 'pinaka' && 'pinaka-only scene',
+    before: async (page, h) => {
+      const look = async (label) => {
+        const r = await page.evaluate(() => {
+          const c = document.querySelector('.pk-scenecard');
+          const open = document.querySelector('.pk-scenecard[data-open="1"]');
+          const face = open ? open.querySelector('.pk-scenecard__back') : (c && c.querySelector('.pk-scenecard__front'));
+          return {
+            flipped: !!open,
+            brief: !!document.querySelector('[role="dialog"]'),
+            reveal: open ? (open.querySelector('.pk-scenecard__reveal')||{}).textContent || null : null,
+            frontText: c ? (c.querySelector('.pk-scenecard__front')||{}).innerText.replace(/\n+/g,' / ') : null,
+          };
+        });
+        console.log(`        ${label.padEnd(16)} flipped=${r.flipped} brief=${r.brief} reveal=${JSON.stringify(r.reveal)}`);
+        if (label === 'closed') console.log(`        closed face reads: ${JSON.stringify(r.frontText)}`);
+        return r;
+      };
+      await h.boardReady();
+      await look('closed');
+      await page.locator('.pk-scenecard__enter').first().click();
+      await page.waitForTimeout(1300);
+      await look('entered');
+      await page.locator('.pk-scenecard[data-open="1"] .pk-scenecard__open').first().click();
+      await page.waitForTimeout(1200);
+      await look('brief open');
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(1400);
+      await look('brief closed');
+      await page.locator('.pk-scenecard[data-open="1"] .pk-scenecard__leave').first().click();
+      await page.waitForTimeout(3400);
+      await look('took rest');
+    },
+    shots: [{ at: 400 }],
+  }),
+
+  // Measure the glass as the browser resolves it, rather than trusting a
+  // grep against minified CSS.
+  // The gateway's partner line: institutions on top, everyone else running.
+  scene('gateway-partners', {
+    loggedOut: true,
+    before: async (page) => {
+      await page.waitForTimeout(2500);
+      const run = page.locator('.pk-sponsor-run').first();
+      await run.scrollIntoViewIfNeeded().catch(() => {});
+      await page.waitForTimeout(900);
+      const info = await page.evaluate(() => {
+        const lane = document.querySelector('.pk-sponsor-run');
+        const tracks = document.querySelectorAll('.pk-sponsor-run-track');
+        const items = document.querySelectorAll('.pk-sponsor-run-item');
+        const honours = document.querySelectorAll('.pk-partners-honours > *');
+        return {
+          lane: !!lane,
+          tracks: tracks.length,
+          itemsPerTrack: items.length / (tracks.length || 1),
+          anim: lane ? getComputedStyle(tracks[0]).animationName : '-',
+          onTop: [...honours].map(e => e.className).join(' | '),
+        };
+      });
+      console.log('        lane=' + info.lane + ' tracks=' + info.tracks +
+                  ' tiles/track=' + info.itemsPerTrack + ' anim=' + info.anim);
+      console.log('        on top: ' + info.onTop);
+    },
+    shots: [{ at: 500 }],
+  }),
+
+  scene('tier-matrix', {
+    before: async (page, h) => {
+      await h.boardReady();
+      for (const tier of ['high', 'medium', 'low', 'still']) {
+        const r = await page.evaluate((t) => {
+          const root = document.querySelector('[data-tier]');
+          const was = root.getAttribute('data-tier');
+          root.setAttribute('data-tier', t);
+          const p = document.querySelector('.surface');
+          const c = getComputedStyle(p);
+          const out = { bg: c.backgroundColor, filt: c.backdropFilter };
+          root.setAttribute('data-tier', was);
+          return out;
+        }, tier);
+        console.log('            ' + tier.padEnd(7) + ' panel bg=' + String(r.bg).padEnd(24) + ' filter=' + r.filt);
+      }
+      const real = await page.evaluate(() => document.querySelector('[data-tier]').getAttribute('data-tier'));
+      console.log('            (headless chromium reports: ' + real + ')');
+    },
+    shots: [{ at: 200 }],
+  }),
+
+  // What the board actually looks like on the tier most visitors get.
+  // Headless Chromium reports 'high', and for a long time that was the only
+  // tier anything here was ever rendered at — which is how glass that was
+  // gated to 'high' shipped looking solid to everyone else. This stamps
+  // 'medium' and keeps a text-free frame beside the real one, so a panel's
+  // composited ground can be measured without the glyphs in the way.
+  scene('glass-medium', {
+    before: async (page, h) => {
+      await h.boardReady();
+      await page.evaluate(() => document.querySelector('[data-tier]').setAttribute('data-tier', 'medium'));
+      await page.waitForTimeout(400);
+      const out = await page.evaluate(() => {
+        const pick = (sel, label) => {
+          const e = document.querySelector(sel);
+          if (!e) return label.padEnd(24) + ' not on this page';
+          const c = getComputedStyle(e);
+          return label.padEnd(24)
+            + ' bg=' + String(c.backgroundColor).padEnd(22)
+            + ' img=' + String(c.backgroundImage).replace(/\s+/g, ' ').slice(0, 60).padEnd(62)
+            + ' filt=' + c.backdropFilter;
+        };
+        return [
+          pick('.pk-scenecard__face', 'battle card'),
+          pick('.page-shell header.surface', 'command header'),
+          pick('.pk-journey', 'journey card'),
+          pick('.page-shell aside.border-r', 'sidebar rail'),
+          pick('.page-shell aside .surface', 'sidebar panel'),
+        ].join('\n            ');
+      });
+      console.log('            ' + out);
+      const text = await page.evaluate(() => {
+        const row = (sel, label) => {
+          const e = document.querySelector(sel);
+          if (!e) return label.padEnd(26) + ' not on this page';
+          const r = e.getBoundingClientRect();
+          return label.padEnd(26) + ' color=' + getComputedStyle(e).color.padEnd(22)
+            + ' box=' + [r.left, r.top, r.right, r.bottom].map(Math.round).join(',');
+        };
+        return [
+          row('.page-shell header.surface h2', 'header title'),
+          row('.page-shell header.surface p', 'header muted line'),
+          row('.pk-journey', 'journey card box'),
+          row('.page-shell aside .surface', 'sidebar panel box'),
+        ].join('\n            ');
+      });
+      console.log('            ' + text);
+    },
+    shots: [
+      { name: 'board', at: 500, full: true },
+      // The same frame with the type taken out, so the panel's composited
+      // ground can be measured without the glyphs skewing the brightest end.
+      { name: 'blank', at: 300, full: true,
+        css: '.page-shell *, .page-shell *::before, .page-shell *::after { color: transparent !important; text-shadow: none !important; }' },
+    ],
+  }),
+
+  // ── one recipe, or none of this holds ───────────────────────────────────
+  // The panels are supposed to be the battle card in another place. They
+  // were not, twice, and neither time was visible in a computed-style
+  // listing read on its own: first the card's own blur turned out to be
+  // inert (its face sits inside the flip container's preserve-3d subtree,
+  // which becomes the backdrop root, so the filter samples an empty
+  // layer), and then, with the panels' blur removed to match, the base
+  // sheet's blur(12px) on every .surface came back through the gap. Both
+  // times the card showed the painting sharp and the panel washed it out.
+  // So this compares them to each other and fails the run when they differ.
+  scene('glass-matches-card', {
+    before: async (page, h) => {
+      await h.boardReady();
+      await page.evaluate(() => document.querySelector('[data-tier]').setAttribute('data-tier', 'medium'));
+      await page.waitForTimeout(400);
+      const r = await page.evaluate(() => {
+        const of = (sel) => {
+          const e = document.querySelector(sel);
+          return e ? getComputedStyle(e).backdropFilter : null;
+        };
+        return {
+          card: of('.pk-scenecard__face'),
+          panels: [
+            ['command header', of('.page-shell header.surface')],
+            ['journey card', of('.pk-journey')],
+            ['sidebar panel', of('.page-shell aside .surface')],
+          ].filter(([, v]) => v !== null),
+        };
+      });
+      if (!r.card) throw new Error('no battle card on the board to compare against');
+      console.log('            battle card backdrop-filter: ' + r.card);
+      const off = r.panels.filter(([, v]) => v !== r.card);
+      for (const [label, v] of r.panels) console.log('            ' + label.padEnd(16) + ' ' + v);
+      if (off.length) {
+        throw new Error('panels do not match the card (' + r.card + '): '
+          + off.map(([l, v]) => l + '=' + v).join(', '));
+      }
+    },
+    shots: [{ at: 200 }],
+  }),
+
+  // ── The chapter gate, on the board ──────────────────────────────────────
+  // Story mode ON: the chained board is cut into chapters, Ayodhya is open
+  // and Mithila is sealed behind it. The whole point of the feature is the
+  // state a screenshot of an unlocked board can never show.
+  scene('chapters-locked', {
+    event: { theme: 'pinaka', pinaka_story_mode: true },
+    before: async (_p, h) => { await h.boardTab('Chained'); },
+    shots: [{ waitText: 'Ayodhya', at: 1200 }, { name: 'full', at: 300, full: true }],
+  }),
+
+  // ── One chapter closed, and both places saying so ───────────────────────
+  // Not a picture: a measurement that fails the run.
+  //
+  // Two things on one screen count the team's progress — the rail above the
+  // board and the list beside the map — and they used to count different
+  // things. The rail counts chapters finished; the road counted a share of
+  // the whole board, a sixth per station, so at two thirds solved it printed
+  // five stations "reached" while the rail still showed the team in Ayodhya.
+  // Both were honest; together they were nonsense.
+  //
+  // The fixture never reaches a closed chapter on its own (it stops two
+  // solves short of Ayodhya), so this scene hands the team those two solves
+  // and then checks the two lists against each other, row by row. A tick in
+  // one and a lock in the other fails here rather than on the board.
+  scene('chapters-agree', {
+    event: { theme: 'pinaka', pinaka_story_mode: true },
+    // Burning Tail and Ring of Rama: the rest of the Ayodhya chain.
+    extraSolves: [['player_one', 'tail', 340], ['player_two', 'ring', 350]],
+    before: async (page, h) => {
+      await h.boardTab('Chained');
+      // The journey card is lazy, and the rail prints every chapter's name
+      // whatever its state — so waiting on the word "Mithila" would race the
+      // card's first paint. Wait for the card's own rows instead.
+      await page.locator('.pk-journey-stations > li').nth(5).waitFor({ state: 'attached' });
+      await h.park();
+      const r = await page.evaluate(() => {
+        const word = (el) => (el.textContent || '').replace(/\s+/g, ' ').trim();
+        const rail = [...document.querySelectorAll('.pk-journeybar > .pk-journeybar-step')]
+          .map(el => ({
+            name: word(el.querySelector('.pk-journeybar-name')).toUpperCase(),
+            state: el.getAttribute('data-state'),
+          }));
+        const list = [...document.querySelectorAll('.pk-journey-stations > li')]
+          .map(el => ({
+            name: word(el.querySelector('.pk-journey-stations-name')).toUpperCase(),
+            state: el.getAttribute('data-state'),
+            status: word(el.querySelector('.pk-journey-stations-status')),
+          }));
+        const marks = [...document.querySelectorAll('.pk-journey-mark')]
+          .map(el => ({ here: el.getAttribute('data-here') === '1' }));
+        return { rail, list, marks };
+      });
+
+      if (r.rail.length !== 6) throw new Error('rail has ' + r.rail.length + ' chapters, expected 6');
+      if (r.list.length !== 6) throw new Error('journey list has ' + r.list.length + ' rows, expected 6');
+
+      // The rail's words and the list's words, side by side.
+      const SAME = { completed: 'reached', current: 'next', locked: 'ahead' };
+      for (let i = 0; i < 6; i++) {
+        const a = r.rail[i], b = r.list[i];
+        console.log('            ' + String(i + 1) + ' ' + b.name.padEnd(13)
+          + ' rail=' + String(a.state).padEnd(10) + ' list=' + String(b.state).padEnd(8) + ' ' + b.status);
+        if (SAME[a.state] !== b.state) {
+          throw new Error(`chapter ${i + 1} (${b.name}): the rail says ${a.state}, the journey list says ${b.state}`);
+        }
+      }
+
+      // The state this scene exists for: exactly one closed, the next one current.
+      if (r.rail[0].state !== 'completed') throw new Error('Ayodhya is solved out and still not completed: ' + r.rail[0].state);
+      if (r.rail[1].state !== 'current') throw new Error('Mithila did not become current: ' + r.rail[1].state);
+      const ticked = r.list.filter(x => x.state === 'reached').length;
+      if (ticked !== 1) throw new Error('expected exactly one tick, found ' + ticked);
+
+      // And the map agrees: a mark for each chapter reached, one of them lit.
+      if (r.marks.length !== 2) throw new Error('expected 2 marks on the map (closed + current), found ' + r.marks.length);
+      if (r.marks.filter(m => m.here).length !== 1) throw new Error('expected exactly one lit mark');
+    },
+    shots: [{ at: 400 }, { name: 'full', at: 200, full: true }],
+  }),
+
+  // ── Four chapters of six, and the board solved out ──────────────────────
+  // Not a picture: a measurement that fails the run.
+  //
+  // The shape a real organiser ships: they wrote four chapters and left two
+  // empty. A team then solves every challenge that exists.
+  //
+  // "Where the team stands" used to be the first chapter not ticked, and an
+  // empty chapter is never ticked — so the team was parked on chapter five,
+  // "nothing here yet", for the rest of the event, and the journey never
+  // once said it was over, because two chapters nobody wrote were still
+  // outstanding. Finishing everything that exists is finishing.
+  scene('chapters-finished', {
+    event: { theme: 'pinaka', pinaka_story_mode: true },
+    // The rest of both chains: Ayodhya's last two and Mithila's last two.
+    extraSolves: [
+      ['player_one', 'tail', 330], ['player_two', 'ring', 335],
+      ['player_one', 'tide', 340], ['player_three', 'strait', 345],
+    ],
+    before: async (page, h) => {
+      await h.boardTab('Chained');
+      await page.locator('.pk-journey-stations > li').nth(5).waitFor({ state: 'attached' });
+      await h.park();
+      const r = await page.evaluate(() => {
+        const word = (el) => (el.textContent || '').replace(/\s+/g, ' ').trim();
+        return {
+          rail: [...document.querySelectorAll('.pk-journeybar > .pk-journeybar-step')]
+            .map(el => ({
+              name: word(el.querySelector('.pk-journeybar-name')).toUpperCase(),
+              state: el.getAttribute('data-state'),
+            })),
+          title: word(document.querySelector('.pk-journey-title')).toUpperCase(),
+          line: word(document.querySelector('.pk-journey-line')),
+        };
+      });
+
+      for (const c of r.rail) console.log('            ' + c.name.padEnd(13) + ' ' + c.state);
+      console.log('            head: ' + r.title + ' — ' + r.line);
+
+      const ticked = r.rail.filter(c => c.state === 'completed').map(c => c.name);
+      if (ticked.join(',') !== 'AYODHYA,MITHILA') {
+        throw new Error('expected Ayodhya and Mithila closed, got: ' + (ticked.join(',') || '(none)'));
+      }
+      // Nothing may be lit: there is no chapter left to stand in.
+      const current = r.rail.filter(c => c.state === 'current').map(c => c.name);
+      if (current.length) throw new Error('the journey is over but ' + current.join(',') + ' reads as current');
+      // And the head must say so, rather than naming an empty chapter.
+      if (!/every chapter closed/i.test(r.line)) {
+        throw new Error('the head does not read as finished: ' + r.line);
+      }
+      if (r.title !== 'MITHILA') {
+        throw new Error('expected to rest at the last chapter written (Mithila), got ' + r.title);
+      }
+    },
+    shots: [{ at: 400 }, { name: 'full', at: 200, full: true }],
+  }),
+  // The same board with the gate asleep: one flat grid, exactly as every
+  // event that is not running a story sees it.
+  scene('chapters-off', {
+    event: { theme: 'pinaka', pinaka_story_mode: false },
+    before: async (_p, h) => { await h.boardTab('Chained'); },
+    shots: [{ waitText: 'Enter chain', at: 1200 }],
+  }),
+  // ── A journey nobody has written yet ────────────────────────────────────
+  // Not a picture: a measurement that fails the run.
+  //
+  // Where every organiser starts, and where they are again the moment they
+  // clear test content out to write the real event: story mode on, six
+  // chapters, nothing filed under any of them.
+  //
+  // "Rest at the last chapter written" had no answer for "none were", and
+  // fell through to the last chapter of six — so a fresh event opened on
+  // Lanka. The war's painting behind the board, five chapters locked, the
+  // journey reporting itself finished, and a head reading "the road starts
+  // at Ayodhya" under the title LANKA.
+  scene('chapters-unwritten', {
+    event: { theme: 'pinaka', pinaka_story_mode: true },
+    noChapterContent: true,
+    before: async (page, h) => {
+      await h.boardTab('Chained');
+      await page.locator('.pk-journeybar > .pk-journeybar-step').nth(5).waitFor({ state: 'attached' });
+      await h.park();
+      const r = await page.evaluate(() => {
+        const word = (el) => (el?.textContent || '').replace(/\s+/g, ' ').trim();
+        return {
+          rail: [...document.querySelectorAll('.pk-journeybar > .pk-journeybar-step')].map(el => ({
+            name: word(el.querySelector('.pk-journeybar-name')).toUpperCase(),
+            state: el.getAttribute('data-state'),
+          })),
+          title: word(document.querySelector('.pk-journey-title')).toUpperCase(),
+          line: word(document.querySelector('.pk-journey-line')),
+          chapter: document.documentElement.getAttribute('data-chapter'),
+        };
+      });
+      console.log('            head: ' + r.title + ' — ' + r.line);
+      console.log('            backdrop chapter: ' + r.chapter);
+      console.log('            rail: ' + r.rail.map(c => c.name + '=' + c.state).join(' '));
+
+      if (r.title !== 'AYODHYA') {
+        throw new Error('an unwritten journey opens on ' + r.title + ', not Ayodhya');
+      }
+      if (r.chapter && r.chapter !== 'ayodhya') {
+        throw new Error('the backdrop is ' + r.chapter + ', not Ayodhya');
+      }
+      // Nothing is finished, because nothing was written to finish.
+      if (/every chapter closed/i.test(r.line)) {
+        throw new Error('an empty journey reports itself finished: ' + r.line);
+      }
+      const current = r.rail.filter(c => c.state === 'current').map(c => c.name);
+      if (current.join(',') !== 'AYODHYA') {
+        throw new Error('expected Ayodhya current, got ' + (current.join(',') || '(none)'));
+      }
+      if (r.rail.some(c => c.state === 'completed')) {
+        throw new Error('a chapter reads completed on a board with no chapters written');
+      }
+    },
+    shots: [{ at: 400 }],
+  }),
+
+  // The organisers' side: chapters first, chains filed under them.
+  scene('admin-chapters', {
+    me: { isAdmin: true },
+    event: { theme: 'pinaka', pinaka_story_mode: true },
+    before: async (page, h) => {
+      await h.nav('Admin');
+      await h.waitText('Challenge catalogue');
+      await page.getByRole('button', { name: 'Chains', exact: true }).click();
+      await h.park();
+    },
+    shots: [{ waitText: 'Pinaka story', at: 1200 }, { name: 'full', at: 300, full: true }],
+  }),
+
+  // ── Adding a battle scene, through the real panel ───────────────────────
+  // Not a picture: a measurement that fails the run.
+  //
+  // The whole point of the catalogue is that an organiser can add artwork
+  // during their own event without an engineer, so the thing worth proving
+  // is the part that happens in their browser: a picture they picked is
+  // resized to what the board paints, re-encoded small, and measured — the
+  // focal point, the light, and the accent the card's border takes.
+  //
+  // Guessed numbers do not fail a build. They show up as a subject cropped
+  // out on a phone and a border in a colour the painting does not contain,
+  // which is why this drives the real file input rather than calling the
+  // module directly.
+  scene('admin-scene-upload', {
+    me: { isAdmin: true },
+    event: { theme: 'pinaka', pinaka_story_mode: true },
+    before: async (page, h) => {
+      await h.nav('Admin');
+      await h.waitText('Challenge catalogue');
+      // On the challenge itself now, not a tab of its own. The Scenes tab
+      // was removed when a picture started carrying its own words: art
+      // belongs to the challenge wearing it, and an organiser writing a
+      // challenge is already on the screen that needs it.
+      await page.getByRole('button', { name: /Add Challenge/i }).first().click();
+      await h.waitText('Card picture');
+
+      // A picture with its subject and its light deliberately off centre:
+      // a measurement that is really a default would land at 0.5 and pass
+      // a weaker test than this one.
+      const png = await page.evaluate(async () => {
+        const c = document.createElement('canvas');
+        c.width = 1600; c.height = 900;
+        const x = c.getContext('2d');
+        x.fillStyle = '#101820'; x.fillRect(0, 0, 1600, 900);
+        // A bright warm mass low and right.
+        const g = x.createRadialGradient(1180, 640, 10, 1180, 640, 330);
+        g.addColorStop(0, '#ffd27f'); g.addColorStop(1, 'rgba(255,210,127,0)');
+        x.fillStyle = g; x.fillRect(0, 0, 1600, 900);
+        x.fillStyle = '#e8a33c'; x.beginPath(); x.arc(1180, 640, 150, 0, 7); x.fill();
+        const b = await new Promise(r => c.toBlob(r, 'image/png'));
+        const buf = new Uint8Array(await b.arrayBuffer());
+        return Array.from(buf);
+      });
+
+      await page.setInputFiles('#chal-card-art', {
+        name: 'rama-returns.png', mimeType: 'image/png', buffer: Buffer.from(png),
+      });
+      // Not the word "accent": the help text under the input already says
+      // it, so waiting on that passes before anything has been prepared.
+      // The Remove button exists only once a picture is in hand.
+      await page.getByRole('button', { name: 'Remove' }).first().waitFor({ state: 'visible' });
+
+      // Read the fields, not the page: adjacent spans concatenate in
+      // textContent, so "1600×900" and "7 KB" scrape as "9007".
+      const read = await page.evaluate(() => {
+        const row = document.querySelector('.pk-admin-card-meta');
+        const t = (sel) => (row?.querySelector(sel)?.textContent || '').trim();
+        const size = t('[data-size]').match(/(\d+)×(\d+)/);
+        const kb = t('[data-weight]').match(/(\d+)/);
+        const hex = (row?.querySelector('code')?.textContent || '').trim();
+        const foc = t('[data-focal]').match(/(\d+)% \/ (\d+)%/);
+        return {
+          w: size && +size[1], h: size && +size[2], kb: kb && +kb[1],
+          accent: hex || null, fx: foc && +foc[1], fy: foc && +foc[2],
+        };
+      });
+      console.log('            prepared: ' + read.w + '×' + read.h + '  ' + read.kb + ' KB  accent '
+        + read.accent + '  focal ' + read.fx + '%/' + read.fy + '%');
+
+      // Resized to what the board paints, not left at whatever was picked.
+      if (read.w !== 1600 || read.h !== 900) throw new Error('unexpected prepared size: ' + read.w + '×' + read.h);
+      // Re-encoded: a 1600-wide PNG of this is far larger than this.
+      if (!(read.kb > 0 && read.kb < 400)) throw new Error('re-encode did not shrink it: ' + read.kb + ' KB');
+      // Measured, not defaulted: the art is warm, so a grey border means
+      // the hue pass never ran.
+      if (!read.accent) throw new Error('no accent was measured');
+      const [r, g, b] = [1, 3, 5].map(i => parseInt(read.accent.slice(i, i + 2), 16));
+      if (!(r > g && g > b)) throw new Error('accent is not the warm hue in the art: ' + read.accent);
+      // The lit mass sits low and right, at roughly 74% / 71%, which the
+      // clamp pulls to the far corner of what it allows. A focal point at
+      // the middle means the centroid never ran and a default was printed.
+      if (!(read.fx >= 65 && read.fy >= 62)) {
+        throw new Error('focal did not follow the light: ' + read.fx + '%/' + read.fy + '%');
+      }
+
+      // And the words are on the same screen as the picture, which is the
+      // whole point of folding the tab away. No slug this time: a card
+      // scene is keyed by its challenge's id, so the name is free text
+      // and two challenges may share one.
+      await page.fill('#chal-card-label', 'Rama Returns');
+      await page.fill('#chal-card-enter', 'Come Home');
+      await page.fill('#chal-card-intro', 'The city lights every lamp it owns.');
+      await page.fill('#chal-card-submit', 'Light the Lamps');
+      const words = await page.evaluate(() => ({
+        label: document.querySelector('#chal-card-label')?.value || '',
+        enter: document.querySelector('#chal-card-enter')?.value || '',
+        intro: document.querySelector('#chal-card-intro')?.value || '',
+        submit: document.querySelector('#chal-card-submit')?.value || '',
+      }));
+      console.log('            words: ' + words.label + ' / ' + words.enter + ' / ' + words.submit);
+      for (const [k, v] of Object.entries(words)) {
+        if (!v) throw new Error('the ' + k + ' field is not on the challenge form');
+      }
+      await h.park();
+    },
+    shots: [{ at: 300 }],
+  }),
+
+  // ── A scene the organisers added actually reaches the board ────────────
+  // Not a picture: a measurement that fails the run.
+  //
+  // Uploading art and assigning it is only half the job; the half that
+  // matters is the card wearing it. The board used to validate every
+  // assignment against the twelve scenes that ship, so a scene added during
+  // an event was written to the table by the admin panel and thrown away on
+  // the way in — the organiser saw a bare card and nothing anywhere said
+  // why. The fixture dresses a chained challenge with an added scene, and
+  // this checks the card is actually wearing its picture.
+  scene('added-scene-on-card', {
+    event: { theme: 'pinaka', pinaka_story_mode: true },
+    before: async (page, h) => {
+      await h.boardTab('Chained');
+      await page.locator('.pk-chapcard').first().waitFor({ state: 'visible' });
+      await h.park();
+
+      const cards = await page.evaluate(() => [...document.querySelectorAll('.pk-chapcard')].map(el => ({
+        title: (el.querySelector('.pk-chapcard__title')?.textContent || '').trim(),
+        art: el.querySelector('.pk-chapcard__art img')?.getAttribute('src') || null,
+      })));
+      for (const c of cards) {
+        console.log('            ' + (c.title || '(untitled)').padEnd(22)
+          + (c.art ? c.art.replace(/^.*\//, '') : '— no art —'));
+      }
+
+      // The fixture dresses the second operation of the Ayodhya chain with
+      // an uploaded scene, so exactly one card must wear art served from
+      // the scene-art bucket rather than the app's own bundle.
+      const uploaded = cards.filter(c => c.art && c.art.includes('/scene-art/'));
+      if (uploaded.length !== 1) {
+        throw new Error('expected exactly one card wearing uploaded art, found ' + uploaded.length);
+      }
+      // And the twelve must still work, or the fix traded one for the other.
+      const bundled = cards.filter(c => c.art && !c.art.includes('/scene-art/'));
+      if (bundled.length < 1) throw new Error('no card is wearing bundled art any more');
+    },
+    shots: [{ at: 400 }],
+  }),
+
+  // ── A picture on an ordinary challenge card ─────────────────────────────
+  // Not a picture: a measurement that fails the run.
+  //
+  // Most challenges will never be an arena. They want art on the card and
+  // none of a battle scene's furniture — no second name, no line of story,
+  // no reveal. So the picture goes behind the card the board already has,
+  // and every piece of that card stays exactly where it was: a board of
+  // twenty is read at a glance, and moving the points to make room for art
+  // would cost more than the art gains.
+  //
+  // This checks both halves: the picture is there, and the furniture did
+  // not move to make room for it.
+  // ── A picture is a scene now ────────────────────────────────────────────
+  // There used to be two kinds of art on a challenge and an organiser had
+  // to choose between them: a catalogue SCENE, which turned the card into
+  // an arena door, and a card PICTURE, which drew a band across an
+  // ordinary card. The organisers asked for one upload whose PLACEMENT
+  // decides how it is drawn, so these two scenes check the two halves of
+  // that rule against the same uploaded picture.
+  //
+  // Half one: a FREE challenge with an uploaded picture is an arena door.
+  // The card turns, the painting goes behind the whole site, and the words
+  // the organiser typed beside the upload are the ones on it.
+  scene('card-picture', {
+    event: { theme: 'pinaka' },
+    before: async (page, h) => {
+      await h.boardTab('Free');
+      await page.locator('.pk-scenecard').first().waitFor({ state: 'attached' });
+      await h.park();
+
+      const r = await page.evaluate(() => {
+        // The uploaded one, not one of the twelve: its door is the only
+        // one wearing the words the mock gave the card row.
+        const cards = [...document.querySelectorAll('.pk-scenecard')];
+        // By the organiser's NAME, not the button: this challenge is
+        // already solved in the fixture, and a solved door reads "Return
+        // to the field" instead of its enter label.
+        const hit = cards.find(c => /The Oracle Gate/i.test(c.textContent || ''));
+        if (!hit) {
+          return { missing: cards.map(c => (c.textContent || '').slice(0, 40)) };
+        }
+        const img = hit.querySelector('img');
+        const front = hit.querySelector('.pk-scenecard__front');
+        return {
+          text: (hit.textContent || '').replace(/\s+/g, ' ').trim(),
+          // The front is the closed door. The back carries the challenge's
+          // real title on purpose -- that is the reveal -- so the two
+          // faces have to be read apart.
+          frontText: ((front && front.textContent) || '').replace(/\s+/g, ' ').trim(),
+          src: img?.getAttribute('src') || '',
+          srcset: img?.getAttribute('srcset') || '',
+          imgRatio: img && img.naturalWidth ? img.naturalWidth / img.naturalHeight : 0,
+          // An arena door, not an ordinary card with a band on it.
+          hasBand: !!hit.querySelector('.pk-cardart'),
+          isSceneCard: hit.classList.contains('pk-scenecard'),
+        };
+      });
+
+      if (r.missing) {
+        throw new Error('the uploaded picture did not become an arena door; doors on the board: '
+          + (r.missing.join(' / ') || 'none'));
+      }
+      await page.evaluate(() => {
+        [...document.querySelectorAll('.pk-scenecard')]
+          .find(c => /The Oracle Gate/i.test(c.textContent || ''))?.classList.add('pk-qa-door');
+      });
+      console.log('            door: ' + r.text.slice(0, 80));
+      if (!r.isSceneCard) throw new Error('not a scene card');
+      if (r.hasBand) throw new Error('drew the old card band as well as the door');
+      // The organiser's own words, not the challenge's title and not the
+      // ordinary wording: these are what the upload carries now.
+      if (!/The Oracle Gate/.test(r.text)) throw new Error('the card does not use the uploaded name: ' + r.text);
+      // The door is in its solved state here, so the enter label is
+      // replaced by "Return to the field". What matters is whose name is
+      // on the closed face: the upload's, not the challenge's own.
+      console.log('            front: ' + r.frontText.slice(0, 70));
+      if (!/The Oracle Gate/.test(r.frontText)) {
+        throw new Error('the closed door does not carry the uploaded name: ' + r.frontText);
+      }
+      if (/Padding Oracle Lite/.test(r.frontText)) {
+        throw new Error('the closed door leaks the challenge title: ' + r.frontText);
+      }
+      // The closed door carries no picture of its own, by design: it takes
+      // the painting's accent, and the painting itself arrives behind the
+      // WHOLE SITE when the door is entered. That backdrop is the half of
+      // this the organisers actually asked for, so it is what gets checked
+      // -- asserting on an <img> inside the card would have passed happily
+      // while the background never changed.
+      await page.locator('.pk-qa-door button, .pk-qa-door [role="button"]').first().click()
+        .catch(async () => { await page.locator('.pk-qa-door').first().click(); });
+      await page.waitForTimeout(900);
+
+      const back = await page.evaluate(() => {
+        const srcs = [...document.querySelectorAll('img')]
+          .map(i => i.currentSrc || i.getAttribute('src') || '')
+          .filter(Boolean);
+        return {
+          // The uploaded file lives under cards/<challenge>/ in the bucket;
+          // the twelve shipped paintings never do.
+          uploaded: srcs.filter(u => /\/cards\//.test(u)),
+          anyPlate: srcs.filter(u => /\.webp(\?|$)/.test(u)).length,
+        };
+      });
+      console.log('            backdrop: ' + (back.uploaded[0] || '(none)')
+        + '  (' + back.anyPlate + ' plate image(s) on the page)');
+      if (!back.uploaded.length) {
+        throw new Error('entering the door did not put the uploaded painting behind the site');
+      }
+
+    },
+    // The whole page: the point of this scene is that the painting is
+    // behind the site, which no crop of one card could show.
+    shots: [{ at: 400 }],
+  }),
+
+  // Half two: the same kind of upload on a challenge that sits INSIDE a
+  // chain shows its picture on the step's card instead, and the chapter
+  // keeps the background. A chained challenge must never become an arena
+  // door -- the journey is what the chapter dresses, and two backdrops
+  // fighting over one screen is the bug this rule exists to prevent.
+  scene('card-picture-in-chain', {
+    event: { theme: 'pinaka', pinaka_story_mode: true },
+    before: async (page, h) => {
+      await h.boardTab('Chained');
+      await page.locator('.pk-chapcard, .pk-scenecard, .card-interactive').first()
+        .waitFor({ state: 'attached' });
+      await h.park();
+
+      const r = await page.evaluate(() => ({
+        // Chain steps draw their art as a picture on the card.
+        stepImages: document.querySelectorAll('.pk-chapcard__art img').length,
+        // And nothing on the chained board turned into an arena door.
+        doors: document.querySelectorAll('.pk-scenecard').length,
+        chapters: [...document.querySelectorAll('.pk-chapcard')].length,
+      }));
+      console.log('            chain: ' + r.chapters + ' step card(s), '
+        + r.stepImages + ' step picture(s), ' + r.doors + ' arena door(s)');
+      if (r.chapters === 0) throw new Error('no chapter chain on the chained board to check');
+
+      if (r.doors > 0) {
+        throw new Error('a chained challenge became an arena door; the chapter already owns the background');
+      }
+    },
+    shots: [{ at: 400 }],
+  }),
+
+  scene('blur-audit', blurAudit()),
+  // And with a challenge open: the dialog and its scrim are the other two
+  // places a blur has historically lived.
+  scene('blur-audit-modal', blurAudit({
+    open: async (_p, h) => { await h.openChallenge('Robots Welcome'); },
+  })),
+  // And the door. The sponsor plates live only here, which is how four
+  // blur declarations survived an audit that only ever saw the board.
+  scene('blur-audit-gateway', blurAudit({
+    loggedOut: true,
+    ready: async (page) => { await page.locator('#auth-email').waitFor({ state: 'visible' }); },
+  })),
+
+  // A challenge belongs to at most one chain, so one already spoken for
+  // must not be offered: picking it only ended in "A challenge already
+  // belongs to another chain" after the organiser had named the chain and
+  // pressed Save. Asserts the other chain's members are absent from the
+  // picker, and that this chain's own are still editable.
+  scene('admin-chain-picker', {
+    me: { isAdmin: true },
+    event: { theme: 'pinaka' },
+    before: async (page, h) => {
+      await h.nav('Admin');
+      await h.waitText('Challenge catalogue');
+      await page.getByRole('button', { name: 'Chains', exact: true }).click();
+      await h.park();
+      // Edit the first chain; the second chain's members are the ones that
+      // must not be on offer.
+      await page.locator('button', { hasText: 'Ashoka Vatika' }).first().click();
+      await page.locator('select').last().waitFor({ state: 'visible' });
+
+      const { options } = await page.evaluate(() => {
+        const picker = Array.from(document.querySelectorAll('select'))
+          .find(sel => Array.from(sel.options).some(o => /Add challenge/.test(o.textContent || '')));
+        return {
+          options: picker ? Array.from(picker.options).map(o => (o.textContent || '').trim()) : [],
+        };
+      });
+      // Members of the OTHER chain, which this picker must not offer.
+      const taken = ['First Stone', 'Floating Logs', 'Tide Tables', 'Across the Strait'];
+      const offered = options.filter(o => !/Add challenge/.test(o));
+      console.log('            picker offers ' + offered.length + ' challenge(s)');
+      // Every option must be a challenge in no chain at all. The mock's two
+      // chains hold nine between them, so a picker that still offered them
+      // would be noticeably longer than one that does not.
+      const bad = offered.filter(o => taken.some(t => o.includes(t)));
+      if (bad.length) throw new Error('picker offers challenges already in another chain: ' + bad.join(', '));
+    },
+    shots: [{ at: 300 }],
+  }),
+
+  scene('nav-fits-admin', navFits({ me: { isAdmin: true }, event: { theme: 'pinaka' } })),
+  scene('nav-fits-player', navFits({ event: { theme: 'pinaka' } })),
+
+  scene('glass-measure2', {
+    before: async (page, h) => {
+      await h.boardReady();
+      const out = await page.evaluate(() => {
+        const pick = (sel, label) => {
+          const e = document.querySelector(sel);
+          if (!e) return label.padEnd(26) + ' not on this page';
+          const c = getComputedStyle(e);
+          return label.padEnd(26) + ' bg=' + String(c.backgroundColor).padEnd(24)
+               + ' img=' + String(c.backgroundImage).slice(0, 34).padEnd(36)
+               + ' filt=' + c.backdropFilter;
+        };
+        return [
+          pick('.pk-journey', 'journey card'),
+          pick('.pk-journey-stations', 'station list'),
+          pick('.pk-journey-plate', 'map plate'),
+          pick('.pk-scenecard__face', 'battle card (reference)'),
+        ].join('\n            ');
+      });
+      console.log('            ' + out);
+    },
+    shots: [{ at: 300 }],
+  }),
+
+  scene('glass-measure', {
+    before: async (page, h) => {
+      await h.boardReady();
+      const out = await page.evaluate(() => {
+        const pick = (sel) => {
+          const e = document.querySelector(sel);
+          if (!e) return `${sel}  -> not on this page`;
+          const c = getComputedStyle(e);
+          const bg = (c.backgroundImage || '').replace(/\s+/g, ' ');
+          return `${sel}\n              backdrop : ${c.backdropFilter}\n              bg       : ${bg.slice(0, 110)}`;
+        };
+        return [pick('.pk-scenecard__face'), pick('.pk-partners-footer'), pick('.pk-partners-featured')].join('\n            ');
+      });
+      console.log('            ' + out);
+    },
+    shots: [{ at: 300 }],
+  }),
+
+  scene('arena-standing', {
+    // The arena card only exists under the event skin; on the classic
+    // look there is no card to press, so this is nothing to measure.
+    skip: (run) => run.theme !== 'pinaka' && 'pinaka-only scene',
+    before: async (page, h) => {
+      await h.boardReady();
+      await page.locator('.pk-scenecard__enter').first().click();
+      await page.waitForTimeout(1600);
+      await page.locator('.pk-scenecard[data-open="1"]').scrollIntoViewIfNeeded().catch(() => {});
+      await page.waitForTimeout(700);
+    },
+    shots: [{ at: 600 }],
+  }),
+
+  scene('arena-stays-open', {
+    // The arena card only exists under the event skin; on the classic
+    // look there is no card to press, so this is nothing to measure.
+    skip: (run) => run.theme !== 'pinaka' && 'pinaka-only scene',
+    before: async (page, h) => {
+      const state = async (label) => {
+        const r = await page.evaluate(() => ({
+          plate: [...document.querySelectorAll('.pk-env-plate')]
+            .filter(e => getComputedStyle(e).opacity === '1')
+            .map(e => { const i = e.querySelector('img'); return i ? (i.currentSrc||i.src).split('/').pop() : '?'; }),
+          flipped: !!document.querySelector('.pk-scenecard[data-open="1"]'),
+          brief: !!document.querySelector('[role="dialog"]'),
+        }));
+        console.log(`        ${label.padEnd(22)} plate=${JSON.stringify(r.plate)} flipped=${r.flipped} brief=${r.brief}`);
+        return r;
+      };
+      await h.boardReady();
+      await state('start');
+      await h.openChallenge(EASY);
+      await page.waitForTimeout(1200);
+      await state('entered arena');
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(1600);
+      await state('brief dismissed');
+      // now leave properly, from the card's own back face
+      const leave = page.locator('.pk-scenecard[data-open="1"] .pk-scenecard__leave');
+      console.log('        take-rest button visible: ' + (await leave.count() > 0));
+      await leave.first().click();
+      await page.waitForTimeout(3600);
+      await state('after take rest');
+    },
+    shots: [{ at: 400 }],
+  }),
+
+  scene('arena-plate-check', {
+    before: async (page, h) => {
+      const plate = async () => page.evaluate(() => {
+        const imgs = [...document.querySelectorAll('img')]
+          .map(i => i.currentSrc || i.src).filter(Boolean);
+        // Which plate is actually being shown: the environment keeps two
+        // slots and crossfades, so both files stay in the DOM. Report the
+        // file in whichever slot is opaque.
+        // .pk-env-plate is the slot; .pk-env-plate-art is the picture in it.
+        return [...document.querySelectorAll('.pk-env-plate')].map(slot => {
+          const img = slot.querySelector('img');
+          const file = img ? (img.currentSrc || img.src).split('/').pop() : '<none>';
+          return file + ' @opacity ' + getComputedStyle(slot).opacity;
+        });
+      });
+      await h.boardReady();
+      console.log('        before open : ' + JSON.stringify(await plate()));
+      await h.openChallenge(EASY);
+      await page.waitForTimeout(1400);
+      console.log('        while open  : ' + JSON.stringify(await plate()));
+      const flip = await page.evaluate(() => {
+        const c = document.querySelector('.pk-scenecard[data-open="1"]');
+        if (!c) return 'no card marked open';
+        const t = getComputedStyle(c.querySelector('.pk-scenecard__inner')).transform;
+        return 'data-open=1  transform=' + t;
+      });
+      console.log('        card flip   : ' + flip);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(1400);
+      console.log('        close +1.4s : ' + JSON.stringify(await plate()));
+      await page.waitForTimeout(3000);
+      console.log('        close +4.4s : ' + JSON.stringify(await plate()));
+    },
+    shots: [{ at: 400 }],
+  }),
+  // Pinaka event: the foot of a scene-dressed dialog, where the story's own
+  // submit wording replaces "Execute". Scrolled, because it sits below the
+  // fold on a 900px viewport.
+  scene('challenge-modal-scene-foot', {
+    before: async (page, h) => {
+      await h.openChallenge(EASY);
+      // The dialog itself does not scroll; find whichever descendant does.
+      await page.locator('[role="dialog"]').first().evaluate(root => {
+        const all = [root, ...root.querySelectorAll('*')];
+        const box = all.find(e => e.scrollHeight > e.clientHeight + 40);
+        if (box) box.scrollTop = box.scrollHeight;
+      }).catch(() => {});
+      await page.waitForTimeout(500);
+      const label = await page.locator('[role="dialog"] button[type="submit"]')
+        .first().innerText().catch(() => '<not found>');
+      console.log('        submit button reads: ' + JSON.stringify(label.trim()));
+    },
+    shots: [{ at: 900 }],
+  }),
   scene('challenge-modal-insane', { before: open(INSANE), shots: [{ at: 1200 }] }),
   scene('hint-confirm', { before: armPaidHint, shots: [{ at: 500 }] }),
   scene('hint-unlocked', {

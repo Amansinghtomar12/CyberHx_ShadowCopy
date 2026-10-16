@@ -78,17 +78,26 @@ import EventClock from './components/EventClock';
 import MilestoneBanner from './components/MilestoneBanner';
 import { pendingInvite, clearInvite, type InvitePreview } from './lib/invite';
 import { detectMilestones, type Milestone } from './lib/milestones';
-import { buildChainSeriesVM } from './components/chain/chainModel';
+import { buildChainSeriesVM, type ChainSeriesVM } from './components/chain/chainModel';
 import { isPinaka, useTheme, noteServerTheme, registerCategoryIcons } from './themes';
 // Admins only, so it is not in the default bundle.
 const AdminThemeControl = React.lazy(() => import('./themes/AdminThemeControl'));
 import { deriveWorld, derivePhase } from './themes/pinaka/hooks';
 import { useJourney, useChapterAttributes, useChapterUnlock } from './themes/pinaka/chapters/useChapter';
-import { CHAPTERS } from './themes/pinaka/chapters/config';
+import { CHAPTERS, CHAPTER_LIST, isChapterId } from './themes/pinaka/chapters/config';
+import { useChallengeScenes } from './themes/pinaka/scenes/useScenes';
+import { useChainProgress } from './themes/pinaka/chapters/useChainProgress';
+import { useChapterProgress } from './themes/pinaka/chapters/useChapterProgress';
+import { SceneIntro } from './themes/pinaka/components/SceneIntro';
+import { SceneCard } from './themes/pinaka/components/SceneCard';
+import { scenePlateKey } from './themes/pinaka/assets/plates';
+import type { CatalogueScene as Scene } from './themes/pinaka/scenes/catalogue';
+import { useSceneCatalogue } from './themes/pinaka/scenes/useSceneCatalogue';
+import { useChallengeCards, type ChallengeCard as ChallengeCardArt } from './themes/pinaka/scenes/useChallengeCards';
 import { shouldShowIntro } from './themes/pinaka/intro-gate';
 import {
-  PinakaEnvironment, PinakaIntro, JourneyMap, PartnerStrip, ArrowSolveLight,
-  JourneyBar, ChapterUnlock,
+  PinakaEnvironment, PinakaIntro, JourneyMap, ArrowSolveLight,
+  JourneyBar, ChapterUnlock, ChapterChain,
 } from './themes/pinaka/lazy';
 import { buildB2RBoxVM, buildB2RSeriesVM } from './components/b2r/b2rModel';
 
@@ -498,10 +507,17 @@ export default function App() {
     );
   }, [chainEnabled, chainSeries, chainMembers, challenges, solvedIds, teamSolvedIds]);
 
-  // Event skin: where the team stands in the six-chapter journey. Derived
-  // from the very same trusted solve arrays the chains use -- a chapter is
-  // complete when its gate challenge is solved -- so the skin can never show
-  // progress the platform has not recorded. Null until the skin is on.
+  // Event skin: where the team stands in the six-chapter journey.
+  //
+  // The server answers this directly once the chapter migration is in:
+  // get_team_chapter_progress() is computed by the same functions that
+  // decide whether a flag is accepted, so the chapter the page wears and
+  // the chapter the gate enforces are one thing. The block below is the
+  // fallback for a database without that migration — it works the journey
+  // out from the trusted solve arrays and the names organisers gave their
+  // chains, which is a guess, and is used only when there is nothing
+  // better. Either way the skin can never show progress the platform has
+  // not recorded. Null until the skin is on.
   const journeyInput = useMemo(() => {
     if (!pinaka) return null;
     const solvedSet = new Set<string>([...solvedIds, ...teamSolvedIds]);
@@ -514,10 +530,129 @@ export default function App() {
       isSolved: (id: string) => solvedSet.has(id),
     };
   }, [pinaka, challenges, chainSeries, chainMembers, solvedIds, teamSolvedIds]);
-  const journey = useJourney(journeyInput);
+  // The battle scenes an organiser may pick from: the twelve that ship,
+  // plus any they have added during the event.
+  const { catalogue: scenes, refresh: refreshScenes } = useSceneCatalogue(pinaka);
+  // Titles, so a picture uploaded without a name falls back to the
+  // challenge's own rather than printing an empty arena door.
+  const challengeTitles = useMemo(
+    () => new Map(challenges.map(c => [c.id, c.title])),
+    [challenges],
+  );
+  // The picture an organiser gave a challenge — itself a scene now, so the
+  // board draws an upload and a catalogue painting through one path.
+  const challengeCards = useChallengeCards(pinaka, challengeTitles);
+  const catalogueSceneOf = scenes.lookup;
+  const serverJourney = useChapterProgress(pinaka);
+  const journey = useJourney(journeyInput, serverJourney.journey);
+  // Which battle scene dresses which Free challenge. Empty unless the
+  // skin is on and the event migration has been applied.
+  const challengeScenes = useChallengeScenes(pinaka);
+  /**
+   * The scene a challenge wears, from either source.
+   *
+   * A catalogue painting wins over an upload. Challenges are dressed in
+   * the twelve shipped scenes today, and a picture added to one of those
+   * challenges should sit on its card rather than quietly replace the
+   * arena an organiser already chose.
+   */
+  const sceneFor = useCallback(
+    (challengeId: string | null | undefined) => {
+      if (!pinaka || !challengeId) return null;
+      return catalogueSceneOf(challengeScenes.get(challengeId))
+        ?? challengeCards.get(challengeId)
+        ?? null;
+    },
+    [pinaka, catalogueSceneOf, challengeScenes, challengeCards],
+  );
+
+  // Story-mode locks. The server is the authority; this is so the board
+  // can show a lock instead of walking someone into a refusal.
+  const chainProgress = useChainProgress(pinaka);
+
+  /**
+   * The chained board, cut into chapters.
+   *
+   * Only when the organisers have actually filed chains under chapters —
+   * an event that has not used them gets the flat board it has always had,
+   * and so does the classic skin. The locked state comes from the gate
+   * itself (`lockedChapters`), not from counting solves here: the board
+   * and the database have to agree about what is shut, and only one of
+   * them is allowed to decide.
+   */
+  const chainGroups = useMemo(() => {
+    if (!pinaka || chainProgress.chapterOfSeries.size === 0) return undefined;
+
+    const byChapter = new Map<string, string[]>();
+    chainProgress.chapterOfSeries.forEach((chapterId, seriesId) => {
+      if (!isChapterId(chapterId)) return;
+      const list = byChapter.get(chapterId);
+      if (list) list.push(seriesId); else byChapter.set(chapterId, [seriesId]);
+    });
+
+    return CHAPTER_LIST.map((c, i) => {
+      const p = journey.chapters.find(x => x.id === c.id);
+      const previous = i > 0 ? CHAPTER_LIST[i - 1] : null;
+      const locked = chainProgress.lockedChapters.has(c.id);
+      return {
+        key: c.id,
+        title: c.title,
+        subtitle: c.subtitle,
+        ordinal: c.index,
+        state: locked ? 'locked' as const
+             : p?.state === 'completed' ? 'completed' as const
+             : 'current' as const,
+        solved: p?.solved,
+        total: p?.total,
+        lockedReason: previous
+          ? `Sealed until ${previous.title} is finished. Complete every operation there and this chapter opens.`
+          : undefined,
+        seriesIds: byChapter.get(c.id) ?? [],
+      };
+    });
+  }, [pinaka, chainProgress.chapterOfSeries, chainProgress.lockedChapters, journey.chapters]);
+
+  /**
+   * The battle scene the page is currently wearing, and the challenge it
+   * belongs to. Deliberately separate from `selectedChallenge`: being in
+   * the arena and reading the brief are two different states, so the
+   * dialog can be dismissed to look at the scene without leaving it.
+   * Only "Take rest" clears this.
+   */
+  const [arenaChallenge, setArenaChallenge] = useState<Challenge | null>(null);
+  // The scene the open challenge is dressed in, if any. This is what turns
+  // the whole page into the arena: while it is set the environment wears
+  // the scene's plate instead of the chapter's, and closing puts the
+  // chapter back.
+  const openScene = useMemo(
+    () => (arenaChallenge ? sceneFor(arenaChallenge.id) : null),
+    [arenaChallenge, sceneFor],
+  );
+  // An arena whose scene mapping disappeared (unassigned mid-event) has
+  // nothing left to stand in, so it closes itself rather than stranding
+  // the player on a chapter background with a turned card.
+  useEffect(() => {
+    if (arenaChallenge && !openScene) setArenaChallenge(null);
+  }, [arenaChallenge, openScene]);
+  // The arena belongs to the challenge board. Walking off it — to the
+  // scoreboard, a profile, the admin panel — gives the chapter back.
+  useEffect(() => {
+    if (currentView !== 'challenges') setArenaChallenge(null);
+  }, [currentView]);
   const chapter = CHAPTERS[journey.current];
   useChapterAttributes(pinaka ? journey.current : null);
-  const unlock = useChapterUnlock(journey);
+  // The journey is real once the server has answered, or — on a database
+  // without the chapter migration — once the board's own data has arrived.
+  // Before that it reads as "nothing completed", which is not the same as
+  // knowing that nothing is completed.
+  // The transition may only take its baseline once the authority has spoken:
+  // the server when the gate is migrated, the client's own derivation when it
+  // is not. Starting from the client's guess and then hearing the server made
+  // a chapter closed long ago look like one closing just now.
+  const unlock = useChapterUnlock(
+    journey,
+    serverJourney.settled && (serverJourney.journey !== null || journeyInput !== null),
+  );
 
   // B2R view-models. Each flag is an ordinary challenge underneath, so
   // "captured" comes straight from the same trusted solve arrays; a box is
@@ -915,8 +1050,40 @@ export default function App() {
   // the solve/submit flow is completely unchanged.
   const openChainChallenge = useCallback((challengeId: string) => {
     const ch = challenges.find(c => c.id === challengeId);
-    if (ch) { setSelectedOrigin(null); setSelectedChallenge(ch); }
+    if (ch) { setSelectedOrigin(null); setArenaChallenge(null); setSelectedChallenge(ch); }
   }, [challenges]);
+
+  /**
+   * A chapter's chain, drawn the way the organisers drew it: the operations
+   * as a row of linked cards on the chapter's own painting, rather than one
+   * card you have to click into to see what is inside.
+   *
+   * Returns null for a chain whose chapter is unknown, and the board falls
+   * back to its ordinary card — which is also what happens on the classic
+   * skin, where this never runs at all.
+   */
+  const renderChapterChain = useCallback((vm: ChainSeriesVM, enter: () => void) => {
+    if (!pinaka) return null;
+    const id = chainProgress.chapterOfSeries.get(vm.id);
+    if (!id || !isChapterId(id)) return null;
+    return (
+      <React.Suspense fallback={null}>
+        <ChapterChain
+          series={vm}
+          chapter={id}
+          locked={chainProgress.locked}
+          /* Inside a chain the painting goes ON the step's card, which is
+             what ChapterChain already does with it. Same lookup as the
+             Free board, so an uploaded picture reaches a chained challenge
+             too -- it simply arrives as a card image here and as an arena
+             door there. */
+          sceneOf={sceneFor}
+          onOpen={openChainChallenge}
+          onEnter={enter}
+        />
+      </React.Suspense>
+    );
+  }, [pinaka, chainProgress.chapterOfSeries, chainProgress.locked, sceneFor, openChainChallenge]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -966,7 +1133,11 @@ export default function App() {
   return (
     <div className="min-h-screen bg-cyber-bg text-cyber-text font-sans" data-tier={getCapability().tier}>
       {pinaka
-        ? <React.Suspense fallback={null}><PinakaEnvironment world={world} phase={worldPhase} plate={`chapter-${journey.current}`} /></React.Suspense>
+        ? <React.Suspense fallback={null}><PinakaEnvironment
+              world={world}
+              phase={worldPhase}
+              plate={openScene ? scenePlateKey(openScene.id) : `chapter-${journey.current}`}
+            /></React.Suspense>
         : <AmbientBackground />}
       <SurfaceLight />
       <CursorRing />
@@ -989,7 +1160,7 @@ export default function App() {
         {/* Header */}
         <nav className="bg-cyber-bg/85 backdrop-blur-xl border-b border-border-base sticky top-0 z-50">
           <div className="max-w-screen-2xl mx-auto px-3 sm:px-5 lg:px-6 h-16 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 lg:gap-6 min-w-0">
+            <div className="flex items-center gap-2 lg:gap-4 2xl:gap-6 min-w-0">
               <button
                 className="btn btn-ghost btn-sm btn-icon lg:hidden -ml-1 shrink-0"
                 aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
@@ -999,7 +1170,12 @@ export default function App() {
                 {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
 
-              <h1 className={pinaka ? 'shrink-0' : 'min-w-0'}>
+              {/* Never min-w-0: a zero-width heading does not stop the
+                  wordmark painting, it only lets it paint over the first
+                  tab. It keeps its width and gives way by hiding instead —
+                  and only for admins, whose row carries two more controls
+                  than a player's between lg and 2xl. */}
+              <h1 className="shrink-0">
                 <button
                   type="button"
                   className="group flex items-center gap-2.5 focus-ring rounded-inset"
@@ -1008,16 +1184,16 @@ export default function App() {
                   <span className="w-7 h-7 shrink-0 bg-neon-wash border border-border-neon rounded-inset flex items-center justify-center shadow-neon transition-transform duration-[var(--duration-base)] ease-out-quint group-hover:scale-105">
                     <Flag className="w-3.5 h-3.5 text-cyber-neon" />
                   </span>
-                  <span className="hidden sm:inline text-h3 tracking-tight text-cyber-text">CYBERHX</span>
+                  <span className={`text-h3 tracking-tight text-cyber-text ${profile?.is_admin ? 'hidden sm:inline lg:hidden 2xl:inline' : 'hidden sm:inline'}`}>CYBERHX</span>
                 </button>
               </h1>
-              {/* Event skin: the event's name beside the platform's. Only where
-                  the header has room for it — the admins' row carries two
-                  more controls, so it needs a wider screen before the badge
-                  joins in. */}
-              {pinaka && (
+              {/* Event skin: the event's name beside the platform's, and only
+                  where the header has room for it. Not for admins at all:
+                  their row carries the Admin tab and the event switch, and
+                  the switch already says whether the event is open. */}
+              {pinaka && !profile?.is_admin && (
                 <span
-                  className={`badge badge-neon pk-nav-badge shrink-0 ${profile?.is_admin ? 'hidden 2xl:inline-flex' : 'hidden xl:inline-flex'}`}
+                  className="badge badge-neon pk-nav-badge shrink-0 hidden 2xl:inline-flex"
                   title="Pinaka CTF 2026 · Scoring platform by CyberHX"
                 >
                   <span className="pk-nav-compass" aria-hidden="true" />
@@ -1025,7 +1201,7 @@ export default function App() {
                 </span>
               )}
 
-              <div className="hidden lg:flex items-center gap-1">
+              <div className="nav-strip hidden lg:flex items-center gap-0.5 2xl:gap-1">
                 {navItems.map(item => (
                   <button
                     key={item.id}
@@ -1321,6 +1497,7 @@ export default function App() {
                 {pinaka && canSeeChallenges && !needsTeam && (
                   <React.Suspense fallback={null}>
                     <JourneyMap
+                      journey={journey}
                       phase={worldPhase}
                       progress={challenges.length ? totalSolvedCount / challenges.length : 0}
                       total={challenges.length}
@@ -1573,7 +1750,14 @@ export default function App() {
                       </div>
                     }
                   >
-                    <ChainedBoard vms={chainVMs} category={selectedCat} onOpenChallenge={openChainChallenge} />
+                    <ChainedBoard
+                      vms={chainVMs}
+                      category={selectedCat}
+                      onOpenChallenge={openChainChallenge}
+                      chainLocked={chainProgress.locked}
+                      groups={chainGroups}
+                      renderSeries={renderChapterChain}
+                    />
                   </React.Suspense>
                 ) : boardMode === 'b2r' ? (
                   <React.Suspense
@@ -1637,8 +1821,53 @@ export default function App() {
                             ['--stagger-dur' as string]: '350ms',
                           }}
                         >
-                          {items.map((challenge, i) => (
+                          {items.map((challenge, i) => {
+                            // A Free challenge with art is shown as its arena
+                            // door instead of an ordinary card -- the card
+                            // turns, and the painting goes behind the whole
+                            // site when it is entered. Art from the catalogue
+                            // and art uploaded on the challenge form both
+                            // arrive here, which is the point of sceneFor.
+                            // Every challenge without art keeps the card it
+                            // always had.
+                            const cardScene = sceneFor(challenge.id);
+                            if (cardScene) return (
+                              <SceneCard
+                                key={challenge.id}
+                                scene={cardScene}
+                                title={challenge.title}
+                                category={challenge.category}
+                                points={getPoints(challenge)}
+                                solvedCount={solveCounts[challenge.id] ?? challenge.solvedCount ?? 0}
+                                difficulty={challenge.difficulty}
+                                isSolved={isChallengeSolved(challenge.id)}
+                                open={arenaChallenge?.id === challenge.id}
+                                briefOpen={selectedChallenge?.id === challenge.id}
+                                // Answering the call enters the arena and
+                                // reveals the real name. It does NOT open
+                                // the brief — that is the player's next,
+                                // separate choice, made once they can see
+                                // what they have walked into.
+                                onEnter={(origin) => {
+                                  setSelectedOrigin(origin);
+                                  setArenaChallenge(challenge);
+                                }}
+                                // Pressing the revealed face opens the real
+                                // description. The arena stays either way.
+                                onResume={(origin) => {
+                                  setSelectedOrigin(origin);
+                                  setSelectedChallenge(challenge);
+                                }}
+                                onLeave={() => {
+                                  setSelectedChallenge(null);
+                                  setArenaChallenge(null);
+                                }}
+                              />
+                            );
+                            return (
                             <ChallengeCard
+                              scene={null}
+                              art={challengeCards.get(challenge.id) ?? null}
                               key={challenge.id}
                               index={i}
                               challenge={challenge}
@@ -1646,9 +1875,10 @@ export default function App() {
                               isSolved={isChallengeSolved(challenge.id)}
                               solvedBy={solvedByMap[challenge.id]}
                               firstBlood={firstBloodMap[challenge.id]}
-                              onClick={(origin) => { setSelectedOrigin(origin); setSelectedChallenge(challenge); }}
+                              onClick={(origin) => { setSelectedOrigin(origin); setArenaChallenge(null); setSelectedChallenge(challenge); }}
                             />
-                          ))}
+                            );
+                          })}
                         </div>
                       </section>
                     );
@@ -1673,7 +1903,14 @@ export default function App() {
           ) : currentView === 'userProfile' ? (
             <UserProfile />
           ) : currentView === 'admin' ? (
-            <AdminDashboard />
+            /* A working surface, not a display one. The event skin turns
+               panels to glass so the painting carries through the board;
+               the admin panel is where organisers read tables and toggle
+               what players can see, and precision beats atmosphere there.
+               The theme keys off this to keep it solid. */
+            <div data-surface="work" className="flex flex-1 flex-col min-w-0">
+              <AdminDashboard />
+            </div>
           ) : (
             <Settings />
           )}
@@ -1759,13 +1996,18 @@ export default function App() {
           {selectedChallenge && (
             <ChallengeModal
               challenge={selectedChallenge}
+              scene={sceneFor(selectedChallenge.id)}
               origin={selectedOrigin}
               points={getPoints(selectedChallenge)}
               usedHints={usedHintIds[selectedChallenge.id] || []}
               hintTexts={hintTexts}
               hintError={hintError}
               onUnlockHint={(hintId) => handleUnlockHint(selectedChallenge.id, hintId)}
+              // Dismissing the brief leaves the player standing in the
+              // arena: the card stays turned and the page keeps the
+              // painting. Only "Take rest" (onLeaveArena) folds it back.
               onClose={() => { setSelectedChallenge(null); setHintError(''); }}
+              onLeaveArena={() => { setSelectedChallenge(null); setArenaChallenge(null); setHintError(''); }}
               isSolved={isChallengeSolved(selectedChallenge.id)}
               canSubmit={canSubmit}
               eventStatus={eventStatus}
@@ -1780,6 +2022,12 @@ export default function App() {
                 // Shockwave from this challenge's own node — the field
                 // registers the breach, not just the modal.
                 pulseChallenge(challengeId);
+                // A solve may have opened the next link of a chain, and the
+                // last link of a chain may have opened the next chapter.
+                // Ask the server both questions rather than guessing at the
+                // shape of the journey here.
+                chainProgress.refresh();
+                serverJourney.refresh();
                 setSolvedIds(prev => prev.includes(challengeId) ? prev : [...prev, challengeId]);
                 setTeamSolvedIds(prev => prev.includes(challengeId) ? prev : [...prev, challengeId]);
                 setSolvedByMap(prev => ({ ...prev, [challengeId]: profile?.username ?? 'you' }));
@@ -1837,12 +2085,10 @@ export default function App() {
           )}
         </AnimatePresence>
 
+        {/* The partner wall belongs on the gate, not here. A player on the
+            board is working; the sponsors are recognised at the door, where
+            AuthGateway renders the same strip in its gateway variant. */}
         <footer className="mt-auto border-t border-border-base py-8 px-4 sm:px-6">
-          {pinaka && (
-            <div className="max-w-screen-2xl mx-auto mb-6">
-              <React.Suspense fallback={null}><PartnerStrip variant="footer" /></React.Suspense>
-            </div>
-          )}
           <div className="max-w-screen-2xl mx-auto flex flex-col md:flex-row justify-between items-center gap-5">
             <div className="flex items-center gap-2.5">
               <span aria-hidden="true" className="w-5 h-5 bg-neon-wash border border-border-neon rounded-inset flex items-center justify-center">
@@ -1874,9 +2120,15 @@ interface ChallengeCardProps {
   firstBlood?: string;
   /** Receives where the card was when it was picked up, for the modal to grow from. */
   onClick: (origin: { x: number; y: number } | null) => void;
+  /** The battle scene this challenge wears, if any. Label only; the card
+      otherwise stays exactly as it is, category and points included. */
+  scene?: Scene | null;
+  /** The picture the organisers gave this challenge, if any. Behind the
+      card's own furniture, which all stays exactly where it was. */
+  art?: ChallengeCardArt | null;
 }
 
-const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, points, isSolved, solvedBy, firstBlood, onClick }) => {
+const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, points, isSolved, solvedBy, firstBlood, onClick, scene = null, art = null }) => {
   const reduce = useReducedMotion();
   const tiltRef = useRef<HTMLDivElement>(null);
   const CategoryIcon = CATEGORY_ICON[challenge.category] ?? Boxes;
@@ -1936,10 +2188,73 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
           data-selflit=""
           /* The tier's frame, idle behaviour and hue all key off this. */
           data-diff={challenge.difficulty}
+          data-art={art ? '1' : undefined}
+          style={art ? { ['--pk-card-accent' as string]: art.accent } : undefined}
           className={`card-interactive group relative flex h-full w-full flex-col overflow-hidden p-3.5 text-left ${
             isSolved ? 'border-border-neon shadow-[0_0_14px_color-mix(in_srgb,var(--color-neon)_18%,transparent)]' : ''
           }`}
         >
+          {/* The organisers' own picture for this challenge.
+              Behind everything, with a scrim over it: the card's job is to
+              be read at a glance across a board of twenty, and a painting
+              under unreadable text is a worse card than no painting. */}
+          {art && (
+            <span
+              className="pk-cardart"
+              aria-hidden="true"
+              /* The band takes the picture's own shape, so the whole thing
+                 shows and the card's furniture starts underneath it rather
+                 than wherever the two happen to miss each other.
+
+                 A bare number, not `w / h`: the CSS floors it with max(),
+                 which takes numbers and not ratios. Guarded against a row
+                 that lost its dimensions, where 0/0 would be NaN and the
+                 band would collapse. */
+              style={{
+                ['--pk-cardart-ratio' as string]:
+                  art.plate.width > 0 && art.plate.height > 0
+                    ? String(art.plate.width / art.plate.height)
+                    : '1.7778',
+              }}
+            >
+              {/* The bed: the same picture, blurred, filling whatever the
+                  drawn one does not. A portrait upload leaves about half
+                  the band empty, and empty there looks like a failed image
+                  rather than a tall one. It is the half-size file, which
+                  is the one the band itself draws at every width short of
+                  a 4K screen, so it is almost always already in hand.
+
+                  Only where there is dead ground to fill. A picture at or
+                  above the band's floor fills the band exactly, so a bed
+                  behind it would be a blur the GPU paints on every card on
+                  the board and nobody ever sees. */}
+              {art.plate.width / art.plate.height < 1.25 && (
+                <img
+                  className="pk-cardart-bed"
+                  src={art.plate.w960}
+                  alt=""
+                  aria-hidden="true"
+                  loading="lazy"
+                  decoding="async"
+                />
+              )}
+              <img
+                src={art.plate.w1920}
+                srcSet={`${art.plate.w960} 960w, ${art.plate.w1920} 1920w${art.plate.w3840 ? `, ${art.plate.w3840} 3840w` : ''}`}
+                /* The grid's real columns: one below 640px, two to 1279px,
+                   three to 1535px, four above, at the widths those cards
+                   were measured at (472px at the widest, 352px at three
+                   columns). The old single 22rem told the browser every
+                   card was a three-column card, so the wider two-column
+                   cards asked for fewer pixels than they paint and drew
+                   the picture softer than it needed to be. */
+                sizes="(max-width: 39.9375rem) 92vw, (max-width: 79.9375rem) 30rem, (max-width: 95.9375rem) 22rem, 17rem"
+                alt=""
+                loading="lazy"
+                decoding="async"
+              />
+            </span>
+          )}
           {/* category hairline */}
           <span
             aria-hidden="true"
@@ -1980,6 +2295,15 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, index = 0, poi
               <span className="label-micro truncate" style={{ color: hue }}>
                 {challenge.category}
               </span>
+              {scene && (
+                <span
+                  className="pk-scene-tag shrink-0"
+                  style={{ ['--pk-scene-accent' as string]: scene.accent }}
+                  title={`Battle scene: ${scene.label}`}
+                >
+                  {scene.label}
+                </span>
+              )}
             </div>
             <div className="shrink-0 text-right">
               <div className="font-mono text-h3 leading-none text-cyber-neon">{points}</div>
@@ -2136,6 +2460,17 @@ interface ChallengeModalProps {
   solvedBy?: string;
   /** The viewer's own handle. */
   me?: string;
+  /**
+   * Leave the battle scene entirely — fold the card, give the chapter's
+   * sky back. Distinct from onClose, which only dismisses this brief and
+   * leaves the player standing in the arena.
+   */
+  onLeaveArena?: () => void;
+  /**
+   * The Ramayana battle scene this challenge is dressed in, or null for
+   * every challenge that has none — which is the ordinary platform look.
+   */
+  scene?: Scene | null;
 }
 
 interface Solver {
@@ -2145,6 +2480,8 @@ interface Solver {
 
 const ChallengeModal: React.FC<ChallengeModalProps> = ({
   challenge,
+  scene = null,
+  onLeaveArena,
   origin,
   points,
   usedHints,
@@ -2391,7 +2728,6 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
           anywhere without a card (or after a scroll that moved it), `origin` is
           null and this degrades to the plain centre scale it always was. */}
       <motion.div
-        style={{ transformPerspective: 1200 }}
         // A few degrees of pitch on arrival: the panel docks out of the depth
         // the environment already has, in the same language as a view change.
         initial={reduce ? false : {
@@ -2407,7 +2743,10 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-label={challenge.title}
-        className="surface-overlay relative w-full max-w-2xl overflow-hidden"
+        className={`surface-overlay relative w-full max-w-2xl overflow-hidden${scene ? ' pk-scene' : ''}`}
+        style={scene
+          ? ({ transformPerspective: 1200, ['--pk-scene-accent' as string]: scene.accent })
+          : { transformPerspective: 1200 }}
       >
         {/* Insane operations announce themselves. 900ms, pointer-transparent,
             over an already-readable panel — atmosphere, never a gate. */}
@@ -2483,6 +2822,8 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
 
               <hr className="divider my-6" />
 
+              {/* The scene's prologue, above the organisers' real brief. */}
+              {scene && <SceneIntro scene={scene} />}
               {/* Description */}
               <div className="surface-inset rounded-card p-4 sm:p-5 text-left">
                 <div className={MARKDOWN_PROSE}>
@@ -2676,12 +3017,26 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
                         disabled={isLocked || submitting}
                         className={`btn btn-primary btn-lg shrink-0 ${submitting ? 'is-loading' : ''}`}
                       >
-                        {submitting ? '...' : 'Execute'}
+                        {submitting ? '...' : (scene?.buttonLabel ?? 'Execute')}
                       </button>
                     </div>
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
                       {error && (
                         <p role="alert" className="text-label uppercase text-diff-hard break-words">{error}</p>
+                      )}
+                      {/* The way back out of the arena: folds the card and
+                          returns the page to the chapter's own sky. Nothing
+                          is lost — the challenge is Free, so leaving it costs
+                          no attempt and no progress. */}
+                      {scene && onLeaveArena && (
+                        <button
+                          type="button"
+                          onClick={onLeaveArena}
+                          className="btn btn-ghost btn-sm"
+                          title="Leave the scene entirely: the card folds and the board returns to your chapter. Closing this panel instead keeps you here, looking at the scene."
+                        >
+                          Take rest
+                        </button>
                       )}
                       <div className="ml-auto flex items-center gap-2.5">
                         <span aria-hidden="true" className="hidden h-1 w-20 overflow-hidden rounded-pill bg-surface-inset sm:block">

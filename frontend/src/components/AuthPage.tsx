@@ -11,6 +11,7 @@ import { supabase } from '../lib/supabase';
 import AmbientBackground from './AmbientBackground';
 import MotionToggle from './MotionToggle';
 import { ADMIN_EMAIL, REGISTER_NO_RESET, FORGOT_NO_RESET } from '../lib/support';
+import { getCapability } from './environment/performance';
 import SurfaceLight from './environment/SurfaceLight';
 import CursorRing from './environment/CursorRing';
 import { setMood } from './environment/mood';
@@ -18,7 +19,7 @@ import MagneticElement from './environment/MagneticElement';
 import AccessSequence from './AccessSequence';
 import { pendingInvite, clearInvite, type InvitePreview } from '../lib/invite';
 import { useTheme } from '../themes';
-import { PinakaEnvironment, AuthGateway, PlateCredits } from '../themes/pinaka/lazy';
+import { PinakaEnvironment, AuthGateway } from '../themes/pinaka/lazy';
 
 // ── Turnstile Site Key — from environment variable ──
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || '';
@@ -407,7 +408,11 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
   const pinaka = useTheme() === 'pinaka';
 
   return (
-    <div className="min-h-screen bg-cyber-bg overflow-x-hidden relative">
+    /* The same performance tier the app root publishes. Without it every
+       rule in the event skin that keys off a tier — which is all of the
+       glass — was inert on this page, so the door was the one screen that
+       never got the treatment the rest of the site did. */
+    <div className="min-h-screen bg-cyber-bg overflow-x-hidden relative" data-tier={getCapability().tier}>
       {pinaka
         ? <React.Suspense fallback={null}><PinakaEnvironment world="ayodhya" phase="before" intensity="normal" /></React.Suspense>
         : <AmbientBackground intensity="normal" />}
@@ -987,7 +992,6 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                   so the credit sits here. */}
               {pinaka && (
                 <React.Suspense fallback={null}>
-                  <PlateCredits className="mt-4 lg:hidden" />
                 </React.Suspense>
               )}
             </motion.div>

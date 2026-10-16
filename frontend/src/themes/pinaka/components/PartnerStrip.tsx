@@ -23,7 +23,6 @@
  *   'footer'   the full wall at the foot of every signed-in page
  *   'gateway'  a compact plate at the foot of the sign-in hero
  *
- * Both end with the photographs' credit line, built from PLATE_CREDITS: the
  * CC BY-SA plates require their attribution to be visible wherever they are
  * shown, and the footer (or, on the sign-in page, the hero) is where it
  * lives. Every title links to its source and every licence to its deed.
@@ -49,7 +48,6 @@ import { useReducedMotion } from 'motion/react';
 import { getCapability } from '../../../components/environment/performance';
 import { subscribeFx } from '../../../components/environment/fx';
 import { PINAKA_EVENT, PINAKA_PARTNERS, type Partner } from '../config';
-import { PLATE_CREDITS } from '../assets/plates';
 import { INSTITUTIONAL_MARKS, type InstitutionalMark } from '../assets/institutional';
 import { DEFAULT_TILE, FEATURED_SPONSORS, SPONSOR_TILES, type SponsorTile } from '../assets/sponsors';
 import { PINAKA_IMAGES } from '../assets/images';
@@ -135,6 +133,45 @@ function SponsorGrid({ partners }: { partners: readonly Partner[] }) {
   );
 }
 
+/**
+ * Every partner on one running line.
+ *
+ * The track holds the list twice and slides exactly half its own width, so
+ * the second copy is under the cursor at the moment the first finishes and
+ * the loop has no seam. The duplicate is `aria-hidden` and inert: a screen
+ * reader hears each partner once, and a keyboard never lands on a logo it
+ * has already passed.
+ *
+ * It stops when a pointer is over it or focus is inside, because a name a
+ * player is trying to read should not walk away from them. On a still
+ * device, or under prefers-reduced-motion, it does not move at all and
+ * becomes an ordinary horizontal scroller they push themselves.
+ */
+function SponsorMarquee({ partners }: { partners: readonly Partner[] }) {
+  const tile = (p: Partner, dup: boolean) => (
+    <li key={(dup ? 'dup-' : '') + p.name} className="pk-sponsor-run-item">
+      <Sponsor
+        partner={p}
+        src={FEATURED_SPONSORS[p.name]?.src ?? p.logo}
+        tile={FEATURED_SPONSORS[p.name]?.tile ?? SPONSOR_TILES[p.name] ?? DEFAULT_TILE}
+      />
+    </li>
+  );
+
+  return (
+    <div className="pk-sponsor-run">
+      <ul className="pk-sponsor-run-track" aria-label="Partners">
+        {partners.map(p => tile(p, false))}
+      </ul>
+      {/* The second lap. Hidden from assistive tech and from the tab order;
+          it exists only so the first lap never runs out of track. */}
+      <ul className="pk-sponsor-run-track" aria-hidden="true" inert>
+        {partners.map(p => tile(p, true))}
+      </ul>
+    </div>
+  );
+}
+
 /** A partner with a published role ("In association with"), named apart and larger. */
 function Featured({ partner }: { partner: Partner }) {
   const featured = FEATURED_SPONSORS[partner.name];
@@ -213,32 +250,6 @@ function Honours({ association }: { association: readonly Partner[] }) {
   );
 }
 
-/* ── The photographs' credit line ──────────────────────────────────────── */
-
-/**
- * The photographs' attribution, as CC BY-SA asks: the author (linked to the
- * source), the licence (linked), and the fact that the picture was changed
- * (colour-graded). Titles live in docs/pinaka/ASSETS.md; here the line has
- * to stay short enough to read as a credit, not a paragraph. One inline run
- * that wraps where it must; nothing is truncated.
- */
-export function PlateCredits({ className = '' }: { className?: string }) {
-  return (
-    <p className={`pk-partners-credits ${className}`.trim()}>
-      <span className="pk-partners-credits-label">Photographs, colour-graded</span>
-      {PLATE_CREDITS.map(c => (
-        <span key={c.sourceUrl} className="pk-partners-credit">
-          <span className="pk-partners-credits-sep" aria-hidden="true">·</span>
-          <a className="pk-partners-credit-link" href={c.sourceUrl} title={c.title} {...EXTERNAL}>{c.author}</a>
-          {' ('}
-          <a className="pk-partners-credit-link" href={c.licenseUrl} {...EXTERNAL}>{c.license}</a>
-          {')'}
-        </span>
-      ))}
-    </p>
-  );
-}
-
 /* ── The wall ──────────────────────────────────────────────────────────── */
 
 /**
@@ -266,13 +277,18 @@ export default function PartnerStrip({ variant = 'footer' }: { variant?: Variant
   if (variant === 'gateway') {
     return (
       <section className="pk-partners pk-partners-gateway" aria-label={SECTION_LABEL} data-still={still ? 'true' : undefined}>
-        <Honours association={association} />
+        {/* The institutions hold the top: the university that runs the event
+            and the ministry it answers to. Everything else — the associated
+            partner included — runs on one line below. */}
+        <div className="pk-partners-honours">
+          <OrganiserPlate />
+          <MinistryPlate />
+        </div>
         <div className="pk-partners-field">
           <p className="pk-partners-heading" aria-hidden="true">Partners</p>
-          <SponsorGrid partners={field} />
+          <SponsorMarquee partners={[...association, ...field]} />
         </div>
         {platform}
-        <PlateCredits />
       </section>
     );
   }
@@ -304,7 +320,6 @@ export default function PartnerStrip({ variant = 'footer' }: { variant?: Variant
         <SponsorGrid partners={field} />
       </div>
       {platform}
-      <PlateCredits />
     </section>
   );
 }

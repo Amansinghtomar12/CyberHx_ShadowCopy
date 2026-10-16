@@ -11,6 +11,7 @@
  * dialog, like every other organiser switch on this platform.
  */
 import { useEffect, useState } from 'react';
+import { Palette } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import {
   applyTheme, effectiveTheme, getServerTheme, getThemeOverride, noteServerTheme,
@@ -31,6 +32,41 @@ export default function AdminThemeControl({ variant = 'panel' }: Props) {
   useEffect(() => subscribeTheme(() => setPinned(getThemeOverride())), []);
 
   const open = server === 'pinaka';
+
+  /**
+   * Story mode — the second switch, and the one that changes how the game
+   * plays rather than how it looks. `null` means the event migration has
+   * not been applied yet, which is a different thing from "off" and is
+   * shown differently: there is nothing to toggle until it exists.
+   */
+  const [story, setStory] = useState<boolean | null>(null);
+  const [storyBusy, setStoryBusy] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      const { data, error: err } = await supabase
+        .from('event_settings').select('pinaka_story_mode').eq('id', 1).maybeSingle();
+      if (!live) return;
+      // A missing column errors; that is the un-migrated case, not a fault.
+      setStory(err || data?.pinaka_story_mode == null ? null : !!data.pinaka_story_mode);
+    })();
+    return () => { live = false; };
+  }, []);
+
+  const setStoryMode = async (next: boolean) => {
+    const question = next
+      ? 'Lock the chained challenges into the story order?\n\nEach chained challenge opens only once the team has solved the one before it. Locked challenges keep their title, category and points but give up their description, files and hints, and refuse flags. Free challenges are NOT affected. Scores already earned are untouched.'
+      : 'Unlock every chained challenge?\n\nPlayers can attempt them in any order again, immediately. Nothing already solved is lost.';
+    if (!window.confirm(question)) return;
+    setStoryBusy(true); setError('');
+    const { data, error: err } = await supabase.rpc('admin_set_pinaka_story_mode', { p_on: next });
+    setStoryBusy(false);
+    if (err || data?.error) {
+      setError('Could not change story mode: ' + (data?.error ?? err?.message ?? 'unknown error'));
+      return;
+    }
+    setStory(!!data?.pinaka_story_mode);
+  };
 
   const set = async (next: ThemeId) => {
     const question = next === 'pinaka'
@@ -60,15 +96,24 @@ export default function AdminThemeControl({ variant = 'panel' }: Props) {
   };
 
   if (variant === 'nav') {
+    const label = open ? 'Close Pinaka' : 'Open Pinaka';
     return (
       <button
         type="button"
         onClick={() => void set(open ? 'cyberhx' : 'pinaka')}
         disabled={busy}
+        aria-label={label}
         title={open ? 'Everyone is seeing the Pinaka experience. Click to return to the classic look.' : 'Open the Pinaka experience for every visitor.'}
-        className={`btn btn-sm ${open ? 'btn-secondary' : 'btn-primary'} ${busy ? 'is-loading' : ''}`}
+        /* Square between lg and 2xl. The desktop row is the only place this
+           button has to compete for width: it sits in the tab strip, beside
+           the Admin tab, and with its label there it pushed the strip over
+           the event clock. The icon carries it in that band; the label comes
+           back at 2xl, and in the phone menu — which is lg:hidden, so the lg
+           rules never reach it — it is never away. */
+        className={`btn btn-sm ${open ? 'btn-secondary' : 'btn-primary'} ${busy ? 'is-loading' : ''} lg:w-[1.875rem] lg:px-0 2xl:w-auto 2xl:px-3`}
       >
-        {open ? 'Close Pinaka' : 'Open Pinaka'}
+        <Palette className="w-3.5 h-3.5" aria-hidden="true" />
+        <span className="lg:hidden 2xl:inline">{label}</span>
       </button>
     );
   }
@@ -116,6 +161,54 @@ export default function AdminThemeControl({ variant = 'panel' }: Props) {
           Preview in a new tab
         </a>
       </div>
+      {/* ── The second switch ───────────────────────────────────────────
+          Kept visually subordinate to the skin, because it is the one that
+          changes play rather than looks: an organiser should have to read a
+          line before touching it. */}
+      <div className="mt-5 border-t border-border-subtle pt-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h4 className="text-body font-semibold text-cyber-text">Story mode — the chained journey</h4>
+            <p className="mt-1 text-small text-text-muted max-w-prose">
+              Locks each chained challenge behind the one before it, so a team walks the six
+              chapters in order. A locked challenge still shows its title, category and points,
+              but gives up its description, files and hints and refuses flags — enforced in the
+              database, not just hidden here. <strong>Free challenges are never affected.</strong>
+            </p>
+          </div>
+          <span className={`badge ${story ? 'badge-neon' : 'badge-locked'}`}>
+            {story === null ? 'Not installed' : story ? 'Locked in order' : 'Open order'}
+          </span>
+        </div>
+
+        {story === null ? (
+          <p className="mt-3 rounded-control border border-border-subtle bg-surface-inset px-3 py-2 text-small text-text-muted leading-relaxed">
+            The event migration has not been applied to this database yet, so there is nothing to
+            switch on. Apply <code className="font-mono">20261010000000_pinaka_event_mode.sql</code>,
+            then reload this page. Until then the platform plays exactly as it always has.
+          </p>
+        ) : (
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void setStoryMode(true)}
+              disabled={storyBusy || story}
+              className={`btn btn-primary btn-md ${storyBusy ? 'is-loading' : ''}`}
+            >
+              Lock the journey in order
+            </button>
+            <button
+              type="button"
+              onClick={() => void setStoryMode(false)}
+              disabled={storyBusy || !story}
+              className="btn btn-secondary btn-md"
+            >
+              Unlock every chapter
+            </button>
+          </div>
+        )}
+      </div>
+
       {pinned && (
         <p className="mt-3 text-small text-text-muted">
           This device is pinned to the {pinned === 'pinaka' ? 'Pinaka' : 'classic'} look (Settings → Experience) and

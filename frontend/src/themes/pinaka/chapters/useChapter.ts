@@ -59,14 +59,26 @@ function readPreview(): ChapterId | null {
 }
 
 /**
- * The journey for this team. `input` is null until the board's data has
- * arrived, and the journey then reads as the start — the first chapter,
- * nothing complete — which is also the truth for a team that has not solved
- * anything. A reviewer's ?chapter= override moves the current chapter only;
- * the per-chapter solve counts stay honest.
+ * The journey for this team.
+ *
+ * `server` is the authority when it is there: get_team_chapter_progress()
+ * is computed by the same functions that decide whether a flag is taken,
+ * so a board built from it cannot disagree with the gate. It is null until
+ * that read lands, and on any database where the chapter migration has not
+ * been applied — then `input` is used, which works the journey out from
+ * solves and from the names organisers gave their chains. That fallback is
+ * a guess by construction, which is exactly why it is the fallback.
+ *
+ * `input` itself is null until the board's data has arrived, and the
+ * journey then reads as the start — the first chapter, nothing complete —
+ * which is also the truth for a team that has not solved anything.
+ *
+ * A reviewer's ?chapter= override moves the current chapter only; the
+ * per-chapter solve counts stay honest.
  */
-export function useJourney(input: JourneyInput | null): Journey {
-  const derived = useMemo(() => (input ? deriveJourney(input) : JOURNEY_START), [input]);
+export function useJourney(input: JourneyInput | null, server?: Journey | null): Journey {
+  const fallback = useMemo(() => (input ? deriveJourney(input) : JOURNEY_START), [input]);
+  const derived = server ?? fallback;
   const preview = useMemo(readPreview, []);
 
   return useMemo(() => {
@@ -140,7 +152,7 @@ export interface ChapterUnlock {
  * should not be shown four unlocks at once. A count that goes down (an admin
  * reset the event, or the player moved to a newer team) re-records quietly.
  */
-export function useChapterUnlock(journey: Journey): ChapterUnlock {
+export function useChapterUnlock(journey: Journey, ready = true): ChapterUnlock {
   const rehearsal = useMemo(readUnlockRehearsal, []);
   const [shown, setShown] = useState<number | null>(
     () => (rehearsal ? CHAPTER_ORDER.indexOf(rehearsal) + 1 : null),
@@ -152,6 +164,12 @@ export function useChapterUnlock(journey: Journey): ChapterUnlock {
   // announce a chapter the team completed long ago.
   useEffect(() => {
     if (rehearsal) return;
+    // Until the journey is real, `journey.completed` is zero because
+    // nothing has been read yet, not because the team has finished
+    // nothing. Taking that as the baseline makes the first real read look
+    // like four chapters completed in one instant, and the transition
+    // fires over a board the player has not even seen.
+    if (!ready) return;
     const stored = readSeen();
     if (stored === null) {
       writeSeen(journey.completed);     // first sight of this team: record, say nothing
@@ -163,7 +181,7 @@ export function useChapterUnlock(journey: Journey): ChapterUnlock {
     } else if (journey.completed < stored) {
       writeSeen(journey.completed);     // the event was reset, or this is a newer team
     }
-  }, [journey.completed, rehearsal]);
+  }, [journey.completed, rehearsal, ready]);
 
   const dismiss = useCallback(() => setShown(null), []);
 

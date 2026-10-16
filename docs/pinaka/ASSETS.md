@@ -85,16 +85,19 @@ under the theme. Two kinds:
   resized and re-encoded only. Credited in `PLATES` to "Pinaka CTF · NFSU
   Chennai", "Official event artwork", https://pinakactf.com/, with
   `credit.photo: false`, so they are not part of the CC credit line.
-* **Licensed photographs** (`vanavasa-*`, `setu-*`, `vijaya-*`): CC0, public
-  domain and CC BY-SA sources; the licence was read from the Wikimedia Commons
-  `extmetadata` API (or the NASA Image Library metadata) at selection time and
-  the raw API response is kept next to the untouched original outside the
-  repository. Cover-cropped to 16:9 around the focal point (Pillow, Lanczos),
+* **Licensed photographs**: CC0 and public-domain sources; the licence was
+  read from the Wikimedia Commons `extmetadata` API (or the NASA Image
+  Library metadata) at selection time and the raw API response is kept next
+  to the untouched original outside the repository. Only one photograph is
+  left in the shipped set — the organisers' own paintings replaced the rest
+  — and it is CC0, so no CC BY-SA attribution is owed by anything here. Cover-cropped to 16:9 around the focal point (Pillow, Lanczos),
   then graded: they were first graded dark (14–22 % mean luminance) for the
   earlier veiled environment and have since been re-graded brighter for the
-  full-colour one. Credited on screen from `PLATE_CREDITS`
-  ("Photographs, colour-graded · author (licence) · …") wherever a plate is
-  shown. Lord Rama is not depicted in any photograph; no people are the
+  full-colour one. There is no longer an on-screen credit line: CC0 is a
+  public-domain dedication and asks for no attribution, so the organisers
+  had it taken off the sign-in page. Each plate still carries its own
+  `credit` — author, licence and source URL — and this file remains the
+  record. Lord Rama is not depicted in any photograph; no people are the
   subject of any.
 
 `focal` is the point kept by `object-position` on any aspect; `sun` is where
@@ -104,11 +107,11 @@ and anchors its bloom and god rays there.
 
 | Plate key | Files | Where | Source | Author | Licence | Focal | Sun | Notes | Mean lum. | 1920 | 960 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| `ayodhya`, `hero` | `temple-1920.webp` (1920×926), `temple-960.webp` (960×463) | Chapter I — profile, team, settings, admin, the board before the event; the sign-in page and the intro | [pinakactf.com](https://pinakactf.com/) site painting | Pinaka CTF · NFSU Chennai | Official event artwork | 0.59, 0.66 | 0.602, 0.68 | The sun behind the tallest spire is the focal point, so a portrait phone keeps the temple. The padlock and circuit motifs in the sky are part of the art. | 0.22 | 163 KB | 66 KB |
-| `vanavasa` | `vanavasa-1920.webp`, `vanavasa-960.webp` (16:9) | Chapter II — the challenge board | [Mystic Layers of Agumbe](https://commons.wikimedia.org/wiki/File:Mystic_Layers_of_Agumbe.jpg) | Pradyumnakp | [CC0](http://creativecommons.org/publicdomain/zero/1.0/deed.en) | 0.55, 0.45 | 0.50, −0.22 | Cropped to the middle band of the 4:3 source (source x 0.50, y 0.47): the stacked misty ridges, the canopy below. The light falls from the haze above the frame. | 0.32 | 239 KB | 56 KB |
-| `setu` | `setu-1920.webp`, `setu-960.webp` (16:9) | Chapter III — the chained board | [Limestone shoals between mainland India and Sri Lanka](https://images.nasa.gov/details/iss071e700080) | NASA / ISS Expedition 71 | [Public domain (NASA)](https://www.nasa.gov/nasa-brand-center/images-and-media/) | 0.46, 0.42 | 0.62, −0.26 | Cropped 1.5x into the source around the shoal chain (source x 0.47, y 0.34) so Dhanushkodi, the shoals and Mannar island span the middle of the plate. Seen from orbit there is no horizon: the light comes down from above. | 0.28 | 69 KB | 22 KB |
-| `lanka` | `lanka-art-1920.webp`, `lanka-art-960.webp` (1920×1080, 960×540) | Chapter IV — scoreboard, teams, users | pinakactf.com Lanka painting | Pinaka CTF · NFSU Chennai | Official event artwork | 0.42, 0.40 | 0.80, 0.48 | The fortress burns at the upper left, the fire glows at the right. The focal keeps both on a wide screen and the burning gate and near wall on a portrait one; the fire is the scene's sun. | 0.12 | 137 KB | 47 KB |
-| `vijaya` | `vijaya-1920.webp`, `vijaya-960.webp` (16:9) | Chapter V — every screen once the event has ended | [Ram ki Paidi](https://commons.wikimedia.org/wiki/File:Ram_ki_Paidi.jpg) | AyodhyaDiary | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | 0.63, 0.35 | 0.627, 0.289 | Cropped to the lower 86 % of the 3:2 source (source x 0.50, y 0.62): the sun and the domes at the centre, the photographer's corner mark outside the plate. A dusk silhouette, so its mean stays low. | 0.21 | 27 KB | 10 KB |
+| `ayodhya`, `hero` | `temple-3840/1920/960/portrait.webp` (16:9) | Chapter I — profile, team, settings, admin, the board before the event; the sign-in page and the intro | Pinaka final art pack, `world--temple` | Pinaka CTF · NFSU Chennai | Official event artwork | 0.475, 0.526 | 0.406, 0.281 | Replaced in the final pack and reshaped from 1920×926 to 16:9. Rama, Sita and Lakshmana on the lamplit steps above the water, Ayodhya across the lake at sunset. | 0.27 | 1225 KB (3840) | — |
+| `vanavasa` | `vanavasa-3840/1920/960/portrait.webp` (16:9) | Chapter II — the challenge board | Pinaka final art pack, `world--vanavasa` | Pinaka CTF · NFSU Chennai | Official event artwork | 0.465, 0.530 | 0.906, 0.156 | **No longer a photograph.** Until the final pack this was *Mystic Layers of Agumbe* by Pradyumnakp ([CC0](http://creativecommons.org/publicdomain/zero/1.0/deed.en), [source](https://commons.wikimedia.org/wiki/File:Mystic_Layers_of_Agumbe.jpg)); the organisers painted the world themselves, so the credit moved with the picture and the plate set now contains no third-party image at all. Rama, Lakshmana and Sita on a forest trail at sunrise above a valley of waterfalls. | 0.40 | 1420 KB (3840) | — |
+| ~~`setu`~~ | *(removed)* | — | — | — | — | — | — | **No longer in the build.** This plate was dropped in an earlier round; the row is kept so the record of what was once shipped, and under what licence, is not lost. | — | — | — |
+| `lanka` | `lanka-art-3840/1920/960/portrait.webp` (16:9) | Chapter IV — scoreboard, teams, users | Pinaka final art pack, `world--lanka-art` | Pinaka CTF · NFSU Chennai | Official event artwork | 0.483, 0.517 | 0.719, 0.156 | Replaced in the final pack. | 0.30 | 1311 KB (3840) | — |
+| ~~`vijaya`~~ | *(removed)* | — | — | — | — | — | — | **No longer in the build.** This plate was dropped in an earlier round; the row is kept so the record of what was once shipped, and under what licence, is not lost. | — | — | — |
 
 Total for the ten files: 817 KB. A screen loads at most one plate (two
 during a world crossfade); `sizes` states the width the plate is actually

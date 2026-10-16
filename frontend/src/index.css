@@ -732,6 +732,23 @@
   }
   .board-chips::-webkit-scrollbar { display: none; }
 
+  /* The header's tab strip. Its row ends in a shrink-0 cluster of controls,
+     so a strip that cannot shrink does not clip when the row runs out of
+     width — it paints its last tab over the event clock. This lets the strip
+     shrink and scroll instead, and the vertical padding keeps a focus ring
+     off the scroller's own edge. In practice it never scrolls: the header
+     is measured at every desktop width in qa/visual. */
+  .nav-strip {
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-block: 0.5rem;
+    margin-block: -0.5rem;
+  }
+  .nav-strip::-webkit-scrollbar { display: none; }
+  .nav-strip > * { flex: none; }
+
   /* ══ CHIPS (filters) ═══════════════════════════════════════════════════ */
   .chip {
     display: inline-flex;

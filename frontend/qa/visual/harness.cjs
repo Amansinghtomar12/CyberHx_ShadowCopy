@@ -106,7 +106,38 @@ function helpers(page, run) {
     /** Opens an operation card by title and returns its dialog locator. */
     openChallenge: async (title) => {
       await h.boardReady();
-      await page.locator('button[data-diff]', { hasText: title }).first().click();
+      // During the Pinaka event a Free challenge with a battle scene is an
+      // arena door rather than an ordinary card: the whole card is not the
+      // button, its call to arms is. Try that first, fall back to the card.
+      // A scene card opens in two presses: the call to arms enters the
+      // arena and reveals the real name, then "Open the brief" opens the
+      // dialog. The closed face no longer carries the title, so find the
+      // card by the title its turned face reveals, falling back to the
+      // whole grid when nothing is open yet.
+      const card = page.locator('.pk-scenecard').filter({ hasText: title });
+      if (await card.count()) {
+        const enter = card.locator('.pk-scenecard__enter').first();
+        await enter.click();
+        await page.waitForTimeout(700);
+        const brief = card.locator('.pk-scenecard__open').first();
+        if (await brief.count()) await brief.click();
+      } else {
+        // Title hidden on a closed arena: enter each one until it shows.
+        const all = page.locator('.pk-scenecard');
+        let opened = false;
+        for (let i = 0; i < await all.count(); i++) {
+          const c = all.nth(i);
+          await c.locator('.pk-scenecard__enter').first().click();
+          await page.waitForTimeout(700);
+          if (await c.filter({ hasText: title }).count()) {
+            await c.locator('.pk-scenecard__open').first().click();
+            opened = true; break;
+          }
+          await c.locator('.pk-scenecard__leave').first().click().catch(() => {});
+          await page.waitForTimeout(400);
+        }
+        if (!opened) await page.locator('button[data-diff]', { hasText: title }).first().click();
+      }
       const dialog = page.getByRole('dialog', { name: title });
       await dialog.waitFor({ state: 'visible' });
       await park();
@@ -130,7 +161,7 @@ async function runScene(browser, def, run) {
 
   const t0 = Date.now();
   const now = def.now || LIVE;
-  const mock = createMock({ now, event: def.event, me: def.me, down: def.down, hintTexts: def.hintTexts, submitResult: def.submitResult, log: (m) => entry.mockGaps.push(m) });
+  const mock = createMock({ now, event: def.event, me: def.me, down: def.down, hintTexts: def.hintTexts, submitResult: def.submitResult, extraSolves: def.extraSolves, noChapterContent: def.noChapterContent, log: (m) => entry.mockGaps.push(m) });
   const ctx = await browser.newContext({ ...VIEWPORTS[run.viewport], reducedMotion: run.reducedMotion, colorScheme: 'dark', timezoneId: 'Asia/Kolkata', locale: 'en-IN' });
   ctx.setDefaultTimeout(STEP_TIMEOUT);
   const page = await ctx.newPage();
@@ -174,8 +205,39 @@ async function runScene(browser, def, run) {
       const file = path.join(run.outDir, shot.name ? `${def.name}-${shot.name}.png` : `${def.name}.png`);
       const o = { path: file, timeout: 60_000, fullPage: !!shot.full };
       if (shot.clip) {
-        const box = typeof shot.clip === 'string' ? await page.locator(shot.clip).first().boundingBox() : shot.clip;
-        if (box) { const pad = shot.pad ?? 24; o.clip = { x: Math.max(0, box.x - pad), y: Math.max(0, box.y - pad), width: box.width + 2 * pad, height: box.height + 2 * pad }; o.fullPage = true; }
+        const pad = shot.pad ?? 24;
+        if (typeof shot.clip === 'string') {
+          // Crop out of what the browser is ACTUALLY showing: scroll the
+          // element into view, then clip the viewport around it.
+          //
+          // Not a fullPage capture. Chromium renders a fullPage shot by
+          // expanding past the viewport, and lazy images that were never
+          // in view are dropped when it does -- so a card whose picture the
+          // page was plainly drawing was filed with an empty band, and the
+          // scene's assertions, which read the live DOM rather than the
+          // PNG, all passed. A viewport capture cannot disagree with the
+          // page it came from.
+          const loc = page.locator(shot.clip).first();
+          await loc.scrollIntoViewIfNeeded().catch(() => {});
+          const box = await loc.boundingBox();
+          if (box) {
+            const vp = page.viewportSize();
+            const x = Math.max(0, box.x - pad), y = Math.max(0, box.y - pad);
+            o.clip = {
+              x, y,
+              width: Math.min(box.width + 2 * pad, vp.width - x),
+              height: Math.min(box.height + 2 * pad, vp.height - y),
+            };
+            o.fullPage = false;
+          }
+        } else if (shot.clip) {
+          // An explicit box is page coordinates, which is the fullPage frame.
+          o.clip = {
+            x: Math.max(0, shot.clip.x - pad), y: Math.max(0, shot.clip.y - pad),
+            width: shot.clip.width + 2 * pad, height: shot.clip.height + 2 * pad,
+          };
+          o.fullPage = true;
+        }
       }
       await page.screenshot(o);
       entry.shots.push(path.relative(OUT, file));

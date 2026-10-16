@@ -1,19 +1,34 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Plus, Trash2, ChevronUp, ChevronDown, Eye, EyeOff, Save, X,
-  Flame, Loader2, Link2, PlayCircle,
+  Flame, Loader2, Link2, PlayCircle, BookOpen, Lock,
 } from 'lucide-react';
 import { supabase, DBChallenge } from '../../lib/supabase';
 import type { Challenge } from '../../types';
 import { buildChainSeriesVM } from '../chain/chainModel';
 import type { DBChainSeries, DBChainMember } from '../../lib/supabase';
+import { CHAPTERS, CHAPTER_ORDER } from '../../themes/pinaka/chapters/config';
 
 const ChainExperience = React.lazy(() => import('../chain/ChainExperience'));
 
-const CATEGORIES = ['web', 'crypto', 'steg', 'rev', 'pwn', 'forensic', 'osint', 'mobile', 'b2r', 'misc'];
 const DIFFICULTIES = ['Easy', 'Medium', 'Hard', 'Insane'];
 
 interface AdminMember { challenge_id: string; position: number; }
+
+/** One chapter with the chains filed under it, as the server reports it. */
+interface AdminChapter {
+  id: string;
+  position: number;
+  title: string;
+  series: {
+    id: string;
+    title: string;
+    category: string;
+    is_published: boolean;
+    display_order: number;
+    challenge_count: number;
+  }[];
+}
 interface AdminSeries {
   id: string;
   title: string;
@@ -51,6 +66,15 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
   const [preview, setPreview] = useState(false);
   const [simulate, setSimulate] = useState(0);
 
+  /**
+   * The Pinaka story board: the six chapters, in order, with the chains
+   * filed under each. `null` means the chapter migration has not been
+   * applied to this database — a different thing from "no chains yet", and
+   * shown differently, because there is nothing to organise until it is.
+   */
+  const [chapters, setChapters] = useState<AdminChapter[] | null>(null);
+  const [storyMode, setStoryMode] = useState<boolean | null>(null);
+
   const challengeById = useMemo(() => {
     const m = new Map<string, DBChallenge>();
     challenges.forEach((c) => m.set(c.id, c));
@@ -59,12 +83,22 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data: listRes }, { data: es }] = await Promise.all([
+    const [{ data: listRes }, { data: es }, chapterRes] = await Promise.all([
       supabase.rpc('admin_list_chain_series'),
-      supabase.from('event_settings').select('chain_experience_enabled').eq('id', 1).maybeSingle(),
+      supabase.from('event_settings')
+        .select('chain_experience_enabled, pinaka_story_mode').eq('id', 1).maybeSingle(),
+      supabase.rpc('admin_list_pinaka_chapters'),
     ]);
     if (listRes && !listRes.error) setSeries((listRes.series ?? []) as AdminSeries[]);
     if (es) setEnabled(!!es.chain_experience_enabled);
+    // A missing column and a missing function are both the un-migrated
+    // case; neither is a fault worth shouting about on this screen.
+    setStoryMode(es && 'pinaka_story_mode' in es ? !!(es as any).pinaka_story_mode : null);
+    setChapters(
+      chapterRes.error || chapterRes.data?.error || !Array.isArray(chapterRes.data?.chapters)
+        ? null
+        : (chapterRes.data.chapters as AdminChapter[]),
+    );
     setLoading(false);
   }, []);
 
@@ -79,15 +113,37 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
     setEnabled(next);
   };
 
-  const startNew = () => { setDraft(blankDraft()); setError(''); setPreview(false); };
+  // `chapterFor` is the Pinaka chapter the new chain should land in. The
+  // effect below only reads the chapter back for a chain that already
+  // exists, so a preselection made here survives into the editor.
+  const startNew = (chapterFor = '') => {
+    setDraft(blankDraft()); setChapter(chapterFor); setError(''); setPreview(false);
+  };
   const editSeries = (s: AdminSeries) => { setDraft({ ...s, members: [...s.members] }); setError(''); setPreview(false); };
 
+  /**
+   * What this chain may still be given.
+   *
+   * A challenge belongs to at most one chain — the database enforces it —
+   * so offering one that is already spoken for only ever ends in "A
+   * challenge already belongs to another chain" after the organiser has
+   * picked it, named the chain and pressed Save. The list now leaves them
+   * out, which turns a failed save into a choice that was never there.
+   *
+   * "Another" chain, not any chain: this chain's own members are excluded
+   * separately, so editing an existing chain still works.
+   */
   const availableToAdd = useMemo(() => {
     if (!draft) return [];
     const used = new Set(draft.members.map((m) => m.challenge_id));
+    const spokenFor = new Set(
+      series.filter((s) => s.id !== draft.id).flatMap((s) => s.members.map((m) => m.challenge_id)),
+    );
     // A B2R box's user/root flag challenges live only under the B2R tab.
-    return challenges.filter((c) => !used.has(c.id) && !(c.tags ?? []).includes('b2r'));
-  }, [draft, challenges]);
+    return challenges.filter(
+      (c) => !used.has(c.id) && !spokenFor.has(c.id) && !(c.tags ?? []).includes('b2r'),
+    );
+  }, [draft, challenges, series]);
 
   const addMember = (challengeId: string) => {
     if (!draft || !challengeId) return;
@@ -106,14 +162,58 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
     setDraft({ ...draft, members: arr.map((m, i) => ({ ...m, position: i + 1 })) });
   };
 
+  /**
+   * A chain's category, worked out from what is in it.
+   *
+   * chain_series.category is NOT NULL and the board's filter chips read
+   * it, so the column stays — but it was a second place to state
+   * something every challenge already states, and a chain of a web, a
+   * crypto and a rev challenge never had one honest answer anyway. The
+   * most common category among the members wins; ties go to the first
+   * link, which is where a chain's character is set.
+   */
+  const deriveCategory = (d: AdminSeries): string => {
+    const counts = new Map<string, number>();
+    for (const m of d.members) {
+      const cat = challengeById.get(m.challenge_id)?.category;
+      if (cat) counts.set(cat, (counts.get(cat) ?? 0) + 1);
+    }
+    if (counts.size === 0) return d.category || 'misc';
+    const first = challengeById.get(d.members[0]?.challenge_id ?? '')?.category;
+    let best = first && counts.has(first) ? first : '';
+    for (const [cat, n] of counts) {
+      if (!best || n > (counts.get(best) ?? 0)) best = cat;
+    }
+    return best || 'misc';
+  };
+
   const validate = (d: AdminSeries, forPublish: boolean): string | null => {
     if (!d.title.trim()) return 'Title is required';
-    if (!d.category.trim()) return 'Category is required';
     if (forPublish && d.members.length < 2) return 'A chain needs at least 2 challenges to publish';
     const ids = d.members.map((m) => m.challenge_id);
     if (new Set(ids).size !== ids.length) return 'A challenge cannot appear twice in the same chain';
     return null;
   };
+
+  // Pinaka event: which chapter of the journey this chain is. Its own
+  // table, so chain_series keeps its exact shape and dropping the table
+  // removes the mapping entirely.
+  const [chapter, setChapter] = useState('');
+  useEffect(() => {
+    const id = draft?.id;
+    // A chain that does not exist yet has no stored chapter to read, and
+    // whatever startNew() preselected is the answer. Clearing it here is
+    // what used to throw away "new chain in Mithila".
+    if (!id) return;
+    let live = true;
+    void (async () => {
+      const { data, error: err } = await supabase
+        .from('pinaka_series_chapter').select('chapter').eq('series_id', id).maybeSingle();
+      // Absent table just means the event migration is not applied yet.
+      if (live) setChapter(!err && data?.chapter ? data.chapter : '');
+    })();
+    return () => { live = false; };
+  }, [draft?.id]);
 
   const saveDraft = async (publishAfter?: boolean) => {
     if (!draft) return;
@@ -126,7 +226,7 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
       const up = await supabase.rpc('admin_upsert_chain_series', {
         p_id: draft.id || null,
         p_title: draft.title,
-        p_category: draft.category,
+        p_category: deriveCategory(draft),
         p_description: draft.description,
         p_readme: draft.readme,
         p_difficulty: draft.difficulty,
@@ -136,6 +236,19 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
       });
       if (up.error || up.data?.error) throw new Error(up.data?.error ?? up.error?.message);
       const seriesId = draft.id || up.data.series_id;
+
+      // Pinaka event: record which chapter this chain is. Its own table and
+      // its own RPC, so a failure here is reported without costing the
+      // organiser the chain they just saved.
+      const ch = await supabase.rpc('admin_set_series_chapter', {
+        p_series_id: seriesId,
+        p_chapter: chapter || null,
+      });
+      if (ch.error || ch.data?.error) {
+        setError('Chain saved, but its Pinaka chapter could not be set: '
+          + (ch.data?.error ?? ch.error?.message)
+          + '. If the Pinaka event migration has not been applied yet, this is expected.');
+      }
 
       // 2. Replace membership atomically (validated server-side).
       const setM = await supabase.rpc('admin_set_chain_members', {
@@ -221,12 +334,114 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
         </button>
       </div>
 
+      {/* ── The Pinaka story board ─────────────────────────────────────
+          Chapters first, chains underneath. The ordinary list below still
+          holds every chain, filed or not; this is the view that matches
+          how the event is actually built — pick a chapter, put its
+          operations in it, move on. */}
+      {chapters && (
+        <div className="surface space-y-4 rounded-lg border border-border-subtle p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-card border border-border-neon bg-cyber-neon/10">
+                <BookOpen className="h-5 w-5 text-cyber-neon" />
+              </span>
+              <div className="min-w-0">
+                <h3 className="text-h3 font-bold text-cyber-text">Pinaka story — the six chapters</h3>
+                <p className="max-w-2xl text-small text-text-muted">
+                  Teams walk these in order. A chapter opens only when{' '}
+                  <strong>every operation in the chapter before it</strong> is solved, and inside a
+                  chapter each chain still opens one link at a time. Put as many operations in a
+                  chapter as you like — the order you give the chain is the order teams play it.
+                  A chain left without a chapter is never chapter-gated.
+                </p>
+              </div>
+            </div>
+            <span className={`badge shrink-0 ${storyMode ? 'badge-neon' : 'badge-locked'}`}>
+              {storyMode === null ? 'Not installed' : storyMode ? 'Locked in order' : 'Open order'}
+            </span>
+          </div>
+
+          {storyMode === false && (
+            <p className="rounded-control border border-border-subtle bg-surface-inset px-3 py-2 text-small text-text-muted">
+              Story mode is off, so nothing below is locked yet — every chapter is open to everyone.
+              Turn it on from <strong>Admin → Event → Pinaka experience</strong> when you are ready.
+            </p>
+          )}
+
+          <ol className="space-y-2">
+            {chapters.map((ch) => {
+              const previous = chapters.find((c) => c.position === ch.position - 1);
+              const count = ch.series.reduce((n, x) => n + x.challenge_count, 0);
+              return (
+                <li key={ch.id} className="rounded-lg border border-border-subtle bg-surface-raised p-4">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-border-neon text-micro font-semibold text-cyber-neon">
+                      {ch.position}
+                    </span>
+                    <h4 className="text-body font-semibold text-cyber-text">{ch.title}</h4>
+                    <span className="text-micro text-text-muted">
+                      {ch.series.length === 0
+                        ? 'empty'
+                        : `${ch.series.length} chain${ch.series.length === 1 ? '' : 's'} · ${count} operation${count === 1 ? '' : 's'}`}
+                    </span>
+                    <button
+                      onClick={() => startNew(ch.id)}
+                      className="btn btn-ghost btn-sm ml-auto inline-flex items-center gap-1.5"
+                    >
+                      <Plus className="h-4 w-4" /> New chain here
+                    </button>
+                  </div>
+
+                  {previous && (
+                    <p className="mt-1.5 inline-flex items-center gap-1.5 text-micro text-text-muted">
+                      <Lock className="h-3 w-3" /> opens when {previous.title} is finished
+                    </p>
+                  )}
+
+                  {ch.series.length > 0 && (
+                    <ul className="mt-3 space-y-1.5">
+                      {ch.series.map((x) => (
+                        <li key={x.id}>
+                          <button
+                            onClick={() => {
+                              const full = series.find((v) => v.id === x.id);
+                              if (full) editSeries(full);
+                            }}
+                            className="flex w-full items-center gap-2 rounded-control border border-border-subtle bg-surface-inset px-3 py-2 text-left hover:border-border-neon"
+                          >
+                            <span className="label-micro shrink-0 text-text-muted">{x.category}</span>
+                            <span className="min-w-0 flex-1 truncate text-small text-cyber-text">{x.title}</span>
+                            <span className="shrink-0 font-mono text-micro text-text-muted">
+                              {x.challenge_count} op{x.challenge_count === 1 ? '' : 's'}
+                            </span>
+                            {x.is_published
+                              ? <span className="shrink-0 rounded-full bg-cyber-neon/15 px-1.5 py-0.5 text-micro font-semibold text-cyber-neon">Published</span>
+                              : <span className="shrink-0 rounded-full bg-surface-sunken px-1.5 py-0.5 text-micro text-text-muted">Draft</span>}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {ch.series.length === 0 && (
+                    <p className="mt-2 text-micro text-text-muted">
+                      Nothing here yet. An empty chapter is skipped rather than blocking the journey.
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         {/* Series list */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-h3 font-bold text-cyber-text">Chain Series</h3>
-            <button onClick={startNew} className="btn btn-primary btn-sm inline-flex items-center gap-1.5">
+            <button onClick={() => startNew()} className="btn btn-primary btn-sm inline-flex items-center gap-1.5">
               <Plus className="h-4 w-4" /> New chain
             </button>
           </div>
@@ -283,9 +498,12 @@ export default function ChainManager({ challenges }: { challenges: DBChallenge[]
                 <input className="input mt-1" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="Operation Blackout" />
               </label>
               <label className="block">
-                <span className="label-micro">Category</span>
-                <select className="select mt-1" value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })}>
-                  {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                <span className="label-micro">Pinaka chapter</span>
+                <select className="select mt-1" value={chapter} onChange={(e) => setChapter(e.target.value)}>
+                  <option value="">— None —</option>
+                  {CHAPTER_ORDER.map((id) => (
+                    <option key={id} value={id}>{CHAPTERS[id].title} — {CHAPTERS[id].subtitle}</option>
+                  ))}
                 </select>
               </label>
               <label className="block">

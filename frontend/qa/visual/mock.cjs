@@ -13,6 +13,8 @@
  * and both are recorded in `mock.gaps` so holes are visible, never silent.
  */
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 const HOST = 'mock.supabase.co';
 const ME_ID = '11111111-1111-4111-8111-111111111111';
@@ -112,6 +114,23 @@ const B2R_BOXES = [
   { id: uuid('box:ravana'), title: 'Ravana Gateway', category: 'b2r', description: 'A forgotten edge box with a very chatty web service.', difficulty: 'Medium', display_order: 1, readme_url: 'https://files.example.test/ravana/README.md', user: B2R_FLAGS.ravanaU, root: B2R_FLAGS.ravanaR, series_id: null, position: null },
   { id: uuid('box:kumbh'), title: 'Kumbhakarna Node', category: 'b2r', description: 'Sleeps most of the time. Wake it carefully.', difficulty: 'Hard', display_order: 2, readme_url: null, user: B2R_FLAGS.kumbhU, root: B2R_FLAGS.kumbhR, series_id: B2R_SERIES[0].id, position: 1 },
   { id: uuid('box:indra'), title: 'Indrajit Relay', category: 'b2r', description: 'Invisible on the network until it is not.', difficulty: 'Insane', display_order: 3, readme_url: null, user: B2R_FLAGS.indraU, root: B2R_FLAGS.indraR, series_id: B2R_SERIES[0].id, position: 2 },
+];
+
+// ── Pinaka chapters ────────────────────────────────────────────────────────
+// The event's two published chains, filed under the first two chapters, so
+// the board has something to group and something to lock. The ids match
+// themes/pinaka/chapters/config.ts and the pinaka_chapter table.
+const PINAKA_CHAPTERS = [
+  { id: 'ayodhya', position: 1, title: 'Ayodhya' },
+  { id: 'mithila', position: 2, title: 'Mithila' },
+  { id: 'vanvaas', position: 3, title: 'Vanvaas' },
+  { id: 'kishkindha', position: 4, title: 'Kishkindha' },
+  { id: 'setu', position: 5, title: 'Setu Bandhan' },
+  { id: 'lanka', position: 6, title: 'Lanka' },
+];
+const PINAKA_CHAPTER_OF_SERIES = [
+  { series_id: CHAIN_SERIES[0].id, chapter: 'ayodhya' },
+  { series_id: CHAIN_SERIES[1].id, chapter: 'mithila' },
 ];
 
 // ── Teams, players, ledger ─────────────────────────────────────────────────
@@ -230,8 +249,21 @@ function createMock(opts = {}) {
   const started = now >= T0;
   const ended = now > T1;
   const paused = !!event.is_paused;
+  // A scene may hand my team a few more solves than the fixture gives it —
+  // the only way to photograph a state the fixture never reaches, such as a
+  // chapter actually closed. [username, challenge key, minutes after start].
+  const extra = (opts.extraSolves || []).map(([u, k, m]) => {
+    const c = byKey[k];
+    if (!c) throw new Error(`extraSolves: no challenge keyed '${k}'`);
+    return { team_id: MY_TEAM_ID, username: u, challenge_id: c.id, points: c.points, at: atMin(m), event_key: c.id, kind: 'solve' };
+  });
   // No event running means no scoring history to show; otherwise everything up to `now` counts.
-  const upto = WORLD.ledger.filter(e => event.is_active && Date.parse(e.at) <= now && (hasTeam || e.team_id !== MY_TEAM_ID || e.username !== me.username));
+  // Sorted only when a scene added something, so every other scene keeps the
+  // ledger order it has always photographed.
+  const base = extra.length
+    ? [...WORLD.ledger, ...extra].sort((a, b) => String(a.at).localeCompare(String(b.at)))
+    : WORLD.ledger;
+  const upto = base.filter(e => event.is_active && Date.parse(e.at) <= now && (hasTeam || e.team_id !== MY_TEAM_ID || e.username !== me.username));
   const solves = upto.filter(e => e.kind === 'solve');
   const teamRows = teams.map(t => {
     const ev = upto.filter(e => e.team_id === t.id); const sv = ev.filter(e => e.kind === 'solve');
@@ -263,6 +295,89 @@ function createMock(opts = {}) {
     user_scores: scoresHidden ? [] : userRows,
     public_challenges: visibleChallenges.map(c => ({ ...c, files: c.files, hints: c.hints.map(h => ({ id: h.id, cost: h.cost })) })),
     challenges: ALL,
+    // Pinaka event: the battle-scene mapping. Dressing the first two
+    // challenges is enough to show both the card label and the dialog.
+    pinaka_challenge_scene: ALL.slice(0, 2).map((c, i) => ({
+      challenge_id: c.id,
+      scene: ['golden-deer', 'ashoka-vatika'][i],
+    })).concat([{
+      // One of the twelve on a chained challenge, beside an added one, so a
+      // single row of cards carries both kinds of art at once.
+      challenge_id: CHAIN_A[0].id,
+      scene: 'hanumans-leap',
+    }, {
+      // An added scene on a chained challenge. The board used to drop this
+      // row on the way in, because it validated every assignment against
+      // the twelve that ship — so the card an organiser had just dressed
+      // stayed bare and nothing said why.
+      challenge_id: CHAIN_A[1].id,
+      scene: 'rama-returns',
+    }]),
+    // The scene catalogue. The twelve ship in the bundle, so their rows
+    // carry no url — exactly as the migration seeds them.
+    pinaka_scene: [
+      'golden-deer', 'jatayus-last-stand', 'shabaris-offering', 'hanumans-leap',
+      'ashoka-vatika', 'lanka-dahan', 'sanjeevani-hunt', 'setu-stones',
+      'meghnads-trap', 'kumbhakarna-awakens', 'angadas-embassy', 'ravanas-ten-heads',
+    ].map((id, i) => ({
+      id,
+      label: id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+      intro: '', button_label: '', enter_label: '', accent: '#e3bb66',
+      art_url: null, art_width: null, art_height: null,
+      focal_x: 0.5, focal_y: 0.5, sun_x: 0.5, sun_y: 0.35,
+      position: i + 1, is_builtin: true,
+    })).concat([{
+      // One the organisers added during the event. Carries a url, because
+      // its art is not in the bundle — which is the whole difference the
+      // board has to cope with.
+      id: 'rama-returns',
+      label: 'Rama Returns',
+      intro: 'The city lights every lamp it owns.',
+      button_label: 'Light the Lamps', enter_label: 'Come Home',
+      accent: '#e7b268',
+      art_url: 'https://mock.supabase.co/storage/v1/object/public/scene-art/rama-returns/abc123.webp',
+      art_width: 1920, art_height: 1080,
+      focal_x: 0.6, focal_y: 0.55, sun_x: 0.7, sun_y: 0.3,
+      position: 1000, is_builtin: false,
+    }]),
+    // A scene may empty the journey: no chain is filed under any chapter,
+    // which is where an organiser starts and where they are again if they
+    // clear the test content out before writing the real event.
+    // A picture an organiser gave one challenge's card, with no scene and
+    // no story attached — which is what most challenges will have.
+    pinaka_challenge_card: [{
+      // Template of Doom: a Free challenge the fixture leaves unsolved, so
+      // its door can actually be entered. A solved door reads "Return to
+      // the field" and opens the brief instead, which would have made the
+      // backdrop check below untestable.
+      challenge_id: ALL[2].id,
+      art_url: 'https://mock.supabase.co/storage/v1/object/public/scene-art/cards/x/full.webp',
+      art_half_url: 'https://mock.supabase.co/storage/v1/object/public/scene-art/cards/x/half.webp',
+      art_width: 3840, art_height: 2160,
+      focal_x: 0.55, focal_y: 0.5, accent: '#c9803f',
+      // An upload carries its own wording now, and that is what makes a
+      // Free challenge's card an arena door rather than a picture.
+      label: 'The Oracle Gate', intro: 'The padding speaks, one byte at a time.',
+      enter_label: 'Approach the Gate', button_label: 'Speak the Word',
+      sun_x: 0.7, sun_y: 0.2,
+    }, {
+      // A portrait upload, which is the case the band's ratio floor exists
+      // for. Organisers photograph a whiteboard or screenshot a phone, and
+      // a card that let a 9:16 picture take its natural height would push
+      // the challenge itself off the screen. On the neighbouring challenge
+      // in the same category, so one photograph shows both shapes.
+      challenge_id: ALL[3].id,
+      art_url: 'https://mock.supabase.co/storage/v1/object/public/scene-art/cards/y/full-portrait.webp',
+      art_half_url: 'https://mock.supabase.co/storage/v1/object/public/scene-art/cards/y/half-portrait.webp',
+      art_width: 900, art_height: 1600,
+      focal_x: 0.5, focal_y: 0.4, accent: '#7f9fd4',
+      // Deliberately wordless: an organiser who uploads a picture and
+      // types nothing should still get a working door, named after the
+      // challenge itself.
+      label: '', intro: '', enter_label: '', button_label: '',
+      sun_x: 0.5, sun_y: 0.35,
+    }],
+    pinaka_series_chapter: opts.noChapterContent ? [] : PINAKA_CHAPTER_OF_SERIES,
     challenge_files: ALL.flatMap(c => c.files.map(f => ({ ...f, challenge_id: c.id, created_at: c.created_at }))),
     hints: ALL.flatMap(c => c.hints.map(h => ({ id: h.id, challenge_id: c.id, cost: h.cost, content: h.content }))),
     hint_unlocks: [],
@@ -280,7 +395,87 @@ function createMock(opts = {}) {
   };
 
   const teamSolves = (teamId) => solves.filter(e => e.team_id === teamId).map(e => ({ challenge_id: e.challenge_id, username: e.username, submitted_at: e.at }));
+
+  // ── The chapter gate, as the database computes it ───────────────────────
+  // Mirrored here rather than stubbed, because a board grouped by chapters
+  // that are never actually locked would photograph as working while the
+  // only interesting state goes untested. Kept deliberately close to
+  // 20261011000000_pinaka_chapter_gate.sql so a change there shows up as a
+  // difference here rather than as a silent agreement.
+  const storyMode = !!event.pinaka_story_mode;
+  const chapterOfSeries = new Map(
+    (opts.noChapterContent ? [] : PINAKA_CHAPTER_OF_SERIES).map(r => [r.series_id, r.chapter]));
+  const chainRows = CHAIN_SERIES.flatMap(s =>
+    s.members.map((c, i) => ({ series_id: s.id, challenge_id: c.id, position: i + 1 })));
+  const mineSolved = new Set(teamSolves(MY_TEAM_ID).map(e => e.challenge_id));
+  const positionOf = new Map(PINAKA_CHAPTERS.map(c => [c.id, c.position]));
+
+  // Only what a player can see counts, exactly as the database counts it:
+  // pinaka_chapter_complete and pinaka_team_unlocked both join through
+  // challenges ON is_visible, so a challenge the organisers have not shown
+  // yet is not part of the chain anybody is playing. Every challenge in
+  // this fixture is visible, so this changes nothing here — it is written
+  // the same way so that the day one is not, the mock does not quietly
+  // disagree with production.
+  const shown = (challengeId) => ALL.find(c => c.id === challengeId)?.is_visible !== false;
+  const chapterContent = (chapterId) =>
+    chainRows.filter(r => chapterOfSeries.get(r.series_id) === chapterId && shown(r.challenge_id));
+  const chapterComplete = (chapterId) =>
+    chapterContent(chapterId).every(r => mineSolved.has(r.challenge_id));
+  const chapterUnlocked = (chapterId) => {
+    if (!storyMode || !chapterId) return true;
+    const pos = positionOf.get(chapterId);
+    if (pos === undefined) return true;
+    return PINAKA_CHAPTERS.filter(c => c.position < pos).every(c => chapterComplete(c.id));
+  };
+  const challengeUnlocked = (row) => {
+    if (!storyMode) return true;
+    if (!chapterUnlocked(chapterOfSeries.get(row.series_id))) return false;
+    // The previous step a player can actually see — not position - 1, which
+    // deadlocks a chain whose middle is hidden.
+    const before = chainRows
+      .filter(r => r.series_id === row.series_id && r.position < row.position && shown(r.challenge_id))
+      .sort((a, b) => b.position - a.position);
+    if (!before.length) return true;          // a first door
+    return mineSolved.has(before[0].challenge_id);
+  };
+
   const rpc = {
+    get_team_chain_progress: () => chainRows.map(r => ({
+      challenge_id: r.challenge_id,
+      series_id: r.series_id,
+      chain_position: r.position,
+      is_solved: mineSolved.has(r.challenge_id),
+      is_unlocked: challengeUnlocked(r),
+      is_gate: r.position === Math.max(...chainRows.filter(x => x.series_id === r.series_id).map(x => x.position)),
+      chapter: chapterOfSeries.get(r.series_id) ?? null,
+      chapter_unlocked: chapterUnlocked(chapterOfSeries.get(r.series_id)),
+    })),
+    get_team_chapter_progress: () => PINAKA_CHAPTERS.map(c => {
+      const content = chapterContent(c.id);
+      return {
+        chapter: c.id,
+        chapter_position: c.position,
+        title: c.title,
+        series_count: new Set(content.map(r => r.series_id)).size,
+        total: content.length,
+        solved: content.filter(r => mineSolved.has(r.challenge_id)).length,
+        is_complete: chapterComplete(c.id),
+        is_unlocked: chapterUnlocked(c.id),
+      };
+    }),
+    admin_list_pinaka_chapters: () => ({
+      chapters: PINAKA_CHAPTERS.map(c => ({
+        ...c,
+        series: CHAIN_SERIES
+          .filter(s => chapterOfSeries.get(s.id) === c.id)
+          .map(s => ({
+            id: s.id, title: s.title, category: s.category,
+            is_published: true, display_order: s.display_order,
+            challenge_count: s.members.length,
+          })),
+      })),
+    }),
     get_team_solves: ({ p_team_id }) => teamSolves(p_team_id),
     get_solve_data: () => paused && !me.isAdmin ? [] : Object.entries(solveCount).map(([challenge_id, n]) => ({ challenge_id, solve_count: n, first_blood_username: firstBlood[challenge_id] ?? null })),
     get_my_hint_texts: () => hintTexts,
@@ -344,6 +539,32 @@ function createMock(opts = {}) {
     if (p.startsWith('/auth/v1/')) return json({}).then(() => true);
     if (p.startsWith('/functions/v1/submit-flag')) { let body = {}; try { body = JSON.parse(req.postData() || '{}'); } catch {} return json(submitFlag(body)).then(() => true); }
     if (p.startsWith('/functions/v1/')) { gap('function ' + p); return json({}).then(() => true); }
+    // Scene and card art: real bytes, not an empty object.
+    //
+    // It used to answer {} for everything under /storage/, so every
+    // uploaded picture in a scene was an <img> that never loaded — and a
+    // test comparing the band's shape to the picture's was quietly
+    // comparing it to NaN, which passes. A picture the board cannot draw
+    // is the exact failure these scenes exist to catch.
+    // An UPLOAD, not a read. The card field uploads the moment a picture
+    // is chosen, and this path has the same .webp ending as a read -- so
+    // without the method check the client was handed image bytes where it
+    // expected {"Key": ...} and every upload failed. The scene then timed
+    // out waiting for a preview that could never appear.
+    if (p.startsWith('/storage/v1/') && /^(POST|PUT)$/i.test(req.method())) {
+      const key = p.replace(/^\/storage\/v1\/object\/(?:sign\/)?/, '');
+      return json({ Key: key, Id: 'mock-upload' }).then(() => true);
+    }
+    if (p.startsWith('/storage/v1/') && /\.(webp|png|jpe?g)$/i.test(p)) {
+      // Real bytes, and real SHAPES: the band is sized from the picture's
+      // own ratio, so a mock that answered every path with one landscape
+      // file could never show what a portrait upload does to a card. A
+      // path saying portrait gets a 900x1600 file.
+      const file = path.join(__dirname, '..', '..', 'src/themes/pinaka/assets/scenes/',
+        /portrait/.test(p) ? 'lanka-dahan-portrait.webp' : 'lanka-dahan-960.webp');
+      await route.fulfill({ status: 200, contentType: 'image/webp', body: fs.readFileSync(file) });
+      return true;
+    }
     if (p.startsWith('/storage/v1/')) return json({}).then(() => true);
     const r = p.match(/^\/rest\/v1\/rpc\/([a-zA-Z0-9_]+)/);
     if (r) {
