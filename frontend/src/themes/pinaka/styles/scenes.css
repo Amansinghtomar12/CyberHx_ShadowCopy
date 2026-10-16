@@ -22,7 +22,7 @@ html[data-theme='pinaka'] .pk-scenecard {
   transition: transform 200ms var(--ease-out-quint, cubic-bezier(0.22, 1, 0.36, 1));
 }
 html[data-theme='pinaka'] .pk-scenecard:not([data-open='1']):hover {
-  transform: translateY(-3px);
+  transform: translateY(-6px);
 }
 
 html[data-theme='pinaka'] .pk-scenecard__inner {
@@ -70,12 +70,11 @@ html[data-theme='pinaka'] .pk-scenecard__face {
   transition: border-color 200ms ease, box-shadow 200ms ease;
 }
 html[data-theme='pinaka'] .pk-scenecard:not([data-open='1']):hover .pk-scenecard__front {
-  border-color: color-mix(in srgb, var(--pk-scene-accent, #dfa049) 72%, transparent);
+  border-color: color-mix(in srgb, var(--pk-scene-accent, #dfa049) 80%, transparent);
   box-shadow:
-    0 0 0 1px rgb(0 0 0 / 0.35),
-    0 18px 44px -24px rgb(0 0 0 / 0.8),
-    0 0 24px -8px color-mix(in srgb, var(--pk-scene-accent, #dfa049) 40%, transparent),
-    0 8px 24px -6px rgba(0, 0, 0, 0.5);
+    0 12px 32px -4px rgba(0, 0, 0, 0.7),
+    0 4px 12px rgba(0, 0, 0, 0.4),
+    0 0 32px -8px color-mix(in srgb, var(--pk-scene-accent, #dfa049) 50%, transparent);
 }
 
 html[data-theme='pinaka'] .pk-scenecard__back {
