@@ -212,12 +212,22 @@ html[data-theme="pinaka"] .pk-sb-rank-badge .pk-sb-wreath {
   opacity: 0.4;
 }
 
-/* Team emblem (the themed icon for each team) */
+/* Team emblem (Ramayana rank icons for podium tiles) */
 html[data-theme="pinaka"] .pk-sb-emblem {
-  width: 2rem;
-  height: 2rem;
+  width: 2.5rem;
+  height: 2.5rem;
   flex-shrink: 0;
-  opacity: 0.8;
+  object-fit: contain;
+  filter: drop-shadow(0 0 6px var(--pk-gold-glow));
+}
+
+/* Rank icon in standings table rows */
+html[data-theme="pinaka"] .pk-sb-rank-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  flex-shrink: 0;
+  object-fit: contain;
+  filter: drop-shadow(0 0 4px var(--pk-gold-glow));
 }
 
 /* Info block (team name + solves) */
