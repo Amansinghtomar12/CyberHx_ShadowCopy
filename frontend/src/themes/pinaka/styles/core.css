@@ -273,9 +273,13 @@ html[data-theme="pinaka"] .surface-overlay {
   box-shadow: var(--shadow-e5), 0 0 0 1px var(--pk-gold-faint);
 }
 html[data-theme="pinaka"] .card-interactive:hover {
-  transform: translateY(-3px);
-  border-color: rgba(227, 187, 102, 0.42);
-  box-shadow: var(--shadow-e3), 0 0 28px -10px var(--pk-gold-glow), 0 8px 24px -6px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(246, 223, 163, 0.06);
+  transform: translateY(-6px);
+  border-color: rgba(227, 187, 102, 0.52);
+  box-shadow:
+    0 12px 32px -4px rgba(0, 0, 0, 0.7),
+    0 4px 12px rgba(0, 0, 0, 0.4),
+    0 0 32px -8px var(--pk-gold-glow),
+    inset 0 1px 0 rgba(246, 223, 163, 0.1);
 }
 html[data-theme="pinaka"] .card-interactive[data-tilt]:not([data-selflit]) {
   background-image:

@@ -130,9 +130,13 @@ html[data-theme="pinaka"] .pk-chapter-bg > * { position: relative; z-index: 1; }
    fill stays the skin's dark glass, so titles, points and solve counts keep
    the contrast they were measured at. */
 html[data-theme="pinaka"][data-chapter] .card-interactive:hover {
-  transform: translateY(-3px);
+  transform: translateY(-6px);
   border-color: var(--pk-ch-line);
-  box-shadow: var(--shadow-e3), 0 0 28px -10px var(--pk-ch-glow), 0 8px 24px -6px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(246, 223, 163, 0.06);
+  box-shadow:
+    0 12px 32px -4px rgba(0, 0, 0, 0.7),
+    0 4px 12px rgba(0, 0, 0, 0.4),
+    0 0 32px -8px var(--pk-ch-glow),
+    inset 0 1px 0 rgba(246, 223, 163, 0.1);
 }
 html[data-theme="pinaka"][data-chapter] .card-interactive::after,
 html[data-theme="pinaka"][data-chapter] .surface::after,
