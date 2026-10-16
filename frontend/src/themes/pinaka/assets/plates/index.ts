@@ -35,6 +35,32 @@ import lankaArt960 from './lanka-art-960.webp';
 import lankaArtPortrait from './lanka-art-portrait.webp';
 import { SCENE_PLATES, type SceneId } from '../scenes';
 
+import ramayana3840 from './ramayana-3840.webp';
+import ramayana1920 from './ramayana-1920.webp';
+import ramayana960 from './ramayana-960.webp';
+import ramayanaPortrait from './ramayana-portrait.webp';
+
+/** The Ramayana panorama: every chapter of the epic on one canvas. */
+const RAMAYANA_PANORAMA: Plate = {
+  w3840: ramayana3840,
+  w1920: ramayana1920,
+  w960: ramayana960,
+  portrait: ramayanaPortrait,
+  width: 1920,
+  height: 1080,
+  alt: "Ramayana panorama: scenes from the epic across one canvas — Rama with the Pinaka bow, Hanuman carrying the mountain, the bridge to Lanka, and the final battle",
+  focal: { x: 0.42, y: 0.45 },
+  sun: { x: 0.50, y: 0.15 },
+  credit: {
+    title: "Ramayana panorama",
+    author: "Pinaka CTF · NFSU Chennai",
+    license: "Official event artwork",
+    licenseUrl: "https://pinakactf.com/",
+    sourceUrl: "https://pinakactf.com/",
+    photo: false,
+  },
+};
+
 /** The official Pinaka CTF 2026 key art: the golden temple-city on the water. */
 const TEMPLE_ART: Plate = {
   w3840: temple3840,
@@ -161,7 +187,7 @@ export const PLATES: Record<PlateKey, Plate> = {
     },
   },
   vijaya: TEMPLE_ART,
-  hero: TEMPLE_ART,
+  hero: RAMAYANA_PANORAMA,
   ...(Object.fromEntries(
     CHAPTER_ORDER.map(id => [`chapter-${id}`, CHAPTER_PLATES[id]]),
   ) as Record<ChapterPlateKey, Plate>),
