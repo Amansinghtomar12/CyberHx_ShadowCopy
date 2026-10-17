@@ -40,22 +40,25 @@ html[data-theme="pinaka"] .pk-gateway-glass {
   padding: 2rem 2.25rem 1.75rem;
   border-radius: var(--radius-card, 14px);
   border: 2px solid rgba(196, 154, 69, 0.50);
-  /* The fallback fill, for a device with no backdrop-filter or one on the
-     low/still tier; the glass rule below takes over where the blur runs. */
-  background-color: rgba(8, 10, 20, 0.90);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
-  backdrop-filter: blur(20px) saturate(1.2);
+  /* The glass recipe is core.css's, so this card and the sign-in card
+     opposite it cannot drift apart. */
+  background-color: var(--pk-glass-fallback);
+  -webkit-backdrop-filter: var(--pk-glass-filter);
+  backdrop-filter: var(--pk-glass-filter);
   box-shadow:
     0 0 40px -8px rgba(196, 154, 69, 0.30),
     0 0 80px -16px rgba(196, 154, 69, 0.15),
     0 24px 48px -12px rgba(0, 0, 0, 0.6);
 }
-/* Glass, matching the sign-in card opposite it (core.css). */
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   html[data-theme="pinaka"] :is([data-tier="high"], [data-tier="medium"]) .pk-gateway-glass {
-    background-color: rgba(8, 10, 20, 0.55);
-    -webkit-backdrop-filter: blur(26px) saturate(1.35);
-    backdrop-filter: blur(26px) saturate(1.35);
+    background-color: var(--pk-glass-fill);
+    box-shadow:
+      var(--pk-glass-edge),
+      0 0 40px -8px rgba(196, 154, 69, 0.30),
+      0 0 80px -16px rgba(196, 154, 69, 0.15),
+      0 24px 48px -12px rgba(0, 0, 0, 0.6);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
   }
 }
 
