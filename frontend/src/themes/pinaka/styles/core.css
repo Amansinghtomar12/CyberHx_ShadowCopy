@@ -161,6 +161,28 @@ html[data-theme="pinaka"] .auth-scale.surface {
   background-color: rgba(8, 10, 20, 0.92);
   -webkit-backdrop-filter: blur(20px) saturate(1.2);
   backdrop-filter: blur(20px) saturate(1.2);
+  border: 1px solid rgba(227, 187, 102, 0.30);
+  box-shadow:
+    0 0 40px -8px rgba(227, 187, 102, 0.20),
+    0 0 80px -16px rgba(227, 187, 102, 0.10),
+    0 24px 48px -12px rgba(0, 0, 0, 0.6);
+}
+html[data-theme="pinaka"] .auth-scale.surface::after {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border: 1px solid rgba(246, 223, 163, 0.09);
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+}
+html[data-theme="pinaka"] .auth-scale .input:focus {
+  border-color: rgba(227, 187, 102, 0.55);
+  box-shadow: 0 0 0 3px rgba(227, 187, 102, 0.10), 0 0 12px -4px rgba(227, 187, 102, 0.20);
+  outline: none;
+}
+html[data-theme="pinaka"] .auth-scale .divider {
+  background-color: rgba(227, 187, 102, 0.18);
 }
 /* The base sheet blurs every panel and card (and the utilities blur a few
    more); under the theme none is blurred unless picked below. */
