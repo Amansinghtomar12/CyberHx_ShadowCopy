@@ -414,7 +414,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
        never got the treatment the rest of the site did. */
     <div className="min-h-screen bg-cyber-bg overflow-x-hidden relative" data-tier={getCapability().tier}>
       {pinaka
-        ? <React.Suspense fallback={null}><PinakaEnvironment world="ayodhya" plate="hero" phase="before" intensity="normal" /></React.Suspense>
+        ? <React.Suspense fallback={null}><PinakaEnvironment world="ayodhya" phase="before" intensity="normal" /></React.Suspense>
         : <AmbientBackground intensity="normal" />}
       <SurfaceLight />
       <CursorRing />
@@ -448,7 +448,11 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
             >
               {pinaka ? (
                 <React.Suspense fallback={null}>
-                  <AuthGateway />
+                  <AuthGateway
+                    onRegister={() => { setMode('register'); setError(''); }}
+                    registrationOpen={registrationOpen}
+                    mode={mode}
+                  />
                 </React.Suspense>
               ) : (
               <>
@@ -555,10 +559,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                 <div
                   aria-hidden="true"
                   className="pointer-events-none absolute -inset-4 rounded-card opacity-60 blur-2xl"
-                  style={{ background: pinaka
-                    ? 'radial-gradient(ellipse 110% 70% at 50% 25%, rgba(227, 187, 102, 0.4), transparent 60%), radial-gradient(circle at 50% 80%, rgba(196, 154, 69, 0.15), transparent 40%)'
-                    : 'radial-gradient(circle at 50% 30%, var(--color-neon-glow), transparent 65%)'
-                  }}
+                  style={{ background: 'radial-gradient(circle at 50% 30%, var(--color-neon-glow), transparent 65%)' }}
                 />
 
                 {/* Card */}
@@ -578,32 +579,15 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                   {/* Top hairline */}
                   <span
                     aria-hidden="true"
-                    className={`pointer-events-none absolute inset-x-0 top-0 ${pinaka ? 'h-[2px]' : 'h-px'}`}
-                    style={pinaka
-                      ? { background: 'linear-gradient(90deg, transparent 5%, #c49a45 25%, #e3bb66 50%, #c49a45 75%, transparent 95%)', opacity: 1 }
-                      : { background: 'linear-gradient(90deg, transparent, var(--color-neon), transparent)', opacity: 0.7 }
-                    }
+                    className="pointer-events-none absolute inset-x-0 top-0 h-px"
+                    style={{ background: 'linear-gradient(90deg, transparent, var(--color-neon), transparent)', opacity: 0.7 }}
                   />
-
-                  {/* Golden corner ornaments — Pinaka */}
-                  {pinaka && (
-                    <>
-                      <span aria-hidden="true" className="pointer-events-none absolute top-2.5 left-2.5 w-5 h-5 z-[1]"
-                        style={{ borderTop: '2px solid rgba(196,154,69,0.65)', borderLeft: '2px solid rgba(196,154,69,0.65)' }} />
-                      <span aria-hidden="true" className="pointer-events-none absolute top-2.5 right-2.5 w-5 h-5 z-[1]"
-                        style={{ borderTop: '2px solid rgba(196,154,69,0.65)', borderRight: '2px solid rgba(196,154,69,0.65)' }} />
-                      <span aria-hidden="true" className="pointer-events-none absolute bottom-2.5 left-2.5 w-5 h-5 z-[1]"
-                        style={{ borderBottom: '2px solid rgba(196,154,69,0.65)', borderLeft: '2px solid rgba(196,154,69,0.65)' }} />
-                      <span aria-hidden="true" className="pointer-events-none absolute bottom-2.5 right-2.5 w-5 h-5 z-[1]"
-                        style={{ borderBottom: '2px solid rgba(196,154,69,0.65)', borderRight: '2px solid rgba(196,154,69,0.65)' }} />
-                    </>
-                  )}
 
                   {/* Tab toggle bar */}
                   <div
                     role="group"
                     aria-label="Authentication mode"
-                    className={`grid grid-cols-2 border-b bg-surface-inset/30 ${pinaka ? 'border-[rgba(196,154,69,0.35)]' : 'border-border-subtle'}`}
+                    className="grid grid-cols-2 border-b border-border-subtle bg-surface-inset/30"
                   >
                     {(['login', 'register'] as const).map(m => {
                       const active = mode === m;
@@ -615,7 +599,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                           aria-pressed={active}
                           className={`focus-ring relative py-4 text-body font-bold uppercase tracking-[0.2em] transition-all duration-[var(--duration-fast)] ${
                             active
-                              ? (pinaka ? 'text-[var(--pk-gold-soft)] bg-[rgba(227,187,102,0.08)]' : 'text-cyber-neon bg-neon-wash/40')
+                              ? 'text-cyber-neon bg-neon-wash/40'
                               : 'text-text-muted hover:text-text-primary hover:bg-surface-raised'
                           }`}
                         >
@@ -624,8 +608,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                             <motion.span
                               layoutId="auth-tab-underline"
                               aria-hidden="true"
-                              className={`absolute inset-x-6 bottom-0 h-0.5 ${pinaka ? '' : 'bg-cyber-neon shadow-neon'}`}
-                              style={pinaka ? { background: 'linear-gradient(90deg, transparent, var(--pk-gold) 20%, var(--pk-gold-bright) 50%, var(--pk-gold) 80%, transparent)', boxShadow: '0 0 8px var(--pk-gold-glow)' } : undefined}
+                              className="absolute inset-x-6 bottom-0 h-0.5 bg-cyber-neon shadow-neon"
                               transition={{ duration: 0.25, ease }}
                             />
                           )}
@@ -638,9 +621,9 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                     {/* Big, confident header */}
                     <header className="mb-6">
                       <div className="inline-flex items-center gap-2 mb-2">
-                        <Sparkles className={`h-3.5 w-3.5 ${pinaka ? 'text-[var(--pk-gold)]' : 'text-cyber-neon'}`} aria-hidden="true" />
-                        <span className={`label-micro ${pinaka ? '!text-[var(--pk-gold-soft)]' : '!text-cyber-neon'}`}>
-                          {mode === 'login' ? (pinaka ? 'Sacred Gateway' : 'Auth Gateway') : (pinaka ? 'New Warrior' : 'New Operative')}
+                        <Sparkles className="h-3.5 w-3.5 text-cyber-neon" aria-hidden="true" />
+                        <span className="label-micro !text-cyber-neon">
+                          {mode === 'login' ? 'Auth Gateway' : 'New Operative'}
                         </span>
                       </div>
                       <h2 className="text-h1 text-text-primary tracking-tight leading-tight">
@@ -652,14 +635,6 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                           : (pinaka ? 'Register a handle to enter Pinaka CTF 2026.' : 'Register a handle to enter the competition.')}
                       </p>
                     </header>
-
-                    {pinaka && (
-                      <div aria-hidden="true" className="mb-5 flex items-center gap-3">
-                        <span className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(196,154,69,0.5))' }} />
-                        <span className="w-2 h-2 rotate-45" style={{ background: 'var(--pk-gold-deep)', boxShadow: '0 0 8px var(--pk-gold-glow)', border: '1px solid rgba(196,154,69,0.6)' }} />
-                        <span className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(196,154,69,0.5), transparent)' }} />
-                      </div>
-                    )}
 
                     {invite && (
                       <div
@@ -972,14 +947,14 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                   </div>
 
                   {/* Card footer */}
-                  <div className={`border-t ${pinaka ? 'border-[rgba(196,154,69,0.35)]' : 'border-border-subtle'} bg-surface-inset/50 px-6 py-3`}>
+                  <div className="border-t border-border-subtle bg-surface-inset/50 px-6 py-3">
                     <div className="flex items-center justify-between gap-3">
                       <span className="inline-flex items-center gap-1.5 label-micro">
                         <Globe2 className="h-3 w-3" aria-hidden="true" />
                         <span>ctf.cyberhx.com</span>
                       </span>
                       <span className="inline-flex items-center gap-1.5 label-micro">
-                        <ChevronRight className={`h-3 w-3 ${pinaka ? 'text-[var(--pk-gold-deep)]' : 'text-cyber-neon'}`} aria-hidden="true" />
+                        <ChevronRight className="h-3 w-3 text-cyber-neon" aria-hidden="true" />
                         <span className="font-mono">v2.0 · CTF-EDITION</span>
                       </span>
                     </div>
@@ -987,6 +962,19 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                 </div>
               </div>
 
+              {/* Event skin, below lg: the official Register plate under the
+                  card while it shows Sign in and registration is open. It
+                  opens the card's own Register tab, nothing else. */}
+              {pinaka && (
+                <React.Suspense fallback={null}>
+                  <AuthGateway
+                    part="register"
+                    onRegister={() => { setMode('register'); setError(''); }}
+                    registrationOpen={registrationOpen}
+                    mode={mode}
+                  />
+                </React.Suspense>
+              )}
 
               <p className="mt-5 text-center label-micro leading-relaxed">
                 By continuing you agree to the{' '}

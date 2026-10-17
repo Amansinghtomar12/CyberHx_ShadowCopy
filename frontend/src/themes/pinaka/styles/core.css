@@ -157,60 +157,6 @@ html[data-theme="pinaka"] .card-interactive {
   background-color: rgba(12, 14, 25, 0.72);
 }
 html[data-theme="pinaka"] .surface-raised { background-color: rgba(18, 21, 36, 0.76); }
-/* ── The sign-in card's ground ───────────────────────────────────────────
-   No backdrop-filter, and that is the whole point.
-
-   The board's challenge cards are the reference for what a panel on this
-   painting looks like, and they do not use one: they lay a fixed gradient
-   over the artwork and let it through sharp (see the .surface rule further
-   down, which this card now falls through to). A fixed gradient darkens
-   whatever is behind it by the same amount everywhere, so every card
-   wearing it reads as the same material no matter where it sits.
-
-   A backdrop-filter cannot do that, because it samples its backdrop: a
-   card over the sunset and a card over dark stone come out as different
-   objects however the numbers are tuned. This card carried one for a
-   while and the sign-in page spent several rounds failing to match
-   itself -- first in luminance, then in hue, then in transparency, each
-   fix pushing the difference into the next attribute. The note on the
-   .surface rule below had already recorded exactly this about the board's
-   own panels.
-
-   So nothing here sets a background on the high tier; the shared card
-   rule does it, which is also what keeps this page and the board from
-   drifting apart. The fill below is only the low/still-tier fallback,
-   where that rule does not apply and transparent text straight over the
-   painting would be unreadable. */
-html[data-theme="pinaka"] {
-  --pk-glass-fallback: rgba(8, 10, 20, 0.90);
-}
-html[data-theme="pinaka"] .auth-scale.surface {
-  background-color: var(--pk-glass-fallback);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  border: 2px solid rgba(196, 154, 69, 0.50);
-  box-shadow:
-    0 0 40px -8px rgba(196, 154, 69, 0.30),
-    0 0 80px -16px rgba(196, 154, 69, 0.15),
-    0 24px 48px -12px rgba(0, 0, 0, 0.6);
-}
-html[data-theme="pinaka"] .auth-scale.surface::after {
-  content: '';
-  position: absolute;
-  inset: 5px;
-  border: 1.5px solid rgba(196, 154, 69, 0.18);
-  border-radius: inherit;
-  pointer-events: none;
-  z-index: 1;
-}
-html[data-theme="pinaka"] .auth-scale .input:focus {
-  border-color: rgba(196, 154, 69, 0.70);
-  box-shadow: 0 0 0 3px rgba(196, 154, 69, 0.18), 0 0 12px -4px rgba(196, 154, 69, 0.30);
-  outline: none;
-}
-html[data-theme="pinaka"] .auth-scale .divider {
-  background-color: rgba(196, 154, 69, 0.30);
-}
 /* The base sheet blurs every panel and card (and the utilities blur a few
    more); under the theme none is blurred unless picked below. */
 /* Panels are unblurred by default; the high tier re-arms them below. A
@@ -239,12 +185,8 @@ html[data-theme="pinaka"] [data-tier]:not(:is([data-tier="high"], [data-tier="me
   }
 
   /* Every other panel gets a smaller version of the same trick, so a stat
-     tile or a sidebar card stops being a solid block on the artwork.
-     .pk-gateway-glass is the sign-in page's hero card, listed here rather
-     than given its own copy of these values: it and the sign-in card
-     beside it are the same object as a challenge card, which is the only
-     way all three stay identical. */
-  html[data-theme="pinaka"] :is([data-tier="high"], [data-tier="medium"]) :is(.surface, .card-interactive, .pk-gateway-glass) {
+     tile or a sidebar card stops being a solid block on the artwork. */
+  html[data-theme="pinaka"] :is([data-tier="high"], [data-tier="medium"]) :is(.surface, .card-interactive) {
     /* The battle card's own values, so a sidebar panel and an arena card
        are the same object in two places: 0.16 at the head, 0.32 at the
        foot where the numbers sit. */
@@ -273,29 +215,8 @@ html[data-theme="pinaka"] [data-tier]:not(:is([data-tier="high"], [data-tier="me
      campaign art — this is 4.5:1 for muted and 6.6:1 for body, and 7.4:1
      and 8.6:1 over that ground's median. Opacity buys none of that back;
      the colour does, and the colour costs no transparency. */
-  html[data-theme="pinaka"] :is([data-tier="high"], [data-tier="medium"]) :is(.surface, .card-interactive, .pk-gateway-glass, .page-shell aside.border-r) {
+  html[data-theme="pinaka"] :is([data-tier="high"], [data-tier="medium"]) :is(.surface, .card-interactive, .page-shell aside.border-r) {
     --color-text-muted: #e2d8c4;
-  }
-
-  /* The halo, for the two cards on the sign-in page.
-     The rule further down gives it to type standing on the painting and
-     excludes anything inside a card, which was right while a card was its
-     own dark ground. These two are not: their ground is the painting,
-     sharp, through the same thin wash a challenge card uses -- and the
-     sign-in card sits over the brightest part of the artwork there is,
-     where body text over the worst patch measured 2.3:1 without this.
-     Giving the type its halo is the rest of the board's recipe ("the
-     fill, the wash at head and foot, and the halo on the type"), not an
-     exception to it. */
-  html[data-theme="pinaka"] :is([data-tier="high"], [data-tier="medium"]) :is(.auth-scale.surface, .pk-gateway-glass) {
-    text-shadow: var(--pk-halo-small);
-  }
-  /* Except where it would be wrong: gradient-painted glyphs show the halo
-     through themselves, the institutional plates are dark ink on ivory,
-     and controls carry their own ground. */
-  html[data-theme="pinaka"] :is([data-tier="high"], [data-tier="medium"]) :is(.auth-scale.surface, .pk-gateway-glass)
-    :is(.pk-foil-text, .pk-numeral-deva, .pk-inst, .pk-inst *, .badge, .btn, button, input, textarea, select) {
-    text-shadow: none;
   }
 
   /* The campaign card is the one panel that sits over sky rather than over
