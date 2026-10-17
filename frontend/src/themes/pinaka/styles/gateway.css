@@ -52,6 +52,15 @@ html[data-theme="pinaka"] .pk-gateway-glass {
 }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   html[data-theme="pinaka"] :is([data-tier="high"], [data-tier="medium"]) .pk-gateway-glass {
+    /* The one value this card does not share with the sign-in card, and it
+       is deliberate. The two sit over different halves of the painting:
+       that one over lit sky, this one over temple stone and foliage, which
+       measures about 30% darker. Feeding both the same brightness makes
+       this card read as the heavier slab even though the glass is
+       identical, so it gets the lift that puts the two at the same
+       apparent weight. What has to match here is how they look, not what
+       the numbers say. */
+    --pk-glass-filter: blur(22px) saturate(1.75) brightness(0.82);
     background-color: var(--pk-glass-fill);
     box-shadow:
       var(--pk-glass-edge),
