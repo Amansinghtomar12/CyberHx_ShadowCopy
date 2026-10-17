@@ -50,8 +50,7 @@ html[data-theme="pinaka"] .pk-gateway-scene {
 }
 html[data-theme="pinaka"] .pk-gateway-body {
   z-index: 1;
-  /* Inside the pillars (56px each plus a breath), under the arch. */
-  padding: 7rem 4.75rem 1.5rem 4.75rem;
+  padding: 3rem 2.5rem 1.5rem 2.5rem;
 }
 
 /* ── The veil: the readability guarantee ─────────────────────────────────── */
@@ -181,10 +180,10 @@ html[data-theme="pinaka"] .pk-gateway-stage > :not(.pk-gateway-art) {
 html[data-theme="pinaka"] .pk-gateway-art {
   position: absolute;
   z-index: 0;
-  top: -7rem;
+  top: -3rem;
   bottom: 0;
-  left: -4.75rem;
-  right: -4.75rem;
+  left: -2.5rem;
+  right: -2.5rem;
   overflow: hidden;
   pointer-events: none;
 }
@@ -236,7 +235,7 @@ html[data-theme="pinaka"] .pk-gateway-aura {
 /* ── The wheel: bronze, beside the name, turning once in 150 s ────────────── */
 html[data-theme="pinaka"] .pk-gateway-wheel {
   position: absolute;
-  top: calc(7rem + 0.875rem);
+  top: calc(3rem + 0.875rem);
   right: 3.25rem;
   /* 216px on the widest column, shrinking faster than the name does so the
      two never touch, and a little on a short screen so the archer keeps his
@@ -525,7 +524,7 @@ html[data-theme="pinaka"] .pk-gateway-foot {
    them, smaller. Narrower still (the lg breakpoint itself), the wheel would
    cover the name, so it is left out. */
 @container pk-gateway (max-width: 40rem) {
-  html[data-theme="pinaka"] .pk-gateway-body { padding-left: 4.25rem; padding-right: 4.25rem; }
+  html[data-theme="pinaka"] .pk-gateway-body { padding-left: 2rem; padding-right: 2rem; }
   html[data-theme="pinaka"] .pk-gateway-stage { padding-bottom: clamp(12rem, 48cqi, 16rem); }
   html[data-theme="pinaka"] .pk-gateway-hero { height: clamp(12rem, 52cqi, 17rem); }
   html[data-theme="pinaka"] .pk-gateway-tagline,
