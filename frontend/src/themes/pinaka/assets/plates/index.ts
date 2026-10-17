@@ -40,6 +40,11 @@ import ramayana1920 from './ramayana-1920.webp';
 import ramayana960 from './ramayana-960.webp';
 import ramayanaPortrait from './ramayana-portrait.webp';
 
+import gateway3840 from './gateway-3840.webp';
+import gateway1920 from './gateway-1920.webp';
+import gateway960 from './gateway-960.webp';
+import gatewayPortrait from './gateway-portrait.webp';
+
 /** The Ramayana panorama: every chapter of the epic on one canvas. */
 const RAMAYANA_PANORAMA: Plate = {
   w3840: ramayana3840,
@@ -53,6 +58,27 @@ const RAMAYANA_PANORAMA: Plate = {
   sun: { x: 0.50, y: 0.15 },
   credit: {
     title: "Ramayana panorama",
+    author: "Pinaka CTF · NFSU Chennai",
+    license: "Official event artwork",
+    licenseUrl: "https://pinakactf.com/",
+    sourceUrl: "https://pinakactf.com/",
+    photo: false,
+  },
+};
+
+/** The gateway painting: a warrior at the temple steps overlooking Ayodhya at sunset. */
+const GATEWAY_ART: Plate = {
+  w3840: gateway3840,
+  w1920: gateway1920,
+  w960: gateway960,
+  portrait: gatewayPortrait,
+  width: 1920,
+  height: 1081,
+  alt: "A warrior standing at temple steps overlooking the city of Ayodhya at sunset, golden light across the skyline",
+  focal: { x: 0.35, y: 0.45 },
+  sun: { x: 0.45, y: 0.12 },
+  credit: {
+    title: "Gateway to Ayodhya — Pinaka CTF 2026",
     author: "Pinaka CTF · NFSU Chennai",
     license: "Official event artwork",
     licenseUrl: "https://pinakactf.com/",
@@ -187,7 +213,7 @@ export const PLATES: Record<PlateKey, Plate> = {
     },
   },
   vijaya: TEMPLE_ART,
-  hero: RAMAYANA_PANORAMA,
+  hero: GATEWAY_ART,
   ...(Object.fromEntries(
     CHAPTER_ORDER.map(id => [`chapter-${id}`, CHAPTER_PLATES[id]]),
   ) as Record<ChapterPlateKey, Plate>),
