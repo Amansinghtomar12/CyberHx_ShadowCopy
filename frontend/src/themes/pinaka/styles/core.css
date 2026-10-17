@@ -158,31 +158,36 @@ html[data-theme="pinaka"] .card-interactive {
 }
 html[data-theme="pinaka"] .surface-raised { background-color: rgba(18, 21, 36, 0.76); }
 /* ── The glass recipe, shared by the sign-in card and the hero card ──────
-   One recipe for both, and the fill is what makes that possible.
+   A low fill, on purpose, and the two cards are allowed to differ.
 
    A backdrop-filter makes a card look like whatever it is sitting on, and
    these two sit on parts of the painting with nothing in common: dusk sky
    behind the sign-in card, lit stone and torchlight behind the hero card.
-   So the more of each card's appearance the backdrop supplies, the less
-   the two can ever match. With the fill at 0.16 they measured a world
-   apart -- saturation 0.19 vs 0.87, R-B +15 vs +68 -- from identical CSS,
-   and no per-card filter fixes that: compensating one card for its
-   backdrop only swaps a colour mismatch for a texture one.
+   That sets up a trade with no clever way out. The painting reads through
+   a card exactly to the degree the card lets it, so transparency is also
+   what makes the two cards differ: the only way to guarantee they match
+   is to make the fill heavy enough that what is behind them stops
+   mattering, which is the slab this skin keeps being dragged back toward.
+   Measured, the match does improve the whole way up -- fill 0.44 roughly
+   halves the gap against 0.16 -- so a future reader will find real
+   numbers arguing for a heavier fill.
 
-   The fill is therefore the larger share of the card, and the painting
-   reads through it as light and movement rather than as its own picture.
-   Raising it from 0.16 to 0.44 closes the gap between the two cards about
-   fourfold (saturation 0.36 -> 0.13, R-B 38 -> 14, luminance 20 -> 12),
-   which is what buys one shared recipe. Past that the curve keeps going
-   but the artwork starts dying, which is the slab this was escaping.
+   The call here is the other way, and it is a design decision rather than
+   a measurement: this page is a painting first, so the glass stays thin
+   and the two cards are permitted to take the colour of what is behind
+   them. Do not "fix" the resulting mismatch by raising the fill or by
+   giving one card its own filter -- both have been tried, and per-card
+   compensation only moves the difference to another attribute (match the
+   luminance and the hue parts; match the hue and the transparency parts).
 
-   saturate() stays under 1 so a vivid backdrop cannot push its hue into
-   the card, and brightness() does the darkening for the text: it scales
-   R, G and B together, dropping luminance while leaving hue intact, where
-   a heavier black fill would drag every hue toward the same grey. */
+   saturate() sits just above 1 to offset the slight muting that the
+   brightness reduction causes, and no higher: at 1.75 it amplified the
+   torchlight behind the hero card into an orange panel. brightness() does
+   the darkening that the thin fill cannot, scaling R, G and B together so
+   luminance drops for the text while hue survives. */
 html[data-theme="pinaka"] {
-  --pk-glass-fill: rgba(10, 14, 30, 0.44);
-  --pk-glass-filter: blur(22px) saturate(0.85) brightness(0.78);
+  --pk-glass-fill: rgba(10, 14, 30, 0.16);
+  --pk-glass-filter: blur(22px) saturate(1.15) brightness(0.6);
   /* No blur available, or the low/still tier where the theme strips it:
      a near-opaque midnight card, because transparent text straight over
      the painting is unreadable. */
