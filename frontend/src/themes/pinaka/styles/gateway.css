@@ -40,26 +40,20 @@ html[data-theme="pinaka"] .pk-gateway-glass {
   padding: 2rem 2.25rem 1.75rem;
   border-radius: var(--radius-card, 14px);
   border: 2px solid rgba(196, 154, 69, 0.50);
-  /* The glass recipe is core.css's, so this card and the sign-in card
-     opposite it cannot drift apart. */
+  /* Only the low/still-tier fallback is set here. On the high tier this
+     card is painted by the board's own card rule in core.css, which lists
+     .pk-gateway-glass alongside .surface and .card-interactive: a fixed
+     gradient over the painting and no backdrop-filter, so this card, the
+     sign-in card and a challenge card are one material. Giving this card
+     its own background or filter again is what made it read as a
+     different object from the one beside it. */
   background-color: var(--pk-glass-fallback);
-  -webkit-backdrop-filter: var(--pk-glass-filter);
-  backdrop-filter: var(--pk-glass-filter);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   box-shadow:
     0 0 40px -8px rgba(196, 154, 69, 0.30),
     0 0 80px -16px rgba(196, 154, 69, 0.15),
     0 24px 48px -12px rgba(0, 0, 0, 0.6);
-}
-@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  html[data-theme="pinaka"] :is([data-tier="high"], [data-tier="medium"]) .pk-gateway-glass {
-    background-color: var(--pk-glass-fill);
-    box-shadow:
-      var(--pk-glass-edge),
-      0 0 40px -8px rgba(196, 154, 69, 0.30),
-      0 0 80px -16px rgba(196, 154, 69, 0.15),
-      0 24px 48px -12px rgba(0, 0, 0, 0.6);
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
-  }
 }
 
 /* No veil here any more. It existed to darken the painting under hero text
