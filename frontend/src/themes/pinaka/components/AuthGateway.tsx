@@ -132,9 +132,7 @@ function Hero() {
 
   return (
     <div className="pk-gateway relative flex flex-1 flex-col" data-still={still ? 'true' : undefined}>
-      <div className="pk-gateway-veil" aria-hidden="true" />
-
-      <div className="pk-gateway-body relative flex flex-1 flex-col items-center justify-center">
+      <div className="pk-gateway-body relative flex flex-1 flex-col items-center justify-start">
         <motion.div className="pk-gateway-glass" {...enter(0.1)}>
           <Eyebrow>The Gateway to Ayodhya</Eyebrow>
 
@@ -155,10 +153,10 @@ function Hero() {
               </div>
             ))}
           </dl>
-        </motion.div>
 
-        <motion.div className="pk-gateway-foot" {...enter(0.45, 0, 0.6)}>
-          <PartnerStrip variant="gateway" />
+          <motion.div className="pk-gateway-partners" {...enter(0.4, 0, 0.6)}>
+            <PartnerStrip variant="gateway" />
+          </motion.div>
         </motion.div>
       </div>
     </div>
