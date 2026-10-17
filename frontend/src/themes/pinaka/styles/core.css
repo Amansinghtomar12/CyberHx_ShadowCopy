@@ -157,8 +157,13 @@ html[data-theme="pinaka"] .card-interactive {
   background-color: rgba(12, 14, 25, 0.72);
 }
 html[data-theme="pinaka"] .surface-raised { background-color: rgba(18, 21, 36, 0.76); }
+/* The sign-in card. The fill here is the fallback: a device with no
+   backdrop-filter, or one on low/still (where the rule above strips the
+   blur), gets a near-opaque midnight card rather than unreadable text over
+   the painting. Where the blur does run, the card turns to real glass
+   below. */
 html[data-theme="pinaka"] .auth-scale.surface {
-  background-color: rgba(8, 10, 20, 0.92);
+  background-color: rgba(8, 10, 20, 0.90);
   -webkit-backdrop-filter: blur(20px) saturate(1.2);
   backdrop-filter: blur(20px) saturate(1.2);
   border: 2px solid rgba(196, 154, 69, 0.50);
@@ -166,6 +171,20 @@ html[data-theme="pinaka"] .auth-scale.surface {
     0 0 40px -8px rgba(196, 154, 69, 0.30),
     0 0 80px -16px rgba(196, 154, 69, 0.15),
     0 24px 48px -12px rgba(0, 0, 0, 0.6);
+}
+/* Glass: the painting reads through the whole sign-in flow. The alpha is
+   the readability floor, not a taste call — over the brightest patch the
+   artwork offers (the sunset behind the card) 0.55 of #080a14 composites
+   to about #625643, which is 7:1 for the card's body text and 5:1 for its
+   muted text. The blur is what keeps it a ground and not a picture. */
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-theme="pinaka"] :is([data-tier="high"], [data-tier="medium"]) .auth-scale.surface {
+    background-color: rgba(8, 10, 20, 0.55);
+    -webkit-backdrop-filter: blur(26px) saturate(1.35);
+    backdrop-filter: blur(26px) saturate(1.35);
+    /* Same lift the theme gives muted text on every other glass panel. */
+    --color-text-muted: #e2d8c4;
+  }
 }
 html[data-theme="pinaka"] .auth-scale.surface::after {
   content: '';

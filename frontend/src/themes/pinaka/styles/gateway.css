@@ -13,7 +13,6 @@
 
    Layers inside the column, bottom to top:
      (the environment's painting, behind the whole page)
-     .pk-gateway-veil    feathered darkness under the glass
      .pk-gateway-body    the glass card: lockup, taglines, facts, partners
    ========================================================================== */
 
@@ -41,7 +40,9 @@ html[data-theme="pinaka"] .pk-gateway-glass {
   padding: 2rem 2.25rem 1.75rem;
   border-radius: var(--radius-card, 14px);
   border: 2px solid rgba(196, 154, 69, 0.50);
-  background-color: rgba(8, 10, 20, 0.92);
+  /* The fallback fill, for a device with no backdrop-filter or one on the
+     low/still tier; the glass rule below takes over where the blur runs. */
+  background-color: rgba(8, 10, 20, 0.90);
   -webkit-backdrop-filter: blur(20px) saturate(1.2);
   backdrop-filter: blur(20px) saturate(1.2);
   box-shadow:
@@ -49,24 +50,19 @@ html[data-theme="pinaka"] .pk-gateway-glass {
     0 0 80px -16px rgba(196, 154, 69, 0.15),
     0 24px 48px -12px rgba(0, 0, 0, 0.6);
 }
-
-/* ── The veil: the readability guarantee ─────────────────────────────────── */
-/* The painting is the environment's, behind the whole page, in full colour.
-   Over the first screen of this column a veil of feathered gradients darkens
-   it so the glass card and the partner foot stay legible. */
-html[data-theme="pinaka"] .pk-gateway-veil {
-  position: absolute;
-  z-index: 0;
-  top: -2.5rem;
-  left: -12rem;
-  right: -1rem;
-  height: clamp(44rem, calc(100svh + 2rem), 62rem);
-  pointer-events: none;
-  background:
-    radial-gradient(44% 52% at 46% 44%, rgba(5, 7, 13, 0.58) 0%, rgba(5, 7, 13, 0.46) 42%, rgba(5, 7, 13, 0.22) 72%, rgba(5, 7, 13, 0) 100%),
-    radial-gradient(30% 50% at 32% 50%, rgba(5, 7, 13, 0.42) 0%, rgba(5, 7, 13, 0.22) 55%, rgba(5, 7, 13, 0) 100%),
-    radial-gradient(50% 24% at 46% 12%, rgba(5, 7, 13, 0.45) 0%, rgba(5, 7, 13, 0) 100%);
+/* Glass, matching the sign-in card opposite it (core.css). */
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-theme="pinaka"] :is([data-tier="high"], [data-tier="medium"]) .pk-gateway-glass {
+    background-color: rgba(8, 10, 20, 0.55);
+    -webkit-backdrop-filter: blur(26px) saturate(1.35);
+    backdrop-filter: blur(26px) saturate(1.35);
+  }
 }
+
+/* No veil here any more. It existed to darken the painting under hero text
+   that sat straight on it; that text lives inside the glass card now, which
+   carries its own ground — and a veil behind glass only dims the painting
+   the card is meant to show. */
 
 /* ── The lockup ──────────────────────────────────────────────────────────── */
 html[data-theme="pinaka"] .pk-gateway-lockup {
@@ -216,7 +212,6 @@ html[data-theme="pinaka"] .pk-auth-emblem:not([data-still="true"]) img {
 
 /* ── Forced colours: no art under CanvasText ─────────────────────────────── */
 @media (forced-colors: active) {
-  html[data-theme="pinaka"] .pk-gateway-veil,
   html[data-theme="pinaka"] .pk-auth-emblem::before { display: none; }
   html[data-theme="pinaka"] .pk-gateway-glass { background: Canvas; }
 }

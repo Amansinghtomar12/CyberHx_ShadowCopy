@@ -132,8 +132,6 @@ function Hero() {
 
   return (
     <div className="pk-gateway relative flex flex-1 flex-col" data-still={still ? 'true' : undefined}>
-      <div className="pk-gateway-veil" aria-hidden="true" />
-
       <div className="pk-gateway-body relative flex flex-1 flex-col items-center justify-start">
         <motion.div className="pk-gateway-glass" {...enter(0.1)}>
           <Eyebrow>The Gateway to Ayodhya</Eyebrow>
