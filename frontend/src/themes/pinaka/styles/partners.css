@@ -469,29 +469,50 @@ html[data-theme="pinaka"] .pk-partners-gateway {
   text-align: center;
   border: 2px solid rgba(196, 154, 69, 0.50);
   border-radius: var(--radius-card, 14px);
-  background-color: rgba(8, 10, 20, 0.78);
+  background-color: rgba(8, 10, 20, 0.92);
   -webkit-backdrop-filter: blur(20px) saturate(1.2);
   backdrop-filter: blur(20px) saturate(1.2);
   box-shadow:
-    0 0 40px -8px rgba(196, 154, 69, 0.25),
-    0 0 80px -16px rgba(196, 154, 69, 0.12),
-    0 24px 48px -12px rgba(0, 0, 0, 0.5);
+    0 0 40px -8px rgba(196, 154, 69, 0.30),
+    0 0 80px -16px rgba(196, 154, 69, 0.15),
+    0 24px 48px -12px rgba(0, 0, 0, 0.6);
 }
 html[data-theme="pinaka"] .pk-partners-gateway .pk-partners-honours { gap: 0.75rem; }
+/* On the glass panel the institutional marks lose the heavy ivory card:
+   a subtle semi-transparent plate holds the dark-ink logos, and the text
+   sits on the glass in gold. */
 html[data-theme="pinaka"] .pk-partners-gateway .pk-inst {
   gap: 0.4375rem;
-  padding: 0.75rem 1.125rem 0.75rem;
-  border-radius: 12px;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid rgba(196, 154, 69, 0.22);
+  border-radius: 10px;
+  background: rgba(255, 250, 240, 0.10);
+  box-shadow: none;
 }
-html[data-theme="pinaka"] .pk-partners-gateway .pk-inst.is-solo { padding-inline: 0.875rem; }
-html[data-theme="pinaka"] .pk-partners-gateway .pk-inst-heading { font-size: 0.625rem; letter-spacing: 0.2em; }
+html[data-theme="pinaka"] .pk-partners-gateway .pk-inst.is-solo { padding-inline: 0.75rem; }
+html[data-theme="pinaka"] .pk-partners-gateway .pk-inst-heading {
+  font-size: 0.625rem;
+  letter-spacing: 0.2em;
+  color: var(--pk-gold-soft);
+}
 html[data-theme="pinaka"] .pk-partners-gateway .pk-inst-marks { gap: 1rem; }
 html[data-theme="pinaka"] .pk-partners-gateway .pk-inst-mark { gap: 0.3125rem; }
-html[data-theme="pinaka"] .pk-partners-gateway .pk-inst-name { font-size: 0.625rem; letter-spacing: 0.04em; }
-/* the association, stacked small beside the plate: tile, role, name */
+html[data-theme="pinaka"] .pk-partners-gateway .pk-inst-logo {
+  filter: brightness(5) saturate(0.3);
+  opacity: 0.82;
+}
+html[data-theme="pinaka"] .pk-partners-gateway .pk-inst-name {
+  font-size: 0.625rem;
+  letter-spacing: 0.04em;
+  color: var(--pk-gold-soft);
+}
+/* the association sits on the glass without its own card */
 html[data-theme="pinaka"] .pk-partners-gateway .pk-partners-featured {
   padding: 0.75rem 1rem;
-  border-radius: 12px;
+  border: 1px solid rgba(196, 154, 69, 0.22);
+  border-radius: 10px;
+  background: none;
+  box-shadow: none;
 }
 html[data-theme="pinaka"] .pk-partners-gateway .pk-sponsor.is-featured {
   flex-direction: column;
