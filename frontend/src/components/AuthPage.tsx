@@ -582,9 +582,9 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                   {/* Top hairline */}
                   <span
                     aria-hidden="true"
-                    className="pointer-events-none absolute inset-x-0 top-0 h-px"
+                    className={`pointer-events-none absolute inset-x-0 top-0 ${pinaka ? 'h-[2px]' : 'h-px'}`}
                     style={pinaka
-                      ? { background: 'linear-gradient(90deg, transparent, #f6dfa3 30%, #e3bb66 50%, #f6dfa3 70%, transparent)', opacity: 0.85 }
+                      ? { background: 'linear-gradient(90deg, transparent 5%, #c49a45 25%, #e3bb66 50%, #c49a45 75%, transparent 95%)', opacity: 1 }
                       : { background: 'linear-gradient(90deg, transparent, var(--color-neon), transparent)', opacity: 0.7 }
                     }
                   />
@@ -592,14 +592,14 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                   {/* Golden corner ornaments — Pinaka */}
                   {pinaka && (
                     <>
-                      <span aria-hidden="true" className="pointer-events-none absolute top-2.5 left-2.5 w-4 h-4 z-[1]"
-                        style={{ borderTop: '1.5px solid rgba(246,223,163,0.45)', borderLeft: '1.5px solid rgba(246,223,163,0.45)' }} />
-                      <span aria-hidden="true" className="pointer-events-none absolute top-2.5 right-2.5 w-4 h-4 z-[1]"
-                        style={{ borderTop: '1.5px solid rgba(246,223,163,0.45)', borderRight: '1.5px solid rgba(246,223,163,0.45)' }} />
-                      <span aria-hidden="true" className="pointer-events-none absolute bottom-2.5 left-2.5 w-4 h-4 z-[1]"
-                        style={{ borderBottom: '1.5px solid rgba(246,223,163,0.45)', borderLeft: '1.5px solid rgba(246,223,163,0.45)' }} />
-                      <span aria-hidden="true" className="pointer-events-none absolute bottom-2.5 right-2.5 w-4 h-4 z-[1]"
-                        style={{ borderBottom: '1.5px solid rgba(246,223,163,0.45)', borderRight: '1.5px solid rgba(246,223,163,0.45)' }} />
+                      <span aria-hidden="true" className="pointer-events-none absolute top-2.5 left-2.5 w-5 h-5 z-[1]"
+                        style={{ borderTop: '2px solid rgba(196,154,69,0.65)', borderLeft: '2px solid rgba(196,154,69,0.65)' }} />
+                      <span aria-hidden="true" className="pointer-events-none absolute top-2.5 right-2.5 w-5 h-5 z-[1]"
+                        style={{ borderTop: '2px solid rgba(196,154,69,0.65)', borderRight: '2px solid rgba(196,154,69,0.65)' }} />
+                      <span aria-hidden="true" className="pointer-events-none absolute bottom-2.5 left-2.5 w-5 h-5 z-[1]"
+                        style={{ borderBottom: '2px solid rgba(196,154,69,0.65)', borderLeft: '2px solid rgba(196,154,69,0.65)' }} />
+                      <span aria-hidden="true" className="pointer-events-none absolute bottom-2.5 right-2.5 w-5 h-5 z-[1]"
+                        style={{ borderBottom: '2px solid rgba(196,154,69,0.65)', borderRight: '2px solid rgba(196,154,69,0.65)' }} />
                     </>
                   )}
 
@@ -607,7 +607,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                   <div
                     role="group"
                     aria-label="Authentication mode"
-                    className={`grid grid-cols-2 border-b bg-surface-inset/30 ${pinaka ? 'border-[rgba(227,187,102,0.18)]' : 'border-border-subtle'}`}
+                    className={`grid grid-cols-2 border-b bg-surface-inset/30 ${pinaka ? 'border-[rgba(196,154,69,0.35)]' : 'border-border-subtle'}`}
                   >
                     {(['login', 'register'] as const).map(m => {
                       const active = mode === m;
@@ -659,9 +659,9 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
 
                     {pinaka && (
                       <div aria-hidden="true" className="mb-5 flex items-center gap-3">
-                        <span className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(227,187,102,0.3))' }} />
-                        <span className="w-1.5 h-1.5 rotate-45" style={{ background: 'var(--pk-gold)', boxShadow: '0 0 6px var(--pk-gold-glow)' }} />
-                        <span className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(227,187,102,0.3), transparent)' }} />
+                        <span className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(196,154,69,0.5))' }} />
+                        <span className="w-2 h-2 rotate-45" style={{ background: 'var(--pk-gold-deep)', boxShadow: '0 0 8px var(--pk-gold-glow)', border: '1px solid rgba(196,154,69,0.6)' }} />
+                        <span className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(196,154,69,0.5), transparent)' }} />
                       </div>
                     )}
 
@@ -976,7 +976,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                   </div>
 
                   {/* Card footer */}
-                  <div className={`border-t ${pinaka ? 'border-[rgba(227,187,102,0.18)]' : 'border-border-subtle'} bg-surface-inset/50 px-6 py-3`}>
+                  <div className={`border-t ${pinaka ? 'border-[rgba(196,154,69,0.35)]' : 'border-border-subtle'} bg-surface-inset/50 px-6 py-3`}>
                     <div className="flex items-center justify-between gap-3">
                       <span className="inline-flex items-center gap-1.5 label-micro">
                         <Globe2 className="h-3 w-3" aria-hidden="true" />
