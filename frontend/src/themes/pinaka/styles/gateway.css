@@ -61,9 +61,54 @@ html[data-theme="pinaka"] .pk-gateway-glass {
    carries its own ground — and a veil behind glass only dims the painting
    the card is meant to show. */
 
+/* ── The wheel: bronze, over the name, turning once in 150 s ──────────────
+   It used to stand beside the name, absolutely placed against a stage that
+   no longer exists. In the centred card it sits above the lockup, which is
+   where the phone has always put it (.pk-auth-emblem). Sized from the card
+   rather than the column, so it shrinks with the card and never crowds the
+   name. */
+html[data-theme="pinaka"] .pk-gateway-wheel {
+  position: relative;
+  flex: none;
+  width: clamp(3.75rem, 14cqi, 5.75rem);
+  aspect-ratio: 1;
+  margin-top: 0.625rem;
+}
+html[data-theme="pinaka"] .pk-gateway-wheel-halo {
+  position: absolute;
+  inset: -26%;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(closest-side,
+    rgba(255, 214, 140, 0.4) 30%,
+    rgba(255, 176, 84, 0.16) 56%,
+    rgba(255, 150, 70, 0.05) 78%,
+    transparent 100%);
+}
+html[data-theme="pinaka"] .pk-gateway-wheel-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+@keyframes pk-gateway-wheel-turn {
+  to { transform: rotate(360deg); }
+}
+/* One turn every 150 s: a wheel, not a spinner. Stops on the still tier
+   (the player's own effects dial) and under reduced motion below. */
+html[data-theme="pinaka"] .pk-gateway:not([data-still="true"]) .pk-gateway-wheel-img {
+  will-change: transform;
+  animation: pk-gateway-wheel-turn 150s linear infinite;
+}
+
 /* ── The lockup ──────────────────────────────────────────────────────────── */
+/* Tight to the wheel above it: the wheel and its halo carry the separation
+   from the eyebrow, so the lockup no longer needs its own full gap. */
 html[data-theme="pinaka"] .pk-gateway-lockup {
-  margin-top: 1.125rem;
+  margin-top: 0.375rem;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -150,6 +195,10 @@ html[data-theme="pinaka"] .pk-gateway-partners {
 /* ── A short screen, wide column (laptops up to 832px tall) ──────────────── */
 @media (max-height: 52rem) {
   @container pk-gateway (min-width: 40rem) {
+    html[data-theme="pinaka"] .pk-gateway-wheel {
+      margin-top: 0.5rem;
+      width: clamp(3.75rem, 14cqi, 5.5rem);
+    }
     html[data-theme="pinaka"] .pk-gateway-lockup { margin-top: 0.75rem; }
     html[data-theme="pinaka"] .pk-gateway-deva { font-size: 1.125rem; }
     html[data-theme="pinaka"] .pk-gateway-name {
@@ -197,18 +246,25 @@ html[data-theme="pinaka"] .pk-auth-emblem img {
 }
 
 /* ── Art that waits for its picture ──────────────────────────────────────── */
-html[data-theme="pinaka"] .pk-auth-emblem img[data-ready="false"] { opacity: 0; }
-html[data-theme="pinaka"] .pk-auth-emblem:not([data-still="true"]) img {
+html[data-theme="pinaka"] .pk-auth-emblem img[data-ready="false"],
+html[data-theme="pinaka"] .pk-gateway-wheel-img[data-ready="false"] { opacity: 0; }
+html[data-theme="pinaka"] .pk-auth-emblem:not([data-still="true"]) img,
+html[data-theme="pinaka"] .pk-gateway:not([data-still="true"]) .pk-gateway-wheel-img {
   transition: opacity 0.5s ease-out;
 }
 
 /* ── Reduced motion: everything at rest ────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   html[data-theme="pinaka"] .pk-auth-emblem img { transition: none !important; }
+  html[data-theme="pinaka"] .pk-gateway-wheel-img {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 /* ── Forced colours: no art under CanvasText ─────────────────────────────── */
 @media (forced-colors: active) {
-  html[data-theme="pinaka"] .pk-auth-emblem::before { display: none; }
+  html[data-theme="pinaka"] .pk-auth-emblem::before,
+  html[data-theme="pinaka"] .pk-gateway-wheel-halo { display: none; }
   html[data-theme="pinaka"] .pk-gateway-glass { background: Canvas; }
 }

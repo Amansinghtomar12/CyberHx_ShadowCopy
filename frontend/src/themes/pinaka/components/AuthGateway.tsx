@@ -136,6 +136,19 @@ function Hero() {
         <motion.div className="pk-gateway-glass" {...enter(0.1)}>
           <Eyebrow>The Gateway to Ayodhya</Eyebrow>
 
+          <motion.div className="pk-gateway-wheel" aria-hidden="true" {...enter(0.15, 0, 1.2)}>
+            <span className="pk-gateway-wheel-halo" />
+            <ArtImg
+              className="pk-gateway-wheel-img"
+              src={PINAKA_IMAGES.wheelEmblem.small}
+              srcSet={`${PINAKA_IMAGES.wheelEmblem.tiny} 200w, ${PINAKA_IMAGES.wheelEmblem.small} 700w`}
+              sizes="7.5rem"
+              width={700}
+              height={700}
+              loading="eager"
+            />
+          </motion.div>
+
           <div className="pk-gateway-lockup">
             <span className="pk-gateway-deva" lang="hi">{PINAKA_EVENT.devanagari}</span>
             <h1 className="pk-gateway-name pk-foil-text">PINAKA</h1>
