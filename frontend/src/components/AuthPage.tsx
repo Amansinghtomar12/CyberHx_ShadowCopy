@@ -448,11 +448,7 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
             >
               {pinaka ? (
                 <React.Suspense fallback={null}>
-                  <AuthGateway
-                    onRegister={() => { setMode('register'); setError(''); }}
-                    registrationOpen={registrationOpen}
-                    mode={mode}
-                  />
+                  <AuthGateway />
                 </React.Suspense>
               ) : (
               <>
@@ -991,19 +987,6 @@ export default function AuthPage({ onSuccess }: AuthPageProps) {
                 </div>
               </div>
 
-              {/* Event skin, below lg: the official Register plate under the
-                  card while it shows Sign in and registration is open. It
-                  opens the card's own Register tab, nothing else. */}
-              {pinaka && (
-                <React.Suspense fallback={null}>
-                  <AuthGateway
-                    part="register"
-                    onRegister={() => { setMode('register'); setError(''); }}
-                    registrationOpen={registrationOpen}
-                    mode={mode}
-                  />
-                </React.Suspense>
-              )}
 
               <p className="mt-5 text-center label-micro leading-relaxed">
                 By continuing you agree to the{' '}
