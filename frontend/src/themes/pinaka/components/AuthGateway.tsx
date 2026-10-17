@@ -378,45 +378,9 @@ function Hero({ onRegister, registrationOpen = true, mode }: Omit<AuthGatewayPro
       {/* ── The veil: darkness under the words, over the painting ── */}
       <div className="pk-gateway-veil" aria-hidden="true" />
 
-      {/* ── The entrance: all decoration, none of it reachable ── */}
-      <div className="pk-gateway-scene" aria-hidden="true">
-        <Pillar side="left" />
-        <Pillar side="right" />
-        <Arch />
-        <span className="pk-gateway-lamp" data-pos="l1" />
-        <span className="pk-gateway-lamp" data-pos="l2" />
-        <span className="pk-gateway-lamp" data-pos="r1" />
-        <span className="pk-gateway-lamp" data-pos="r2" />
-      </div>
-
       {/* ── Inside the gate ── */}
       <div className="pk-gateway-body relative flex flex-1 flex-col">
         <div className="pk-gateway-stage">
-          {/* The art of the first screen. */}
-          <div className="pk-gateway-art" aria-hidden="true">
-            <motion.div className="pk-gateway-hero" {...enter(0.25, 18, 1.1)}>
-              <span className="pk-gateway-aura" />
-              <ArtImg
-                className="pk-gateway-archer"
-                src={PINAKA_IMAGES.archer.large}
-                srcSet={`${PINAKA_IMAGES.archer.small} 640w, ${PINAKA_IMAGES.archer.large} 1069w`}
-                sizes="32rem"
-                width={1069}
-                height={1038}
-                loading="eager"
-              />
-            </motion.div>
-            <motion.div className="pk-gateway-wheel" {...enter(0.15, 0, 1.2)}>
-              <span className="pk-gateway-wheel-halo" />
-              <ArtImg
-                className="pk-gateway-wheel-img"
-                src={PINAKA_IMAGES.wheelEmblem.small}
-                width={700}
-                height={700}
-                loading="eager"
-              />
-            </motion.div>
-          </div>
 
           <motion.div className="pk-gateway-copy" {...enter(0.1)}>
             <Eyebrow>The Gateway to Ayodhya</Eyebrow>
