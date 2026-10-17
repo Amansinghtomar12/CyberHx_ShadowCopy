@@ -52,22 +52,6 @@ html[data-theme="pinaka"] .pk-gateway-glass {
 }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   html[data-theme="pinaka"] :is([data-tier="high"], [data-tier="medium"]) .pk-gateway-glass {
-    /* This card's filter is deliberately not the shared one, because the
-       two cards sit over parts of the painting with nothing in common.
-       The sign-in card has dusk sky behind it: already dark and nearly
-       neutral, so the shared recipe leaves it in a narrow band (measured
-       saturation 0.18-0.26, R-B +9 to +37 top to bottom). Behind this card
-       are lit stone, torches and fire, and saturation multiplies what is
-       already there -- the same recipe ran it to 0.90 and R-B +94 across
-       the sponsor row, which is why it read as an orange panel beside a
-       grey-blue one.
-
-       So saturation comes down rather than up here, which lands this card
-       in the sign-in card's band instead of amplifying the gap, and the
-       brightness lift stays to answer the darker stone. Glass over a
-       painting cannot be one set of numbers: matching how the two look
-       means feeding them different ones. */
-    --pk-glass-filter: blur(22px) saturate(0.45) brightness(0.82);
     background-color: var(--pk-glass-fill);
     box-shadow:
       var(--pk-glass-edge),
